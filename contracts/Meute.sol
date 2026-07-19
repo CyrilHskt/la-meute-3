@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /// @title La Meute 3.0 — carte de membre et gouvernance
 /// @notice Contrat unique : ERC-721 non transférable (registre des membres) et
@@ -15,6 +16,8 @@ import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 ///      pas d'upgrade. Le constructeur mint les cartes des fondateurs, seul
 ///      moment où une carte apparaît sans vote (§9 du cahier des charges).
 contract Meute is ERC721, ReentrancyGuard {
+    using EnumerableSet for EnumerableSet.AddressSet;
+
     // ---------------------------------------------------------------------
     // Types
     // ---------------------------------------------------------------------
@@ -105,9 +108,13 @@ contract Meute is ERC721, ReentrancyGuard {
     ///      obligerait à maintenir un compteur et un mapping supplémentaires.
     mapping(address membre => Carte) private _cartes;
 
-    /// @dev Nombre de Loups actifs, maintenu à l'écriture pour éviter toute
-    ///      itération non bornée (§10 du cahier des charges, poste "DoS").
-    uint256 private _loupsActifsCompte;
+    /// @dev Ensemble des adresses actuellement au rang Loup (dormants inclus).
+    ///      Sa taille n'est pas contrôlable par un attaquant : devenir Loup
+    ///      exige de passer un vote réel, pas un spam gratuit (§10 du cahier
+    ///      des charges, poste "DoS") — la boucle sur cet ensemble dans
+    ///      {loupsActifs} reste donc bornée par la croissance réelle de la
+    ///      meute, pas par un tableau arbitraire.
+    EnumerableSet.AddressSet private _loups;
 
     /// @dev Propositions par identifiant.
     mapping(uint256 proposalId => Proposition) private _propositions;
@@ -139,6 +146,7 @@ contract Meute is ERC721, ReentrancyGuard {
     error ChoixInvalide();
     error TransfertInterdit();
     error MontantInvalide();
+    error AucunFondateur();
 
     // ---------------------------------------------------------------------
     // Événements
@@ -157,9 +165,14 @@ contract Meute is ERC721, ReentrancyGuard {
     /// @param fondateurs Adresses des membres fondateurs, mintées au rang Loup.
     /// @param montantCotisation Montant exact exigé à chaque candidature.
     constructor(address[] memory fondateurs, uint256 montantCotisation) ERC721("Carte de Meute", "MEUTE") {
-        // TODO: valider fondateurs non vide, montantCotisation > 0
-        // TODO: minter une carte Loup active pour chaque fondateur
+        if (fondateurs.length == 0) revert AucunFondateur();
+        if (montantCotisation == 0) revert MontantInvalide();
+
         cotisation = montantCotisation;
+
+        for (uint256 i = 0; i < fondateurs.length; i++) {
+            _minterCarte(fondateurs[i], Rang.Loup);
+        }
     }
 
     // ---------------------------------------------------------------------
@@ -274,8 +287,13 @@ contract Meute is ERC721, ReentrancyGuard {
     }
 
     // ---------------------------------------------------------------------
-    // Lecture — quorum et dormance (§7.5)
+    // Lecture — propositions, quorum et dormance
     // ---------------------------------------------------------------------
+
+    /// @notice Lecture d'une proposition. Utile aux tests et au front (C7).
+    function proposition(uint256 proposalId) external view returns (Proposition memory) {
+        return _propositions[proposalId];
+    }
 
     /// @notice Indique si une adresse membre est actuellement dormante
     ///         (Loup sans participation depuis DELAI_DORMANCE). Faux pour un
@@ -287,11 +305,17 @@ contract Meute is ERC721, ReentrancyGuard {
     }
 
     /// @notice Nombre de Loups actifs au moment de l'appel (hors dormants).
-    /// @dev Compteur maintenu à l'écriture ({_reveiller}, mint, burn) — jamais
-    ///      recalculé par itération, pour éviter toute boucle non bornée
-    ///      (§10 du cahier des charges, poste "DoS").
-    function loupsActifs() public view returns (uint256) {
-        return _loupsActifsCompte;
+    /// @dev Recalculé à chaque appel en parcourant {_loups} — voir la
+    ///      justification de la boucle bornée sur ce champ. C'est ce qui
+    ///      rend la dormance réellement passive : aucune transaction n'est
+    ///      nécessaire pour qu'un Loup sorte de ce décompte (§7.5).
+    function loupsActifs() public view returns (uint256 actifs) {
+        uint256 n = _loups.length();
+        for (uint256 i = 0; i < n; i++) {
+            if (!estDormant(_loups.at(i))) {
+                actifs++;
+            }
+        }
     }
 
     // ---------------------------------------------------------------------
@@ -366,16 +390,25 @@ contract Meute is ERC721, ReentrancyGuard {
         emit PropositionOuverte(proposalId, typeProp, cible);
     }
 
-    /// @dev Mint une carte au rang Louveteau pour un candidat admis.
+    /// @dev Mint une carte au rang donné. Utilisé pour les fondateurs (rang
+    ///      Loup, au déploiement) et pour un candidat admis (rang Louveteau,
+    ///      depuis {executer} — pas encore implémenté).
     function _minterCarte(address membre, Rang rang) private {
-        // TODO
+        _cartes[membre] = Carte({rang: rang, derniereActivite: uint40(block.timestamp), ajournements: 0});
+
+        if (rang == Rang.Loup) {
+            _loups.add(membre);
+        }
+
+        _mint(membre, _tokenId(membre));
     }
 
-    /// @dev Met à jour l'horodatage de dernière activité et, si le membre
-    ///      était dormant, le recompte dans _loupsActifsCompte.
+    /// @dev Met à jour l'horodatage de dernière activité. Si le membre
+    ///      sortait de dormance, ne touche à aucun compteur — {loupsActifs}
+    ///      le recomptera de lui-même au prochain appel — mais émet
+    ///      l'événement pour la traçabilité.
     function _reveiller(address membre) private {
         if (estDormant(membre)) {
-            _loupsActifsCompte++;
             emit MembreReveille(membre);
         }
         _cartes[membre].derniereActivite = uint40(block.timestamp);
