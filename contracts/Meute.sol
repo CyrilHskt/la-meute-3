@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /// @title La Meute 3.0 — carte de membre et gouvernance
@@ -17,6 +18,7 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 ///      moment où une carte apparaît sans vote (§9 du cahier des charges).
 contract Meute is ERC721, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.AddressSet;
+    using Strings for address;
 
     // ---------------------------------------------------------------------
     // Types
@@ -52,10 +54,16 @@ contract Meute is ERC721, ReentrancyGuard {
 
     /// @notice Données portées par une carte. Rang et horodatage compacté en
     ///         un seul slot de stockage (§10 du cahier des charges, poste "Gas").
+    /// @dev `derniereActivite` a un sens différent selon le rang, jamais les
+    ///      deux à la fois : pour un Loup, c'est la dormance (§7.5) — mis à
+    ///      jour à chaque vote. Pour un Louveteau, qui ne vote jamais, c'est
+    ///      le point de départ de la probation en cours — mis à jour au mint
+    ///      et à chaque ajournement (§7.3). Un seul champ, deux usages
+    ///      mutuellement exclusifs plutôt qu'un champ par rang.
     struct Carte {
         Rang rang;
-        uint40 derniereActivite; // timestamp de dernière participation à un vote
-        uint8 ajournements; // nombre d'ajournements déjà consommés (max 2)
+        uint40 derniereActivite;
+        uint8 ajournements; // nombre d'ajournements déjà consommés (max AJOURNEMENTS_MAX)
     }
 
     /// @notice Une proposition en cours ou terminée.
@@ -125,6 +133,11 @@ contract Meute is ERC721, ReentrancyGuard {
     /// @dev Empêche une seconde candidature ouverte simultanément pour la même adresse.
     mapping(address candidat => bool) private _candidatureOuverte;
 
+    /// @dev Empêche deux Loups d'ouvrir simultanément deux votes de
+    ///      titularisation pour le même Louveteau. Symétrique à
+    ///      {_candidatureOuverte}.
+    mapping(address louveteau => bool) private _titularisationOuverte;
+
     uint256 private _prochainProposalId;
 
     // ---------------------------------------------------------------------
@@ -150,6 +163,7 @@ contract Meute is ERC721, ReentrancyGuard {
     error FondsInsuffisants();
     error TransfertEchoue();
     error PasMembre();
+    error TitularisationDejaOuverte();
 
     // ---------------------------------------------------------------------
     // Événements
@@ -198,10 +212,15 @@ contract Meute is ERC721, ReentrancyGuard {
     ///         Ouvrable par n'importe quel Loup (§7.3).
     /// @param louveteau Adresse du Louveteau concerné.
     function ouvrirTitularisation(address louveteau) external {
-        // TODO — décider comment empêcher deux Loups d'ouvrir simultanément
-        // deux propositions de titularisation pour le même Louveteau
-        // (probablement : un mapping "titularisationOuverte" symétrique à
-        // _candidatureOuverte, plutôt qu'une nouvelle mécanique).
+        if (_cartes[msg.sender].rang != Rang.Loup) revert PasLoup();
+        // rang == Louveteau vaut aussi par défaut pour une adresse sans
+        // carte : _estMembre lève l'ambiguïté (voir sa NatSpec).
+        if (!_estMembre(louveteau) || _cartes[louveteau].rang != Rang.Louveteau) revert PasLouveteau();
+        if (block.timestamp < _cartes[louveteau].derniereActivite + DUREE_PROBATION) revert ProbationNonTerminee();
+        if (_titularisationOuverte[louveteau]) revert TitularisationDejaOuverte();
+
+        _titularisationOuverte[louveteau] = true;
+        _ouvrirProposition(TypeProposition.Titularisation, louveteau, 0, "");
     }
 
     /// @notice Ouvre un vote d'exclusion visant un Loup ou un Louveteau (§7.4).
@@ -214,12 +233,18 @@ contract Meute is ERC721, ReentrancyGuard {
         _ouvrirProposition(TypeProposition.Exclusion, membre, 0, "");
     }
 
-    /// @notice Ouvre un vote de dépense de trésorerie (§7.6).
+    /// @notice Ouvre un vote de dépense de trésorerie (§7.6). Ouvrable par
+    ///         n'importe quel Loup. Le solde n'est vérifié qu'à l'exécution
+    ///         (FondsInsuffisants) : il peut changer entre l'ouverture et
+    ///         l'exécution si d'autres dépenses sont votées entre-temps.
     /// @param beneficiaire Destinataire du transfert si la dépense est votée.
     /// @param montant Montant en wei à transférer.
     /// @param motif Description de la dépense.
     function proposerDepense(address beneficiaire, uint256 montant, string calldata motif) external {
-        // TODO
+        if (_cartes[msg.sender].rang != Rang.Loup) revert PasLoup();
+        if (montant == 0) revert MontantInvalide();
+
+        _ouvrirProposition(TypeProposition.Depense, beneficiaire, montant, motif);
     }
 
     // ---------------------------------------------------------------------
@@ -229,7 +254,9 @@ contract Meute is ERC721, ReentrancyGuard {
     /// @notice Vote unique, quel que soit le type de proposition. Réveille le
     ///         votant s'il était dormant (§7.5).
     /// @dev Rejette (ChoixInvalide) un choix Ajourner sur toute proposition
-    ///      dont le type n'est pas Titularisation.
+    ///      dont le type n'est pas Titularisation, ainsi que sur une
+    ///      titularisation dont la cible a déjà consommé AJOURNEMENTS_MAX
+    ///      ajournements — "on ne peut pas être louveteau à vie" (§7.3).
     /// @param proposalId Identifiant de la proposition.
     /// @param choix Voir {ChoixVote} pour la sémantique.
     function voter(uint256 proposalId, ChoixVote choix) external {
@@ -239,8 +266,9 @@ contract Meute is ERC721, ReentrancyGuard {
         if (block.timestamp >= prop.echeance) revert VoteFerme();
         if (_cartes[msg.sender].rang != Rang.Loup) revert PasLoup();
         if (_aVote[proposalId][msg.sender]) revert DejaVote();
-        if (choix == ChoixVote.Ajourner && prop.typeProp != TypeProposition.Titularisation) {
-            revert ChoixInvalide();
+        if (choix == ChoixVote.Ajourner) {
+            if (prop.typeProp != TypeProposition.Titularisation) revert ChoixInvalide();
+            if (_cartes[prop.cible].ajournements >= AJOURNEMENTS_MAX) revert ChoixInvalide();
         }
 
         if (prop.snapshotFige) {
@@ -305,12 +333,16 @@ contract Meute is ERC721, ReentrancyGuard {
     ///         proposition passe, afin d'être recompté dans le quorum avant
     ///         qu'une décision ne s'ouvre (§7.5).
     function jeSuisLa() external {
-        // TODO
+        if (_cartes[msg.sender].rang != Rang.Loup) revert PasLoup();
+        _reveiller(msg.sender);
     }
 
-    /// @notice Démission volontaire, immédiate, sans vote (§7.4). Brûle la carte.
+    /// @notice Démission volontaire, immédiate, sans vote (§7.4). Brûle la
+    ///         carte, qu'elle soit au rang Louveteau ou Loup.
     function demissionner() external {
-        // TODO
+        if (!_estMembre(msg.sender)) revert PasMembre();
+        _titularisationOuverte[msg.sender] = false;
+        _bruler(msg.sender);
     }
 
     // ---------------------------------------------------------------------
@@ -360,14 +392,34 @@ contract Meute is ERC721, ReentrancyGuard {
     ///      docs/recap-conception.md pour le piège à éviter : ne pas bloquer
     ///      mint/burn en même temps que le transfert.
     function _update(address to, uint256 tokenId, address auth) internal override returns (address) {
-        // TODO: revert TransfertInterdit() si from != address(0) && to != address(0)
+        address from = _ownerOf(tokenId);
+        if (from != address(0) && to != address(0)) revert TransfertInterdit();
         return super._update(to, tokenId, auth);
     }
 
     /// @notice Métadonnées 100% on-chain : JSON + SVG encodés en Base64,
     ///         générés par le contrat, sans dépendance à un serveur ou IPFS (§6).
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
-        // TODO
+        _requireOwned(tokenId);
+
+        address membre = address(uint160(tokenId));
+        Rang rang = _cartes[membre].rang;
+        string memory rangNom = rang == Rang.Loup ? "Loup" : "Louveteau";
+
+        string memory json = string.concat(
+            '{"name":"Carte de Meute - ',
+            rangNom,
+            '","description":"Carte de membre non transferable de La Meute. ',
+            "Detenteur : ",
+            membre.toHexString(),
+            '.","attributes":[{"trait_type":"Rang","value":"',
+            rangNom,
+            '"}],"image":"data:image/svg+xml;base64,',
+            Base64.encode(bytes(_svg(rang))),
+            '"}'
+        );
+
+        return string.concat("data:application/json;base64,", Base64.encode(bytes(json)));
     }
 
     // ---------------------------------------------------------------------
@@ -446,7 +498,10 @@ contract Meute is ERC721, ReentrancyGuard {
     }
 
     /// @dev Exclusion : brûle la carte si approuvée, ne fait rien sinon (§7.4).
+    ///      No-op si la cible a déjà démissionné entre l'ouverture et
+    ///      l'exécution : il n'y a plus de carte à brûler.
     function _executerExclusion(Proposition storage prop) private {
+        if (!_estMembre(prop.cible)) return;
         if (_approuvee(prop)) {
             _bruler(prop.cible);
         }
@@ -464,11 +519,21 @@ contract Meute is ERC721, ReentrancyGuard {
     /// @dev Titularisation : vote ternaire à majorité relative, mais
     ///      l'ajournement est l'issue par défaut si le quorum (participation
     ///      > moitié du snapshot) n'est pas atteint — la seule issue qui ne
-    ///      lèse personne quand la meute est restée silencieuse (§7.3).
-    ///      Réutilise {ChoixVote} pour désigner l'issue : Approuver =
-    ///      titulariser, Rejeter = refuser, Ajourner = ajourner — même enum
-    ///      que pour voter, pas de type supplémentaire à maintenir.
+    ///      lèse personne quand la meute est restée silencieuse (§7.3). Ce
+    ///      défaut passif reste possible même une fois AJOURNEMENTS_MAX
+    ///      atteint (seul le choix *actif* Ajourner est barré par {voter}) :
+    ///      un vote sans quorum n'est pas une décision de la meute de
+    ///      prolonger, c'est l'absence de décision, qui ne doit ni
+    ///      titulariser ni exclure. Réutilise {ChoixVote} pour désigner
+    ///      l'issue : Approuver = titulariser, Rejeter = refuser, Ajourner =
+    ///      ajourner — même enum que pour voter, pas de type supplémentaire
+    ///      à maintenir.
     function _executerTitularisation(Proposition storage prop) private {
+        _titularisationOuverte[prop.cible] = false;
+        // Le Louveteau a démissionné entre l'ouverture et l'exécution : plus
+        // rien à titulariser, refuser ou ajourner.
+        if (!_estMembre(prop.cible)) return;
+
         uint32 total = prop.votesApprouver + prop.votesRejeter + prop.votesAjourner;
         bool quorumAtteint = total * 2 > prop.snapshotActifs;
 
@@ -490,10 +555,13 @@ contract Meute is ERC721, ReentrancyGuard {
         } else if (issue == ChoixVote.Rejeter) {
             _bruler(prop.cible);
         } else {
-            // TODO : ouvrirTitularisation doit refuser d'ouvrir un nouveau
-            // vote ternaire une fois AJOURNEMENTS_MAX atteint (§7.3) — hors
-            // périmètre de l'exécution elle-même.
-            _cartes[prop.cible].ajournements++;
+            Carte storage cible = _cartes[prop.cible];
+            // Saturé à AJOURNEMENTS_MAX : le défaut passif peut se répéter
+            // sans jamais faire déborder le compteur ni fausser {voter}.
+            if (cible.ajournements < AJOURNEMENTS_MAX) {
+                cible.ajournements++;
+            }
+            cible.derniereActivite = uint40(block.timestamp);
         }
     }
 
@@ -537,8 +605,31 @@ contract Meute is ERC721, ReentrancyGuard {
         _cartes[membre].derniereActivite = uint40(block.timestamp);
     }
 
-    /// @dev Génère le SVG on-chain correspondant à un rang.
+    /// @dev Génère le SVG on-chain correspondant à un rang : une empreinte
+    ///      de patte (coussinet + 4 doigts + 4 griffes), en contour pour
+    ///      Louveteau et en silhouette pleine pour Loup — même jeu de
+    ///      formes dans les deux cas, seul l'habillage change. Tracé
+    ///      original, dessiné pour ce projet.
     function _svg(Rang rang) private pure returns (string memory) {
-        // TODO
+        string memory habillage = rang == Rang.Loup
+            ? 'fill="#161311"'
+            : 'fill="none" stroke="#161311" stroke-width="10" stroke-linejoin="round"';
+
+        return
+            string.concat(
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><g ',
+                habillage,
+                ">",
+                '<path d="M256 258 L325 330 L350 420 L290 470 L256 452 L222 470 L162 420 L187 330 Z"/>',
+                '<path d="M182 118 L210 86 L244 112 L252 178 L222 228 L176 206 L158 162 Z"/>',
+                '<path d="M330 118 L302 86 L268 112 L260 178 L290 228 L336 206 L354 162 Z"/>',
+                '<path d="M96 214 L132 182 L176 214 L184 292 L150 352 L106 330 L84 270 Z"/>',
+                '<path d="M416 214 L380 182 L336 214 L328 292 L362 352 L406 330 L428 270 Z"/>',
+                '<polygon points="196,58 214,18 230,66"/>',
+                '<polygon points="316,58 298,18 282,66"/>',
+                '<polygon points="82,182 96,144 110,188"/>',
+                '<polygon points="430,182 416,144 402,188"/>',
+                "</g></svg>"
+            );
     }
 }

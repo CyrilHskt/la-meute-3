@@ -364,4 +364,376 @@ describe("Meute", function () {
       assert.equal(await meute.loupsActifs(), 3n);
     });
   });
+
+  describe("proposerDepense (§7.6)", function () {
+    // Une candidature, même non résolue, verse déjà la cotisation au
+    // contrat : suffit à alimenter la trésorerie pour ces tests.
+    async function financerTresorerie() {
+      const fixture = await networkHelpers.loadFixture(deployMeuteFixture);
+      const bailleur = (await ethers.getSigners())[5];
+      await fixture.meute.connect(bailleur).candidater({ value: COTISATION });
+      return fixture;
+    }
+
+    it("revert si l'appelant n'est pas Loup", async function () {
+      const { meute, candidat, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(
+        meute.connect(candidat).proposerDepense(etranger.address, 1n, "test"),
+      ).to.be.revertedWithCustomError(meute, "PasLoup");
+    });
+
+    it("revert si le montant est nul", async function () {
+      const { meute, fondateurs, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(
+        meute.connect(fondateurs[0]).proposerDepense(etranger.address, 0n, "test"),
+      ).to.be.revertedWithCustomError(meute, "MontantInvalide");
+    });
+
+    it("ouvre une proposition de dépense avec le bénéficiaire, le montant et le motif", async function () {
+      const { meute, fondateurs, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      const montant = ethers.parseEther("0.001");
+
+      await expect(meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "serveur de jeu"))
+        .to.emit(meute, "PropositionOuverte")
+        .withArgs(0n, TypeProposition.Depense, etranger.address);
+
+      const prop = await meute.proposition(0n);
+      assert.equal(prop.montant, montant);
+      assert.equal(prop.motif, "serveur de jeu");
+    });
+
+    it("bout en bout : dépense approuvée transfère le montant au bénéficiaire", async function () {
+      const { meute, fondateurs, etranger } = await financerTresorerie();
+      const montant = COTISATION; // couvert par la trésorerie financée ci-dessus
+
+      await meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "serveur de jeu");
+      await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[2]).voter(1n, ChoixVote.Approuver);
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await expect(meute.executer(1n)).to.changeEtherBalance(ethers, etranger, montant);
+    });
+
+    it("bout en bout : dépense rejetée ne transfère rien", async function () {
+      const { meute, fondateurs, etranger } = await financerTresorerie();
+      const montant = COTISATION;
+
+      await meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "serveur de jeu");
+      await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Rejeter);
+      await meute.connect(fondateurs[2]).voter(1n, ChoixVote.Rejeter);
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await expect(meute.executer(1n)).to.changeEtherBalance(ethers, etranger, 0n);
+    });
+
+    it("revert à l'exécution si la trésorerie est insuffisante", async function () {
+      const { meute, fondateurs, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      const montant = ethers.parseEther("1"); // rien dans la trésorerie, aucune candidature versée
+
+      await meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "trop cher");
+      await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[2]).voter(0n, ChoixVote.Approuver);
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await expect(meute.executer(0n)).to.be.revertedWithCustomError(meute, "FondsInsuffisants");
+    });
+  });
+
+  describe("ouvrirTitularisation et son exécution (§7.3)", function () {
+    async function admettreLouveteau() {
+      const fixture = await networkHelpers.loadFixture(deployMeuteFixture);
+      await fixture.meute.connect(fixture.candidat).candidater({ value: COTISATION });
+      await fixture.meute.connect(fixture.fondateurs[0]).voter(0n, ChoixVote.Approuver);
+      await fixture.meute.connect(fixture.fondateurs[1]).voter(0n, ChoixVote.Approuver);
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await fixture.meute.executer(0n);
+      return { ...fixture, louveteau: fixture.candidat };
+    }
+
+    it("revert si l'appelant n'est pas Loup", async function () {
+      const { meute, louveteau } = await admettreLouveteau();
+      await expect(
+        meute.connect(louveteau).ouvrirTitularisation(louveteau.address),
+      ).to.be.revertedWithCustomError(meute, "PasLoup");
+    });
+
+    it("revert si la cible n'est pas Louveteau", async function () {
+      const { meute, fondateurs, etranger } = await admettreLouveteau();
+      await expect(
+        meute.connect(fondateurs[0]).ouvrirTitularisation(fondateurs[1].address),
+      ).to.be.revertedWithCustomError(meute, "PasLouveteau");
+      await expect(
+        meute.connect(fondateurs[0]).ouvrirTitularisation(etranger.address),
+      ).to.be.revertedWithCustomError(meute, "PasLouveteau");
+    });
+
+    it("revert si la probation n'est pas terminée", async function () {
+      const { meute, fondateurs, louveteau } = await admettreLouveteau();
+      await expect(
+        meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address),
+      ).to.be.revertedWithCustomError(meute, "ProbationNonTerminee");
+    });
+
+    it("revert sur une seconde ouverture simultanée", async function () {
+      const { meute, fondateurs, louveteau } = await admettreLouveteau();
+      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+
+      await meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address);
+      await expect(
+        meute.connect(fondateurs[1]).ouvrirTitularisation(louveteau.address),
+      ).to.be.revertedWithCustomError(meute, "TitularisationDejaOuverte");
+    });
+
+    it("bout en bout : titularisation approuvée passe le Louveteau Loup, même carte", async function () {
+      const { meute, fondateurs, louveteau } = await admettreLouveteau();
+      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+
+      await meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address);
+      await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[1]).voter(1n, ChoixVote.Approuver);
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await meute.executer(1n);
+
+      const c = await meute.carte(louveteau.address);
+      assert.equal(c.rang, 1n); // Rang.Loup
+      assert.equal(await meute.ownerOf(BigInt(louveteau.address)), louveteau.address);
+      assert.equal(await meute.loupsActifs(), 4n); // 3 fondateurs + ce nouveau Loup
+
+      // Peut retenter une candidature ultérieurement n'a pas de sens ici,
+      // mais une nouvelle ouverture de titularisation doit être possible à nouveau.
+      assert.equal(await meute.estDormant(louveteau.address), false);
+    });
+
+    it("bout en bout : titularisation refusée brûle la carte", async function () {
+      const { meute, fondateurs, louveteau } = await admettreLouveteau();
+      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+
+      await meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address);
+      await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Rejeter);
+      await meute.connect(fondateurs[1]).voter(1n, ChoixVote.Rejeter);
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await meute.executer(1n);
+
+      await expect(meute.ownerOf(BigInt(louveteau.address))).to.revert(ethers);
+    });
+
+    it("bout en bout : ajournement explicite prolonge la probation de 3 mois", async function () {
+      const { meute, fondateurs, louveteau } = await admettreLouveteau();
+      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+
+      await meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address);
+      await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Ajourner);
+      await meute.connect(fondateurs[1]).voter(1n, ChoixVote.Ajourner);
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await meute.executer(1n);
+
+      const c = await meute.carte(louveteau.address);
+      assert.equal(c.rang, 0n); // toujours Louveteau
+      assert.equal(c.ajournements, 1n);
+
+      // Une nouvelle ouverture immédiate échoue : la probation repart pour 3 mois.
+      await expect(
+        meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address),
+      ).to.be.revertedWithCustomError(meute, "ProbationNonTerminee");
+    });
+
+    it("aucun vote exprimé : ajournement par défaut, sans que quiconque ait choisi Ajourner", async function () {
+      const { meute, fondateurs, louveteau } = await admettreLouveteau();
+      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+
+      await meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address);
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await meute.executer(1n);
+
+      const c = await meute.carte(louveteau.address);
+      assert.equal(c.rang, 0n);
+      assert.equal(c.ajournements, 1n);
+    });
+
+    it("une fois AJOURNEMENTS_MAX atteint, Ajourner n'est plus un choix valide", async function () {
+      const { meute, fondateurs, louveteau } = await admettreLouveteau();
+
+      // Deux ajournements consécutifs, chacun après sa probation.
+      for (let i = 0; i < 2; i++) {
+        await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+        const proposalId = BigInt(i + 1);
+        await meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address);
+        await meute.connect(fondateurs[0]).voter(proposalId, ChoixVote.Ajourner);
+        await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+        await meute.executer(proposalId);
+      }
+
+      const c = await meute.carte(louveteau.address);
+      assert.equal(c.ajournements, 2n); // AJOURNEMENTS_MAX
+
+      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+      await meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address);
+      await expect(
+        meute.connect(fondateurs[0]).voter(3n, ChoixVote.Ajourner),
+      ).to.be.revertedWithCustomError(meute, "ChoixInvalide");
+
+      // Le défaut passif (sans quorum) reste possible et ne déborde pas le compteur.
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await meute.executer(3n);
+      const cApres = await meute.carte(louveteau.address);
+      assert.equal(cApres.ajournements, 2n); // saturé, pas 3
+      assert.equal(cApres.rang, 0n); // toujours Louveteau, ni titularisé ni exclu
+    });
+  });
+
+  describe("jeSuisLa (§7.5)", function () {
+    it("revert si l'appelant n'est pas Loup", async function () {
+      const { meute, candidat } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(meute.connect(candidat).jeSuisLa()).to.be.revertedWithCustomError(meute, "PasLoup");
+    });
+
+    it("réveille un Loup dormant sans passer par un vote", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await networkHelpers.time.increase(365 * 24 * 60 * 60 + 1);
+      assert.equal(await meute.loupsActifs(), 0n);
+
+      await expect(meute.connect(fondateurs[0]).jeSuisLa())
+        .to.emit(meute, "MembreReveille")
+        .withArgs(fondateurs[0].address);
+
+      assert.equal(await meute.estDormant(fondateurs[0].address), false);
+      assert.equal(await meute.loupsActifs(), 1n);
+    });
+  });
+
+  describe("demissionner (§7.4)", function () {
+    it("revert si l'appelant n'est pas membre", async function () {
+      const { meute, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(meute.connect(etranger).demissionner()).to.be.revertedWithCustomError(meute, "PasMembre");
+    });
+
+    it("brûle la carte d'un Loup et le retire du décompte des actifs", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await meute.connect(fondateurs[0]).demissionner();
+
+      await expect(meute.ownerOf(BigInt(fondateurs[0].address))).to.revert(ethers);
+      assert.equal(await meute.loupsActifs(), 2n);
+    });
+
+    it("n'empêche pas l'exécution d'un vote d'exclusion visant un démissionnaire entre-temps", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await meute.connect(fondateurs[0]).proposerExclusion(fondateurs[1].address);
+      await meute.connect(fondateurs[1]).demissionner();
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      // Ne doit pas revert malgré la carte déjà brûlée.
+      await meute.executer(0n);
+      assert.equal(await meute.loupsActifs(), 2n);
+    });
+
+    it("n'empêche pas l'exécution d'un vote de titularisation visant un démissionnaire entre-temps", async function () {
+      const fixture = await networkHelpers.loadFixture(deployMeuteFixture);
+      const { meute, fondateurs, candidat } = fixture;
+
+      await meute.connect(candidat).candidater({ value: COTISATION });
+      await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[1]).voter(0n, ChoixVote.Approuver);
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await meute.executer(0n);
+
+      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+      await meute.connect(fondateurs[0]).ouvrirTitularisation(candidat.address);
+      await meute.connect(candidat).demissionner();
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      // Ne doit pas revert malgré la carte déjà brûlée.
+      await meute.executer(1n);
+      await expect(meute.ownerOf(BigInt(candidat.address))).to.revert(ethers);
+    });
+  });
+
+  describe("non-transférabilité (§6, C3)", function () {
+    it("revert sur un transfert entre deux détenteurs", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await expect(
+        meute
+          .connect(fondateurs[0])
+          .transferFrom(fondateurs[0].address, fondateurs[1].address, BigInt(fondateurs[0].address)),
+      ).to.be.revertedWithCustomError(meute, "TransfertInterdit");
+    });
+
+    it("le mint (candidature admise) et le burn (démission) restent autorisés", async function () {
+      const { meute, fondateurs, candidat } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await meute.connect(candidat).candidater({ value: COTISATION });
+      await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[1]).voter(0n, ChoixVote.Approuver);
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await meute.executer(0n); // mint
+
+      assert.equal(await meute.ownerOf(BigInt(candidat.address)), candidat.address);
+
+      await meute.connect(candidat).demissionner(); // burn
+      await expect(meute.ownerOf(BigInt(candidat.address))).to.revert(ethers);
+    });
+  });
+
+  describe("tokenURI (§6, C3)", function () {
+    function decodeDataUri(uri: string): unknown {
+      const prefix = "data:application/json;base64,";
+      assert.equal(uri.startsWith(prefix), true);
+      const json = Buffer.from(uri.slice(prefix.length), "base64").toString("utf8");
+      return JSON.parse(json);
+    }
+
+    it("revert si le token n'existe pas", async function () {
+      const { meute } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(meute.tokenURI(999n)).to.revert(ethers);
+    });
+
+    it("un Loup a des métadonnées cohérentes avec son rang", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      const uri = await meute.tokenURI(BigInt(fondateurs[0].address));
+      const metadata = decodeDataUri(uri) as {
+        name: string;
+        attributes: { trait_type: string; value: string }[];
+        image: string;
+      };
+
+      assert.match(metadata.name, /Loup/);
+      assert.deepEqual(metadata.attributes, [{ trait_type: "Rang", value: "Loup" }]);
+      assert.equal(metadata.image.startsWith("data:image/svg+xml;base64,"), true);
+
+      const svg = Buffer.from(metadata.image.split(",")[1], "base64").toString("utf8");
+      assert.match(svg, /fill="#161311"/);
+      assert.doesNotMatch(svg, /stroke=/);
+    });
+
+    it("un Louveteau a des métadonnées cohérentes avec son rang (contour)", async function () {
+      const { meute, fondateurs, candidat } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await meute.connect(candidat).candidater({ value: COTISATION });
+      await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[1]).voter(0n, ChoixVote.Approuver);
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await meute.executer(0n);
+
+      const uri = await meute.tokenURI(BigInt(candidat.address));
+      const metadata = decodeDataUri(uri) as {
+        name: string;
+        attributes: { trait_type: string; value: string }[];
+        image: string;
+      };
+
+      assert.match(metadata.name, /Louveteau/);
+      assert.deepEqual(metadata.attributes, [{ trait_type: "Rang", value: "Louveteau" }]);
+
+      const svg = Buffer.from(metadata.image.split(",")[1], "base64").toString("utf8");
+      assert.match(svg, /fill="none"/);
+      assert.match(svg, /stroke="#161311"/);
+    });
+  });
 });
