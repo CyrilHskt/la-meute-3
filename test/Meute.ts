@@ -313,4 +313,55 @@ describe("Meute", function () {
       await expect(meute.executer(proposalId)).to.changeEtherBalance(ethers, candidat, COTISATION);
     });
   });
+
+  describe("proposerExclusion (§7.4)", function () {
+    it("revert si l'appelant n'est pas Loup", async function () {
+      const { meute, candidat } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(
+        meute.connect(candidat).proposerExclusion(candidat.address),
+      ).to.be.revertedWithCustomError(meute, "PasLoup");
+    });
+
+    it("revert si la cible n'est pas membre", async function () {
+      const { meute, fondateurs, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(
+        meute.connect(fondateurs[0]).proposerExclusion(etranger.address),
+      ).to.be.revertedWithCustomError(meute, "PasMembre");
+    });
+
+    it("ouvre une proposition d'exclusion ciblant le membre visé", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(meute.connect(fondateurs[0]).proposerExclusion(fondateurs[1].address))
+        .to.emit(meute, "PropositionOuverte")
+        .withArgs(0n, TypeProposition.Exclusion, fondateurs[1].address);
+    });
+
+    it("bout en bout : exclusion votée à la majorité brûle la carte du membre visé", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await meute.connect(fondateurs[0]).proposerExclusion(fondateurs[1].address);
+      await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[2]).voter(0n, ChoixVote.Approuver);
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await meute.executer(0n);
+
+      await expect(meute.ownerOf(BigInt(fondateurs[1].address))).to.revert(ethers);
+      assert.equal(await meute.loupsActifs(), 2n);
+    });
+
+    it("bout en bout : exclusion rejetée ne change rien", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await meute.connect(fondateurs[0]).proposerExclusion(fondateurs[1].address);
+      await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Rejeter);
+      await meute.connect(fondateurs[2]).voter(0n, ChoixVote.Rejeter);
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await meute.executer(0n);
+
+      assert.equal(await meute.ownerOf(BigInt(fondateurs[1].address)), fondateurs[1].address);
+      assert.equal(await meute.loupsActifs(), 3n);
+    });
+  });
 });

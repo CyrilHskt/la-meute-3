@@ -149,6 +149,7 @@ contract Meute is ERC721, ReentrancyGuard {
     error AucunFondateur();
     error FondsInsuffisants();
     error TransfertEchoue();
+    error PasMembre();
 
     // ---------------------------------------------------------------------
     // Événements
@@ -204,9 +205,13 @@ contract Meute is ERC721, ReentrancyGuard {
     }
 
     /// @notice Ouvre un vote d'exclusion visant un Loup ou un Louveteau (§7.4).
+    ///         Ouvrable par n'importe quel Loup.
     /// @param membre Adresse du membre visé.
     function proposerExclusion(address membre) external {
-        // TODO
+        if (_cartes[msg.sender].rang != Rang.Loup) revert PasLoup();
+        if (!_estMembre(membre)) revert PasMembre();
+
+        _ouvrirProposition(TypeProposition.Exclusion, membre, 0, "");
     }
 
     /// @notice Ouvre un vote de dépense de trésorerie (§7.6).
