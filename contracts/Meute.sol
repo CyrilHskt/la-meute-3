@@ -52,10 +52,16 @@ contract Meute is ERC721, ReentrancyGuard {
 
     /// @notice Données portées par une carte. Rang et horodatage compacté en
     ///         un seul slot de stockage (§10 du cahier des charges, poste "Gas").
+    /// @dev `derniereActivite` a un sens différent selon le rang, jamais les
+    ///      deux à la fois : pour un Loup, c'est la dormance (§7.5) — mis à
+    ///      jour à chaque vote. Pour un Louveteau, qui ne vote jamais, c'est
+    ///      le point de départ de la probation en cours — mis à jour au mint
+    ///      et à chaque ajournement (§7.3). Un seul champ, deux usages
+    ///      mutuellement exclusifs plutôt qu'un champ par rang.
     struct Carte {
         Rang rang;
-        uint40 derniereActivite; // timestamp de dernière participation à un vote
-        uint8 ajournements; // nombre d'ajournements déjà consommés (max 2)
+        uint40 derniereActivite;
+        uint8 ajournements; // nombre d'ajournements déjà consommés (max AJOURNEMENTS_MAX)
     }
 
     /// @notice Une proposition en cours ou terminée.
@@ -125,6 +131,11 @@ contract Meute is ERC721, ReentrancyGuard {
     /// @dev Empêche une seconde candidature ouverte simultanément pour la même adresse.
     mapping(address candidat => bool) private _candidatureOuverte;
 
+    /// @dev Empêche deux Loups d'ouvrir simultanément deux votes de
+    ///      titularisation pour le même Louveteau. Symétrique à
+    ///      {_candidatureOuverte}.
+    mapping(address louveteau => bool) private _titularisationOuverte;
+
     uint256 private _prochainProposalId;
 
     // ---------------------------------------------------------------------
@@ -150,6 +161,7 @@ contract Meute is ERC721, ReentrancyGuard {
     error FondsInsuffisants();
     error TransfertEchoue();
     error PasMembre();
+    error TitularisationDejaOuverte();
 
     // ---------------------------------------------------------------------
     // Événements
@@ -198,10 +210,15 @@ contract Meute is ERC721, ReentrancyGuard {
     ///         Ouvrable par n'importe quel Loup (§7.3).
     /// @param louveteau Adresse du Louveteau concerné.
     function ouvrirTitularisation(address louveteau) external {
-        // TODO — décider comment empêcher deux Loups d'ouvrir simultanément
-        // deux propositions de titularisation pour le même Louveteau
-        // (probablement : un mapping "titularisationOuverte" symétrique à
-        // _candidatureOuverte, plutôt qu'une nouvelle mécanique).
+        if (_cartes[msg.sender].rang != Rang.Loup) revert PasLoup();
+        // rang == Louveteau vaut aussi par défaut pour une adresse sans
+        // carte : _estMembre lève l'ambiguïté (voir sa NatSpec).
+        if (!_estMembre(louveteau) || _cartes[louveteau].rang != Rang.Louveteau) revert PasLouveteau();
+        if (block.timestamp < _cartes[louveteau].derniereActivite + DUREE_PROBATION) revert ProbationNonTerminee();
+        if (_titularisationOuverte[louveteau]) revert TitularisationDejaOuverte();
+
+        _titularisationOuverte[louveteau] = true;
+        _ouvrirProposition(TypeProposition.Titularisation, louveteau, 0, "");
     }
 
     /// @notice Ouvre un vote d'exclusion visant un Loup ou un Louveteau (§7.4).
@@ -235,7 +252,9 @@ contract Meute is ERC721, ReentrancyGuard {
     /// @notice Vote unique, quel que soit le type de proposition. Réveille le
     ///         votant s'il était dormant (§7.5).
     /// @dev Rejette (ChoixInvalide) un choix Ajourner sur toute proposition
-    ///      dont le type n'est pas Titularisation.
+    ///      dont le type n'est pas Titularisation, ainsi que sur une
+    ///      titularisation dont la cible a déjà consommé AJOURNEMENTS_MAX
+    ///      ajournements — "on ne peut pas être louveteau à vie" (§7.3).
     /// @param proposalId Identifiant de la proposition.
     /// @param choix Voir {ChoixVote} pour la sémantique.
     function voter(uint256 proposalId, ChoixVote choix) external {
@@ -245,8 +264,9 @@ contract Meute is ERC721, ReentrancyGuard {
         if (block.timestamp >= prop.echeance) revert VoteFerme();
         if (_cartes[msg.sender].rang != Rang.Loup) revert PasLoup();
         if (_aVote[proposalId][msg.sender]) revert DejaVote();
-        if (choix == ChoixVote.Ajourner && prop.typeProp != TypeProposition.Titularisation) {
-            revert ChoixInvalide();
+        if (choix == ChoixVote.Ajourner) {
+            if (prop.typeProp != TypeProposition.Titularisation) revert ChoixInvalide();
+            if (_cartes[prop.cible].ajournements >= AJOURNEMENTS_MAX) revert ChoixInvalide();
         }
 
         if (prop.snapshotFige) {
@@ -470,11 +490,18 @@ contract Meute is ERC721, ReentrancyGuard {
     /// @dev Titularisation : vote ternaire à majorité relative, mais
     ///      l'ajournement est l'issue par défaut si le quorum (participation
     ///      > moitié du snapshot) n'est pas atteint — la seule issue qui ne
-    ///      lèse personne quand la meute est restée silencieuse (§7.3).
-    ///      Réutilise {ChoixVote} pour désigner l'issue : Approuver =
-    ///      titulariser, Rejeter = refuser, Ajourner = ajourner — même enum
-    ///      que pour voter, pas de type supplémentaire à maintenir.
+    ///      lèse personne quand la meute est restée silencieuse (§7.3). Ce
+    ///      défaut passif reste possible même une fois AJOURNEMENTS_MAX
+    ///      atteint (seul le choix *actif* Ajourner est barré par {voter}) :
+    ///      un vote sans quorum n'est pas une décision de la meute de
+    ///      prolonger, c'est l'absence de décision, qui ne doit ni
+    ///      titulariser ni exclure. Réutilise {ChoixVote} pour désigner
+    ///      l'issue : Approuver = titulariser, Rejeter = refuser, Ajourner =
+    ///      ajourner — même enum que pour voter, pas de type supplémentaire
+    ///      à maintenir.
     function _executerTitularisation(Proposition storage prop) private {
+        _titularisationOuverte[prop.cible] = false;
+
         uint32 total = prop.votesApprouver + prop.votesRejeter + prop.votesAjourner;
         bool quorumAtteint = total * 2 > prop.snapshotActifs;
 
@@ -496,10 +523,13 @@ contract Meute is ERC721, ReentrancyGuard {
         } else if (issue == ChoixVote.Rejeter) {
             _bruler(prop.cible);
         } else {
-            // TODO : ouvrirTitularisation doit refuser d'ouvrir un nouveau
-            // vote ternaire une fois AJOURNEMENTS_MAX atteint (§7.3) — hors
-            // périmètre de l'exécution elle-même.
-            _cartes[prop.cible].ajournements++;
+            Carte storage cible = _cartes[prop.cible];
+            // Saturé à AJOURNEMENTS_MAX : le défaut passif peut se répéter
+            // sans jamais faire déborder le compteur ni fausser {voter}.
+            if (cible.ajournements < AJOURNEMENTS_MAX) {
+                cible.ajournements++;
+            }
+            cible.derniereActivite = uint40(block.timestamp);
         }
     }
 
