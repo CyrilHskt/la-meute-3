@@ -331,12 +331,16 @@ contract Meute is ERC721, ReentrancyGuard {
     ///         proposition passe, afin d'être recompté dans le quorum avant
     ///         qu'une décision ne s'ouvre (§7.5).
     function jeSuisLa() external {
-        // TODO
+        if (_cartes[msg.sender].rang != Rang.Loup) revert PasLoup();
+        _reveiller(msg.sender);
     }
 
-    /// @notice Démission volontaire, immédiate, sans vote (§7.4). Brûle la carte.
+    /// @notice Démission volontaire, immédiate, sans vote (§7.4). Brûle la
+    ///         carte, qu'elle soit au rang Louveteau ou Loup.
     function demissionner() external {
-        // TODO
+        if (!_estMembre(msg.sender)) revert PasMembre();
+        _titularisationOuverte[msg.sender] = false;
+        _bruler(msg.sender);
     }
 
     // ---------------------------------------------------------------------
@@ -386,7 +390,8 @@ contract Meute is ERC721, ReentrancyGuard {
     ///      docs/recap-conception.md pour le piège à éviter : ne pas bloquer
     ///      mint/burn en même temps que le transfert.
     function _update(address to, uint256 tokenId, address auth) internal override returns (address) {
-        // TODO: revert TransfertInterdit() si from != address(0) && to != address(0)
+        address from = _ownerOf(tokenId);
+        if (from != address(0) && to != address(0)) revert TransfertInterdit();
         return super._update(to, tokenId, auth);
     }
 
@@ -472,7 +477,10 @@ contract Meute is ERC721, ReentrancyGuard {
     }
 
     /// @dev Exclusion : brûle la carte si approuvée, ne fait rien sinon (§7.4).
+    ///      No-op si la cible a déjà démissionné entre l'ouverture et
+    ///      l'exécution : il n'y a plus de carte à brûler.
     function _executerExclusion(Proposition storage prop) private {
+        if (!_estMembre(prop.cible)) return;
         if (_approuvee(prop)) {
             _bruler(prop.cible);
         }
@@ -501,6 +509,9 @@ contract Meute is ERC721, ReentrancyGuard {
     ///      à maintenir.
     function _executerTitularisation(Proposition storage prop) private {
         _titularisationOuverte[prop.cible] = false;
+        // Le Louveteau a démissionné entre l'ouverture et l'exécution : plus
+        // rien à titulariser, refuser ou ajourner.
+        if (!_estMembre(prop.cible)) return;
 
         uint32 total = prop.votesApprouver + prop.votesRejeter + prop.votesAjourner;
         bool quorumAtteint = total * 2 > prop.snapshotActifs;

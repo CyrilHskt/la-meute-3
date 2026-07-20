@@ -583,4 +583,100 @@ describe("Meute", function () {
       assert.equal(cApres.rang, 0n); // toujours Louveteau, ni titularisé ni exclu
     });
   });
+
+  describe("jeSuisLa (§7.5)", function () {
+    it("revert si l'appelant n'est pas Loup", async function () {
+      const { meute, candidat } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(meute.connect(candidat).jeSuisLa()).to.be.revertedWithCustomError(meute, "PasLoup");
+    });
+
+    it("réveille un Loup dormant sans passer par un vote", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await networkHelpers.time.increase(365 * 24 * 60 * 60 + 1);
+      assert.equal(await meute.loupsActifs(), 0n);
+
+      await expect(meute.connect(fondateurs[0]).jeSuisLa())
+        .to.emit(meute, "MembreReveille")
+        .withArgs(fondateurs[0].address);
+
+      assert.equal(await meute.estDormant(fondateurs[0].address), false);
+      assert.equal(await meute.loupsActifs(), 1n);
+    });
+  });
+
+  describe("demissionner (§7.4)", function () {
+    it("revert si l'appelant n'est pas membre", async function () {
+      const { meute, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(meute.connect(etranger).demissionner()).to.be.revertedWithCustomError(meute, "PasMembre");
+    });
+
+    it("brûle la carte d'un Loup et le retire du décompte des actifs", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await meute.connect(fondateurs[0]).demissionner();
+
+      await expect(meute.ownerOf(BigInt(fondateurs[0].address))).to.revert(ethers);
+      assert.equal(await meute.loupsActifs(), 2n);
+    });
+
+    it("n'empêche pas l'exécution d'un vote d'exclusion visant un démissionnaire entre-temps", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await meute.connect(fondateurs[0]).proposerExclusion(fondateurs[1].address);
+      await meute.connect(fondateurs[1]).demissionner();
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      // Ne doit pas revert malgré la carte déjà brûlée.
+      await meute.executer(0n);
+      assert.equal(await meute.loupsActifs(), 2n);
+    });
+
+    it("n'empêche pas l'exécution d'un vote de titularisation visant un démissionnaire entre-temps", async function () {
+      const fixture = await networkHelpers.loadFixture(deployMeuteFixture);
+      const { meute, fondateurs, candidat } = fixture;
+
+      await meute.connect(candidat).candidater({ value: COTISATION });
+      await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[1]).voter(0n, ChoixVote.Approuver);
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await meute.executer(0n);
+
+      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+      await meute.connect(fondateurs[0]).ouvrirTitularisation(candidat.address);
+      await meute.connect(candidat).demissionner();
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      // Ne doit pas revert malgré la carte déjà brûlée.
+      await meute.executer(1n);
+      await expect(meute.ownerOf(BigInt(candidat.address))).to.revert(ethers);
+    });
+  });
+
+  describe("non-transférabilité (§6, C3)", function () {
+    it("revert sur un transfert entre deux détenteurs", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await expect(
+        meute
+          .connect(fondateurs[0])
+          .transferFrom(fondateurs[0].address, fondateurs[1].address, BigInt(fondateurs[0].address)),
+      ).to.be.revertedWithCustomError(meute, "TransfertInterdit");
+    });
+
+    it("le mint (candidature admise) et le burn (démission) restent autorisés", async function () {
+      const { meute, fondateurs, candidat } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await meute.connect(candidat).candidater({ value: COTISATION });
+      await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[1]).voter(0n, ChoixVote.Approuver);
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await meute.executer(0n); // mint
+
+      assert.equal(await meute.ownerOf(BigInt(candidat.address)), candidat.address);
+
+      await meute.connect(candidat).demissionner(); // burn
+      await expect(meute.ownerOf(BigInt(candidat.address))).to.revert(ethers);
+    });
+  });
 });
