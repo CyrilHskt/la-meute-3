@@ -147,6 +147,8 @@ contract Meute is ERC721, ReentrancyGuard {
     error TransfertInterdit();
     error MontantInvalide();
     error AucunFondateur();
+    error FondsInsuffisants();
+    error TransfertEchoue();
 
     // ---------------------------------------------------------------------
     // Événements
@@ -271,7 +273,27 @@ contract Meute is ERC721, ReentrancyGuard {
     ///         c'est une simple corvée mécanique, pas une décision.
     /// @param proposalId Identifiant de la proposition à exécuter.
     function executer(uint256 proposalId) external nonReentrant {
-        // TODO
+        if (proposalId >= _prochainProposalId) revert ProposalInconnue();
+        Proposition storage prop = _propositions[proposalId];
+
+        if (prop.executee) revert DejaExecutee();
+        if (block.timestamp < prop.echeance) revert VoteEncoreOuvert();
+
+        // Marqué avant tout transfert externe (remboursement, dépense) —
+        // checks-effects-interactions, en plus du modifier nonReentrant.
+        prop.executee = true;
+
+        if (prop.typeProp == TypeProposition.Admission) {
+            _executerAdmission(prop);
+        } else if (prop.typeProp == TypeProposition.Titularisation) {
+            _executerTitularisation(prop);
+        } else if (prop.typeProp == TypeProposition.Exclusion) {
+            _executerExclusion(prop);
+        } else {
+            _executerDepense(prop);
+        }
+
+        emit PropositionExecutee(proposalId);
     }
 
     /// @notice Réactive explicitement l'appelant sans attendre qu'une
@@ -295,13 +317,19 @@ contract Meute is ERC721, ReentrancyGuard {
         return _propositions[proposalId];
     }
 
+    /// @notice Lecture de la carte d'un membre. Rang par défaut (Louveteau)
+    ///         et champs nuls si l'adresse n'est pas membre — voir {_estMembre}.
+    function carte(address membre) external view returns (Carte memory) {
+        return _cartes[membre];
+    }
+
     /// @notice Indique si une adresse membre est actuellement dormante
     ///         (Loup sans participation depuis DELAI_DORMANCE). Faux pour un
     ///         Louveteau ou une adresse sans carte : la dormance ne concerne
     ///         que les Loups (§7.5).
     function estDormant(address membre) public view returns (bool) {
-        Carte storage carte = _cartes[membre];
-        return carte.rang == Rang.Loup && block.timestamp - carte.derniereActivite > DELAI_DORMANCE;
+        Carte storage c = _cartes[membre];
+        return c.rang == Rang.Loup && block.timestamp - c.derniereActivite > DELAI_DORMANCE;
     }
 
     /// @notice Nombre de Loups actifs au moment de l'appel (hors dormants).
@@ -390,9 +418,99 @@ contract Meute is ERC721, ReentrancyGuard {
         emit PropositionOuverte(proposalId, typeProp, cible);
     }
 
+    /// @dev Majorité simple sur le dénominateur figé : strictement plus de la
+    ///      moitié, jamais une simple égalité (§7.5 : "un seuil > moitié du
+    ///      snapshot"). Vaut aussi pour une proposition jamais votée
+    ///      (snapshotActifs et votesApprouver tous deux nuls : 0 > 0 est faux,
+    ///      donc rejetée par défaut sans cas particulier à coder).
+    function _approuvee(Proposition storage prop) private view returns (bool) {
+        return prop.votesApprouver * 2 > prop.snapshotActifs;
+    }
+
+    /// @dev Admission : mint une carte Louveteau si approuvée, sinon
+    ///      rembourse la cotisation séquestrée (§7.2).
+    function _executerAdmission(Proposition storage prop) private {
+        address candidatAddr = prop.cible;
+        _candidatureOuverte[candidatAddr] = false;
+
+        if (_approuvee(prop)) {
+            _minterCarte(candidatAddr, Rang.Louveteau);
+        } else {
+            _rembourser(candidatAddr);
+        }
+    }
+
+    /// @dev Exclusion : brûle la carte si approuvée, ne fait rien sinon (§7.4).
+    function _executerExclusion(Proposition storage prop) private {
+        if (_approuvee(prop)) {
+            _bruler(prop.cible);
+        }
+    }
+
+    /// @dev Dépense : transfère le montant si approuvée, ne fait rien sinon (§7.6).
+    function _executerDepense(Proposition storage prop) private {
+        if (_approuvee(prop)) {
+            if (address(this).balance < prop.montant) revert FondsInsuffisants();
+            (bool ok, ) = prop.cible.call{value: prop.montant}("");
+            if (!ok) revert TransfertEchoue();
+        }
+    }
+
+    /// @dev Titularisation : vote ternaire à majorité relative, mais
+    ///      l'ajournement est l'issue par défaut si le quorum (participation
+    ///      > moitié du snapshot) n'est pas atteint — la seule issue qui ne
+    ///      lèse personne quand la meute est restée silencieuse (§7.3).
+    ///      Réutilise {ChoixVote} pour désigner l'issue : Approuver =
+    ///      titulariser, Rejeter = refuser, Ajourner = ajourner — même enum
+    ///      que pour voter, pas de type supplémentaire à maintenir.
+    function _executerTitularisation(Proposition storage prop) private {
+        uint32 total = prop.votesApprouver + prop.votesRejeter + prop.votesAjourner;
+        bool quorumAtteint = total * 2 > prop.snapshotActifs;
+
+        ChoixVote issue = ChoixVote.Ajourner;
+        if (quorumAtteint) {
+            if (prop.votesApprouver > prop.votesRejeter && prop.votesApprouver > prop.votesAjourner) {
+                issue = ChoixVote.Approuver;
+            } else if (prop.votesRejeter > prop.votesApprouver && prop.votesRejeter > prop.votesAjourner) {
+                issue = ChoixVote.Rejeter;
+            }
+            // Égalité entre les trois issues, ou Ajourner déjà majoritaire :
+            // issue reste Ajourner, pour la même raison que le défaut sans quorum.
+        }
+
+        if (issue == ChoixVote.Approuver) {
+            _cartes[prop.cible].rang = Rang.Loup;
+            _cartes[prop.cible].derniereActivite = uint40(block.timestamp);
+            _loups.add(prop.cible);
+        } else if (issue == ChoixVote.Rejeter) {
+            _bruler(prop.cible);
+        } else {
+            // TODO : ouvrirTitularisation doit refuser d'ouvrir un nouveau
+            // vote ternaire une fois AJOURNEMENTS_MAX atteint (§7.3) — hors
+            // périmètre de l'exécution elle-même.
+            _cartes[prop.cible].ajournements++;
+        }
+    }
+
+    /// @dev Brûle la carte d'un membre, quel que soit son rang.
+    function _bruler(address membre) private {
+        if (_cartes[membre].rang == Rang.Loup) {
+            _loups.remove(membre);
+        }
+        uint256 tokenId = _tokenId(membre);
+        delete _cartes[membre];
+        _burn(tokenId);
+    }
+
+    /// @dev Rembourse la cotisation à un candidat refusé.
+    function _rembourser(address candidatAddr) private {
+        (bool ok, ) = candidatAddr.call{value: cotisation}("");
+        if (!ok) revert TransfertEchoue();
+    }
+
     /// @dev Mint une carte au rang donné. Utilisé pour les fondateurs (rang
     ///      Loup, au déploiement) et pour un candidat admis (rang Louveteau,
-    ///      depuis {executer} — pas encore implémenté).
+    ///      depuis {_executerAdmission}).
     function _minterCarte(address membre, Rang rang) private {
         _cartes[membre] = Carte({rang: rang, derniereActivite: uint40(block.timestamp), ajournements: 0});
 

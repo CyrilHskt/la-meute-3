@@ -242,4 +242,75 @@ describe("Meute", function () {
       assert.equal(propSuivante.snapshotActifs, 3n);
     });
   });
+
+  describe("executer — admission (§7.2)", function () {
+    async function ouvrirCandidatureEtVoter(nbApprouver: number, nbRejeter: number) {
+      const fixture = await networkHelpers.loadFixture(deployMeuteFixture);
+      await fixture.meute.connect(fixture.candidat).candidater({ value: COTISATION });
+
+      for (let i = 0; i < nbApprouver; i++) {
+        await fixture.meute.connect(fixture.fondateurs[i]).voter(0n, ChoixVote.Approuver);
+      }
+      for (let i = nbApprouver; i < nbApprouver + nbRejeter; i++) {
+        await fixture.meute.connect(fixture.fondateurs[i]).voter(0n, ChoixVote.Rejeter);
+      }
+
+      return { ...fixture, proposalId: 0n };
+    }
+
+    it("revert si la proposition n'existe pas", async function () {
+      const { meute } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(meute.executer(999n)).to.be.revertedWithCustomError(meute, "ProposalInconnue");
+    });
+
+    it("revert si le vote est encore ouvert", async function () {
+      const { meute, proposalId } = await ouvrirCandidatureEtVoter(2, 0);
+      await expect(meute.executer(proposalId)).to.be.revertedWithCustomError(meute, "VoteEncoreOuvert");
+    });
+
+    it("revert en cas de double exécution", async function () {
+      const { meute, proposalId } = await ouvrirCandidatureEtVoter(2, 0);
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+
+      await meute.executer(proposalId);
+      await expect(meute.executer(proposalId)).to.be.revertedWithCustomError(meute, "DejaExecutee");
+    });
+
+    it("2 voix pour sur 3 : mint une carte Louveteau et émet PropositionExecutee", async function () {
+      const { meute, candidat, proposalId } = await ouvrirCandidatureEtVoter(2, 0);
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+
+      await expect(meute.executer(proposalId)).to.emit(meute, "PropositionExecutee").withArgs(proposalId);
+
+      const c = await meute.carte(candidat.address);
+      assert.equal(c.rang, 0n); // Rang.Louveteau
+      assert.equal(await meute.ownerOf(BigInt(candidat.address)), candidat.address);
+
+      // Une nouvelle candidature depuis la même adresse doit maintenant
+      // échouer : le candidat est devenu membre.
+      await expect(
+        meute.connect(candidat).candidater({ value: COTISATION }),
+      ).to.be.revertedWithCustomError(meute, "DejaMembre");
+    });
+
+    it("1 voix pour sur 3 (minorité) : rembourse la cotisation, aucune carte mintée", async function () {
+      const { meute, candidat, proposalId } = await ouvrirCandidatureEtVoter(1, 2);
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+
+      await expect(meute.executer(proposalId)).to.changeEtherBalance(ethers, candidat, COTISATION);
+
+      const c = await meute.carte(candidat.address);
+      assert.equal(c.derniereActivite, 0n); // aucune carte : struct par défaut
+
+      // Le candidat refusé peut retenter sa chance.
+      await meute.connect(candidat).candidater({ value: COTISATION });
+    });
+
+    it("aucun vote exprimé : rejetée par défaut (pas de quorum, pas de majorité)", async function () {
+      const { meute, candidat, proposalId } = await ouvrirCandidatureEtVoter(0, 0);
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+
+      await expect(meute.executer(proposalId)).to.changeEtherBalance(ethers, candidat, COTISATION);
+    });
+  });
 });
