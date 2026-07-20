@@ -679,4 +679,61 @@ describe("Meute", function () {
       await expect(meute.ownerOf(BigInt(candidat.address))).to.revert(ethers);
     });
   });
+
+  describe("tokenURI (§6, C3)", function () {
+    function decodeDataUri(uri: string): unknown {
+      const prefix = "data:application/json;base64,";
+      assert.equal(uri.startsWith(prefix), true);
+      const json = Buffer.from(uri.slice(prefix.length), "base64").toString("utf8");
+      return JSON.parse(json);
+    }
+
+    it("revert si le token n'existe pas", async function () {
+      const { meute } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(meute.tokenURI(999n)).to.revert(ethers);
+    });
+
+    it("un Loup a des métadonnées cohérentes avec son rang", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      const uri = await meute.tokenURI(BigInt(fondateurs[0].address));
+      const metadata = decodeDataUri(uri) as {
+        name: string;
+        attributes: { trait_type: string; value: string }[];
+        image: string;
+      };
+
+      assert.match(metadata.name, /Loup/);
+      assert.deepEqual(metadata.attributes, [{ trait_type: "Rang", value: "Loup" }]);
+      assert.equal(metadata.image.startsWith("data:image/svg+xml;base64,"), true);
+
+      const svg = Buffer.from(metadata.image.split(",")[1], "base64").toString("utf8");
+      assert.match(svg, /fill="#161311"/);
+      assert.doesNotMatch(svg, /stroke=/);
+    });
+
+    it("un Louveteau a des métadonnées cohérentes avec son rang (contour)", async function () {
+      const { meute, fondateurs, candidat } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await meute.connect(candidat).candidater({ value: COTISATION });
+      await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[1]).voter(0n, ChoixVote.Approuver);
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await meute.executer(0n);
+
+      const uri = await meute.tokenURI(BigInt(candidat.address));
+      const metadata = decodeDataUri(uri) as {
+        name: string;
+        attributes: { trait_type: string; value: string }[];
+        image: string;
+      };
+
+      assert.match(metadata.name, /Louveteau/);
+      assert.deepEqual(metadata.attributes, [{ trait_type: "Rang", value: "Louveteau" }]);
+
+      const svg = Buffer.from(metadata.image.split(",")[1], "base64").toString("utf8");
+      assert.match(svg, /fill="none"/);
+      assert.match(svg, /stroke="#161311"/);
+    });
+  });
 });

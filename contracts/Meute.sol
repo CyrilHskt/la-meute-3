@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /// @title La Meute 3.0 — carte de membre et gouvernance
@@ -17,6 +18,7 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 ///      moment où une carte apparaît sans vote (§9 du cahier des charges).
 contract Meute is ERC721, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.AddressSet;
+    using Strings for address;
 
     // ---------------------------------------------------------------------
     // Types
@@ -398,7 +400,26 @@ contract Meute is ERC721, ReentrancyGuard {
     /// @notice Métadonnées 100% on-chain : JSON + SVG encodés en Base64,
     ///         générés par le contrat, sans dépendance à un serveur ou IPFS (§6).
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
-        // TODO
+        _requireOwned(tokenId);
+
+        address membre = address(uint160(tokenId));
+        Rang rang = _cartes[membre].rang;
+        string memory rangNom = rang == Rang.Loup ? "Loup" : "Louveteau";
+
+        string memory json = string.concat(
+            '{"name":"Carte de Meute - ',
+            rangNom,
+            '","description":"Carte de membre non transferable de La Meute. ',
+            "Detenteur : ",
+            membre.toHexString(),
+            '.","attributes":[{"trait_type":"Rang","value":"',
+            rangNom,
+            '"}],"image":"data:image/svg+xml;base64,',
+            Base64.encode(bytes(_svg(rang))),
+            '"}'
+        );
+
+        return string.concat("data:application/json;base64,", Base64.encode(bytes(json)));
     }
 
     // ---------------------------------------------------------------------
@@ -584,8 +605,31 @@ contract Meute is ERC721, ReentrancyGuard {
         _cartes[membre].derniereActivite = uint40(block.timestamp);
     }
 
-    /// @dev Génère le SVG on-chain correspondant à un rang.
+    /// @dev Génère le SVG on-chain correspondant à un rang : une empreinte
+    ///      de patte (coussinet + 4 doigts + 4 griffes), en contour pour
+    ///      Louveteau et en silhouette pleine pour Loup — même jeu de
+    ///      formes dans les deux cas, seul l'habillage change. Tracé
+    ///      original, dessiné pour ce projet.
     function _svg(Rang rang) private pure returns (string memory) {
-        // TODO
+        string memory habillage = rang == Rang.Loup
+            ? 'fill="#161311"'
+            : 'fill="none" stroke="#161311" stroke-width="10" stroke-linejoin="round"';
+
+        return
+            string.concat(
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><g ',
+                habillage,
+                ">",
+                '<path d="M256 258 L325 330 L350 420 L290 470 L256 452 L222 470 L162 420 L187 330 Z"/>',
+                '<path d="M182 118 L210 86 L244 112 L252 178 L222 228 L176 206 L158 162 Z"/>',
+                '<path d="M330 118 L302 86 L268 112 L260 178 L290 228 L336 206 L354 162 Z"/>',
+                '<path d="M96 214 L132 182 L176 214 L184 292 L150 352 L106 330 L84 270 Z"/>',
+                '<path d="M416 214 L380 182 L336 214 L328 292 L362 352 L406 330 L428 270 Z"/>',
+                '<polygon points="196,58 214,18 230,66"/>',
+                '<polygon points="316,58 298,18 282,66"/>',
+                '<polygon points="82,182 96,144 110,188"/>',
+                '<polygon points="430,182 416,144 402,188"/>',
+                "</g></svg>"
+            );
     }
 }
