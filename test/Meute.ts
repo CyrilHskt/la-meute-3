@@ -364,4 +364,78 @@ describe("Meute", function () {
       assert.equal(await meute.loupsActifs(), 3n);
     });
   });
+
+  describe("proposerDepense (§7.6)", function () {
+    // Une candidature, même non résolue, verse déjà la cotisation au
+    // contrat : suffit à alimenter la trésorerie pour ces tests.
+    async function financerTresorerie() {
+      const fixture = await networkHelpers.loadFixture(deployMeuteFixture);
+      const bailleur = (await ethers.getSigners())[5];
+      await fixture.meute.connect(bailleur).candidater({ value: COTISATION });
+      return fixture;
+    }
+
+    it("revert si l'appelant n'est pas Loup", async function () {
+      const { meute, candidat, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(
+        meute.connect(candidat).proposerDepense(etranger.address, 1n, "test"),
+      ).to.be.revertedWithCustomError(meute, "PasLoup");
+    });
+
+    it("revert si le montant est nul", async function () {
+      const { meute, fondateurs, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(
+        meute.connect(fondateurs[0]).proposerDepense(etranger.address, 0n, "test"),
+      ).to.be.revertedWithCustomError(meute, "MontantInvalide");
+    });
+
+    it("ouvre une proposition de dépense avec le bénéficiaire, le montant et le motif", async function () {
+      const { meute, fondateurs, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      const montant = ethers.parseEther("0.001");
+
+      await expect(meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "serveur de jeu"))
+        .to.emit(meute, "PropositionOuverte")
+        .withArgs(0n, TypeProposition.Depense, etranger.address);
+
+      const prop = await meute.proposition(0n);
+      assert.equal(prop.montant, montant);
+      assert.equal(prop.motif, "serveur de jeu");
+    });
+
+    it("bout en bout : dépense approuvée transfère le montant au bénéficiaire", async function () {
+      const { meute, fondateurs, etranger } = await financerTresorerie();
+      const montant = COTISATION; // couvert par la trésorerie financée ci-dessus
+
+      await meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "serveur de jeu");
+      await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[2]).voter(1n, ChoixVote.Approuver);
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await expect(meute.executer(1n)).to.changeEtherBalance(ethers, etranger, montant);
+    });
+
+    it("bout en bout : dépense rejetée ne transfère rien", async function () {
+      const { meute, fondateurs, etranger } = await financerTresorerie();
+      const montant = COTISATION;
+
+      await meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "serveur de jeu");
+      await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Rejeter);
+      await meute.connect(fondateurs[2]).voter(1n, ChoixVote.Rejeter);
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await expect(meute.executer(1n)).to.changeEtherBalance(ethers, etranger, 0n);
+    });
+
+    it("revert à l'exécution si la trésorerie est insuffisante", async function () {
+      const { meute, fondateurs, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      const montant = ethers.parseEther("1"); // rien dans la trésorerie, aucune candidature versée
+
+      await meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "trop cher");
+      await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[2]).voter(0n, ChoixVote.Approuver);
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await expect(meute.executer(0n)).to.be.revertedWithCustomError(meute, "FondsInsuffisants");
+    });
+  });
 });

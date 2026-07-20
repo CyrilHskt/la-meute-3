@@ -214,12 +214,18 @@ contract Meute is ERC721, ReentrancyGuard {
         _ouvrirProposition(TypeProposition.Exclusion, membre, 0, "");
     }
 
-    /// @notice Ouvre un vote de dépense de trésorerie (§7.6).
+    /// @notice Ouvre un vote de dépense de trésorerie (§7.6). Ouvrable par
+    ///         n'importe quel Loup. Le solde n'est vérifié qu'à l'exécution
+    ///         (FondsInsuffisants) : il peut changer entre l'ouverture et
+    ///         l'exécution si d'autres dépenses sont votées entre-temps.
     /// @param beneficiaire Destinataire du transfert si la dépense est votée.
     /// @param montant Montant en wei à transférer.
     /// @param motif Description de la dépense.
     function proposerDepense(address beneficiaire, uint256 montant, string calldata motif) external {
-        // TODO
+        if (_cartes[msg.sender].rang != Rang.Loup) revert PasLoup();
+        if (montant == 0) revert MontantInvalide();
+
+        _ouvrirProposition(TypeProposition.Depense, beneficiaire, montant, motif);
     }
 
     // ---------------------------------------------------------------------
