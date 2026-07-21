@@ -26,7 +26,7 @@ contract Meute is ERC721, ReentrancyGuard {
     ///         redéploiement. Immuable : le contrat n'étant pas upgradable
     ///         (§9), c'est le seul moyen de savoir, depuis Etherscan ou le
     ///         front, à quel commit une adresse déployée correspond.
-    string public constant VERSION = "0.1.0";
+    string public constant VERSION = "0.2.0";
 
     // ---------------------------------------------------------------------
     // Types
