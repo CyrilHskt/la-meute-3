@@ -2,13 +2,14 @@ import { ref } from "vue";
 import type { Address } from "viem";
 import { useWallet } from "./useWallet";
 
-// Les RPC publics (dont celui utilisé par défaut par viem sur Sepolia)
-// plafonnent la plage `eth_getLogs` à 10 000 blocs par requête. Ce plafond
-// sera dépassé au bout d'environ 33h de vie du contrat (blocs ~12s) — donc
-// pas une hypothèse théorique, un vrai découpage en fenêtres est
-// nécessaire dès maintenant, pas seulement "au cas où". Sans effet sur un
-// nœud local (peu de blocs), juste des fenêtres inutiles mais inoffensives.
-const BLOCK_RANGE = 9_000n;
+// Les RPC publics plafonnent la plage `eth_getLogs` par requête — mais pas
+// tous à la même limite. Constaté en prod (Netlify, RPC public thirdweb
+// utilisé par défaut par viem sur Sepolia) : plafond réel de 1000 blocs,
+// pas les 10 000 supposés au départ (qui passaient en local avec un RPC
+// Alchemy plus permissif). 900 reste sous la limite la plus stricte vue
+// jusqu'ici, avec une marge ; sans effet notable sur un nœud local (peu de
+// blocs), juste des fenêtres inutiles mais inoffensives.
+const BLOCK_RANGE = 900n;
 
 async function getEventsChunked<T>(
   publicClient: { getBlockNumber: () => Promise<bigint> },
