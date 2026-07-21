@@ -372,6 +372,7 @@ function startTour() {
             :compte-a-rebours="compteARebours"
             :date-exacte="dateExacte"
             @candidater="candidater"
+            @refresh-solde="loadSolde"
           />
         </template>
         <template v-else>

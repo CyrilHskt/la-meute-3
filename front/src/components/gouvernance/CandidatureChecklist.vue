@@ -15,7 +15,7 @@ const props = defineProps<{
   dateExacte: (p: Proposal) => string;
 }>();
 
-const emit = defineEmits<{ candidater: [] }>();
+const emit = defineEmits<{ candidater: []; "refresh-solde": [] }>();
 
 const aAssezDeFonds = computed(() => props.balance >= props.cotisation);
 
@@ -47,6 +47,15 @@ const etapeVote = computed<EtatEtape>(() => (props.candidature ? "current" : "to
         <div class="ccl-note">
           {{ formatEther(balance) }} ETH disponibles
           <template v-if="etapeFonds === 'current'">— il en faut au moins {{ formatEther(cotisation) }}</template>
+        </div>
+        <div v-if="etapeFonds === 'current'" class="ccl-action">
+          <a class="btn btn-outline" href="https://www.alchemy.com/faucets/ethereum-sepolia" target="_blank" rel="noopener">
+            Obtenir des ETH de test
+          </a>
+          <button class="ccl-refresh" type="button" title="Vérifier à nouveau mon solde" @click="emit('refresh-solde')">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2v3.5H10" /></svg>
+            Actualiser
+          </button>
         </div>
       </div>
     </div>
@@ -123,7 +132,20 @@ const etapeVote = computed<EtatEtape>(() => (props.candidature ? "current" : "to
 .ccl-step-title { font-weight: 700; font-size: $fs-h4; color: $color-black; }
 .ccl-step--todo .ccl-step-title { color: $color-text-dim; }
 .ccl-note { font-size: $fs-caption; color: $color-text-dim; margin-top: 0.2rem; }
-.ccl-action { margin-top: 0.5rem; }
+.ccl-action { margin-top: 0.5rem; display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; }
+.ccl-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: none;
+  border: none;
+  color: $color-text-dim;
+  font-size: $fs-caption;
+  cursor: pointer;
+  padding: 0;
+
+  &:hover { color: $color-orange-dark; }
+}
 .ccl-countdown {
   display: inline-block;
   margin-top: 0.4rem;
