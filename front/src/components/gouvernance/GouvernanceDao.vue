@@ -157,6 +157,29 @@ const propositionsClotureesNonExecutees = computed(() =>
   proposals.value.filter((p) => !p.executee && Number(p.echeance) <= now.value),
 );
 const propositionsPassees = computed(() => proposals.value.filter((p) => p.executee));
+const propositionsEnCoursToutes = computed(() => [...propositionsClotureesNonExecutees.value, ...propositionsEnCours.value]);
+
+const PAGE_SIZE = 5;
+const pageEncours = ref(1);
+const pagePassees = ref(1);
+
+const totalPagesEncours = computed(() => Math.max(1, Math.ceil(propositionsEnCoursToutes.value.length / PAGE_SIZE)));
+const totalPagesPassees = computed(() => Math.max(1, Math.ceil(propositionsPassees.value.length / PAGE_SIZE)));
+
+// Si la liste rétrécit (nouvelle donnée chargée) et qu'on était sur une
+// page qui n'existe plus, on revient à la dernière page valide plutôt que
+// d'afficher une page vide.
+watch(totalPagesEncours, (max) => { if (pageEncours.value > max) pageEncours.value = max; });
+watch(totalPagesPassees, (max) => { if (pagePassees.value > max) pagePassees.value = max; });
+
+const propositionsEnCoursPage = computed(() => {
+  const start = (pageEncours.value - 1) * PAGE_SIZE;
+  return propositionsEnCoursToutes.value.slice(start, start + PAGE_SIZE);
+});
+const propositionsPasseesPage = computed(() => {
+  const start = (pagePassees.value - 1) * PAGE_SIZE;
+  return propositionsPassees.value.slice(start, start + PAGE_SIZE);
+});
 
 const activeTab = ref<"encours" | "passees">("encours");
 
@@ -391,7 +414,7 @@ function startTour() {
         </div>
 
         <div v-if="activeTab === 'encours'" class="gv-prop-list">
-          <article v-for="p in [...propositionsClotureesNonExecutees, ...propositionsEnCours]" :key="p.id.toString()" class="gv-prop-card">
+          <article v-for="p in propositionsEnCoursPage" :key="p.id.toString()" class="gv-prop-card">
             <div class="gv-prop-head">
               <span class="gv-prop-type">{{ typeLabels[p.typeProp] }}</span>
               <span class="gv-prop-deadline mono" :title="dateExacte(p)">{{ compteARebours(p) }}</span>
@@ -431,13 +454,18 @@ function startTour() {
               </button>
             </div>
           </article>
-          <p v-if="!propositionsEnCours.length && !propositionsClotureesNonExecutees.length" class="gv-card-note">
+          <p v-if="!propositionsEnCoursToutes.length" class="gv-card-note">
             Aucune proposition en cours.
           </p>
+          <nav v-if="totalPagesEncours > 1" class="gv-pagination">
+            <button class="gv-page-btn" :disabled="pageEncours === 1" @click="pageEncours--">Précédent</button>
+            <span class="gv-page-indicator">Page {{ pageEncours }} / {{ totalPagesEncours }}</span>
+            <button class="gv-page-btn" :disabled="pageEncours === totalPagesEncours" @click="pageEncours++">Suivant</button>
+          </nav>
         </div>
 
         <div v-else class="gv-prop-list">
-          <article v-for="p in propositionsPassees" :key="p.id.toString()" class="gv-prop-card">
+          <article v-for="p in propositionsPasseesPage" :key="p.id.toString()" class="gv-prop-card">
             <div class="gv-prop-head">
               <span class="gv-prop-type">{{ typeLabels[p.typeProp] }}</span>
               <span class="gv-prop-deadline mono" :title="dateExacte(p)">clôturé</span>
@@ -460,6 +488,11 @@ function startTour() {
             </div>
           </article>
           <p v-if="!propositionsPassees.length" class="gv-card-note">Aucune proposition passée.</p>
+          <nav v-if="totalPagesPassees > 1" class="gv-pagination">
+            <button class="gv-page-btn" :disabled="pagePassees === 1" @click="pagePassees--">Précédent</button>
+            <span class="gv-page-indicator">Page {{ pagePassees }} / {{ totalPagesPassees }}</span>
+            <button class="gv-page-btn" :disabled="pagePassees === totalPagesPassees" @click="pagePassees++">Suivant</button>
+          </nav>
         </div>
       </main>
     </div>
@@ -658,4 +691,25 @@ function startTour() {
 }
 .gv-quorum-line { text-align: center; font-size: $fs-caption; color: $color-text-dim; margin-bottom: 1rem; }
 .gv-prop-actions { display: flex; justify-content: center; gap: 0.6rem; flex-wrap: wrap; }
+
+.gv-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 0.4rem;
+}
+.gv-page-indicator { font-size: $fs-caption; color: $color-text-dim; }
+.gv-page-btn {
+  background: transparent;
+  border: 1px solid $color-border;
+  border-radius: 3px;
+  padding: 0.4rem 0.9rem;
+  font-size: $fs-caption;
+  color: $color-text;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { border-color: $color-orange; color: $color-orange-dark; }
+  &:disabled { color: #ccc; cursor: not-allowed; }
+}
 </style>
