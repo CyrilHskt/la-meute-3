@@ -20,6 +20,14 @@ contract Meute is ERC721, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.AddressSet;
     using Strings for address;
 
+    /// @notice Version du contrat déployé (semver), indépendante du nom de
+    ///         génération "La Meute 3.0" — celui-ci ne change qu'à la
+    ///         prochaine refonte majeure, cette version-ci à chaque
+    ///         redéploiement. Immuable : le contrat n'étant pas upgradable
+    ///         (§9), c'est le seul moyen de savoir, depuis Etherscan ou le
+    ///         front, à quel commit une adresse déployée correspond.
+    string public constant VERSION = "0.1.0";
+
     // ---------------------------------------------------------------------
     // Types
     // ---------------------------------------------------------------------
@@ -169,7 +177,19 @@ contract Meute is ERC721, ReentrancyGuard {
     // Événements
     // ---------------------------------------------------------------------
 
-    event PropositionOuverte(uint256 indexed proposalId, TypeProposition indexed typeProp, address indexed cible);
+    /// @dev Un event ne peut indexer que 3 paramètres au maximum : `auteur`
+    ///      (nouveau, pour retrouver les propositions ouvertes par une
+    ///      adresse — impossible avant, `cible` ne s'y prête pas puisque
+    ///      pour une exclusion ou une dépense elle désigne la victime/le
+    ///      bénéficiaire, pas l'auteur) prend la place laissée par
+    ///      `typeProp`, qui reste lisible dans le log, juste non filtrable
+    ///      par topic.
+    event PropositionOuverte(
+        uint256 indexed proposalId,
+        address indexed cible,
+        address indexed auteur,
+        TypeProposition typeProp
+    );
     event VoteExprime(uint256 indexed proposalId, address indexed votant);
     event PropositionExecutee(uint256 indexed proposalId);
     event MembreReveille(address indexed membre);
@@ -472,7 +492,11 @@ contract Meute is ERC721, ReentrancyGuard {
             motif: motif
         });
 
-        emit PropositionOuverte(proposalId, typeProp, cible);
+        // msg.sender ici est bien l'appelant externe d'origine (candidater,
+        // ouvrirTitularisation, proposerExclusion ou proposerDepense) :
+        // _ouvrirProposition est un appel interne, pas externe, donc
+        // msg.sender n'est jamais réécrit entre les deux.
+        emit PropositionOuverte(proposalId, cible, msg.sender, typeProp);
     }
 
     /// @dev Majorité simple sur le dénominateur figé : strictement plus de la
