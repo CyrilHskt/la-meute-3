@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { formatEther, parseEther } from "viem";
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 import { useWallet } from "../../composables/useWallet";
 import { useMeute, TypeProposition, ChoixVote, type Proposal } from "../../composables/useMeute";
+import { useEthPrice } from "../../composables/useEthPrice";
+import AddressChip from "./AddressChip.vue";
 
 const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient } = useWallet();
 const { stats, proposals, memberActivity, loading, error, loadAll } = useMeute();
+const { eurPerEth } = useEthPrice();
 
 const txError = ref<string | null>(null);
 const txPending = ref(false);
@@ -101,18 +106,21 @@ const activeTab = ref<"encours" | "passees">("encours");
 
 const typeLabels = ["Admission", "Titularisation", "Exclusion", "Dépense"];
 
-function propositionTitre(p: Proposal): string {
-  const short = `${p.cible.slice(0, 6)}…${p.cible.slice(-4)}`;
+function propositionPrefixe(p: Proposal): string {
   switch (p.typeProp) {
     case TypeProposition.Admission:
-      return `Candidature de ${short}`;
+      return "Candidature de";
     case TypeProposition.Titularisation:
-      return `Titularisation de ${short}`;
+      return "Titularisation de";
     case TypeProposition.Exclusion:
-      return `Exclusion de ${short}`;
+      return "Exclusion de";
     default:
-      return `Dépense pour ${short} — ${formatEther(p.montant)} ETH (${p.motif})`;
+      return "Dépense pour";
   }
+}
+
+function propositionSuffixe(p: Proposal): string {
+  return p.typeProp === TypeProposition.Depense ? `— ${formatEther(p.montant)} ETH (${p.motif})` : "";
 }
 
 function seuil(p: Proposal): number {
@@ -123,12 +131,47 @@ const monActivite = computed(() => {
   if (!address.value) return { votesSoumis: 0, propositionsOuvertes: 0 };
   return memberActivity.value.get(address.value.toLowerCase()) ?? { votesSoumis: 0, propositionsOuvertes: 0 };
 });
+
+function eurTooltip(wei: bigint): string {
+  if (eurPerEth.value === null) return "";
+  const eur = Number(formatEther(wei)) * eurPerEth.value;
+  return `≈ ${eur.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} €`;
+}
+
+// Visite guidée : jamais lancée automatiquement, un tour court par rôle,
+// rejouable à volonté depuis le bouton dédié. Reprend le style et le
+// contenu déjà validés dans la maquette (Artifact), driver.js remplace
+// juste le moteur de positionnement fait main.
+function startTour() {
+  const steps =
+    role.value === "loup"
+      ? [
+          { element: ".gv-card-panel", popover: { title: "Ta carte de Loup", description: "Ton statut, ton ancienneté et ton activité (votes, propositions ouvertes) sont visibles ici." } },
+          { element: ".gv-new-prop-panel", popover: { title: "Ouvrir une proposition", description: "Titularisation, exclusion ou dépense : chaque type de décision a son propre formulaire, ici." } },
+          { element: ".gv-prop-actions", popover: { title: "Voter", description: "Un vote reste ouvert 7 jours. Le seuil affiché s'ajuste automatiquement au nombre de Loups réellement actifs." } },
+        ]
+      : role.value === "louveteau"
+        ? [
+            { element: ".gv-card-panel", popover: { title: "Ta carte de Louveteau", description: "Ton statut et ta contribution sont à jour en direct — c'est la même carte qui deviendra Loup après titularisation." } },
+            { element: ".gv-stat-row", popover: { title: "En période de probation", description: "Tu peux suivre les propositions en cours, mais le droit de vote arrive avec ta titularisation." } },
+          ]
+        : [
+            { element: ".gv-card-panel", popover: { title: "Ton wallet, c'est ta carte", description: "Pas de compte à créer : ton wallet est ton identité ici, du candidat au Loup." } },
+            { element: ".gv-stat-tile:first-child", popover: { title: "Le trésor, en direct", description: "Ce montant vient du solde réel du contrat sur la blockchain — personne ne peut l'afficher faux." } },
+          ];
+
+  driver({ showProgress: true, nextBtnText: "Suivant", prevBtnText: "Précédent", doneBtnText: "Terminer", steps }).drive();
+}
 </script>
 
 <template>
   <section id="gouvernance-dao" class="gv-dao">
+    <div class="gv-tour-bar">
+      <button class="gv-tour-trigger" type="button" @click="startTour">Visite guidée</button>
+    </div>
+
     <div v-if="stats" class="gv-stats-bar">
-      <div class="gv-stat-tile">
+      <div class="gv-stat-tile" :title="eurTooltip(stats.treasuryWei)">
         <div class="value">{{ formatEther(stats.treasuryWei) }} <span class="unit">ETH</span></div>
         <div class="caption">Trésor</div>
       </div>
@@ -176,7 +219,7 @@ const monActivite = computed(() => {
         </template>
         <template v-else>
           <p class="gv-card-title">Ma carte — {{ role === "loup" ? "Loup" : "Louveteau" }}</p>
-          <p class="gv-card-note mono">{{ address }}</p>
+          <p class="gv-card-note"><AddressChip v-if="address" :address="address" short /></p>
           <div class="gv-stat-row">
             <span>Statut</span>
             <span>{{ carte && Math.floor(Date.now() / 1000) - carte.derniereActivite > 365 * 24 * 60 * 60 ? "Dormant" : "Actif" }}</span>
@@ -261,7 +304,9 @@ const monActivite = computed(() => {
                 {{ Number(p.echeance) > now ? "clôture " + new Date(Number(p.echeance) * 1000).toLocaleString("fr-FR") : "clôturé, à exécuter" }}
               </span>
             </div>
-            <p class="gv-prop-title">{{ propositionTitre(p) }}</p>
+            <p class="gv-prop-title">
+              {{ propositionPrefixe(p) }} <AddressChip :address="p.cible" short /> {{ propositionSuffixe(p) }}
+            </p>
             <div class="gv-vote-legend">
               <span>{{ p.votesApprouver }} pour</span>
               <span>{{ p.votesRejeter }} contre</span>
@@ -297,7 +342,9 @@ const monActivite = computed(() => {
               <span class="gv-prop-type">{{ typeLabels[p.typeProp] }}</span>
               <span class="gv-prop-deadline mono">clôturé</span>
             </div>
-            <p class="gv-prop-title">{{ propositionTitre(p) }}</p>
+            <p class="gv-prop-title">
+              {{ propositionPrefixe(p) }} <AddressChip :address="p.cible" short /> {{ propositionSuffixe(p) }}
+            </p>
             <div class="gv-vote-legend">
               <span>{{ p.votesApprouver }} pour</span>
               <span>{{ p.votesRejeter }} contre</span>
@@ -314,6 +361,25 @@ const monActivite = computed(() => {
 <style lang="scss" scoped>
 .mono {
   font-family: $font-mono;
+}
+
+.gv-tour-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.7rem 1.6rem;
+  background: #111;
+}
+
+.gv-tour-trigger {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-size: $fs-caption;
+  cursor: pointer;
+
+  &:hover { border-color: $color-orange; color: $color-orange; }
 }
 
 .gv-loading,
