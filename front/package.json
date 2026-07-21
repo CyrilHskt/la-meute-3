@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "viem": "^2.55.4",
-    "vue": "^3.5.39"
+    "vue": "^3.5.39",
+    "vue-router": "^5.2.0"
   },
   "devDependencies": {
     "@types/node": "^24.13.2",
