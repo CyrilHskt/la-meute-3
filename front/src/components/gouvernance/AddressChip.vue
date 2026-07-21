@@ -21,8 +21,17 @@ async function copy() {
   <span class="addr-chip mono">
     {{ displayed() }}
     <span class="addr-actions">
-      <button class="icon-btn" type="button" :title="copied ? 'Copié !' : 'Copier l\'adresse'" @click="copy">
-        <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4">
+      <button
+        class="icon-btn"
+        :class="{ 'icon-btn--success': copied }"
+        type="button"
+        :title="copied ? 'Copié !' : 'Copier l\'adresse'"
+        @click="copy"
+      >
+        <svg v-if="copied" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M3 8.5 6.5 12 13 4.5" />
+        </svg>
+        <svg v-else viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4">
           <rect x="5" y="5" width="9" height="9" rx="1.5" />
           <path d="M3 11V3a1.5 1.5 0 0 1 1.5-1.5H11" />
         </svg>
@@ -53,6 +62,7 @@ async function copy() {
 
 .addr-actions {
   display: inline-flex;
+  align-items: center;
   gap: 0.15rem;
 }
 
@@ -68,10 +78,17 @@ async function copy() {
   color: $color-text-dim;
   cursor: pointer;
   padding: 0;
+  transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
 
   &:hover {
     color: $color-orange-dark;
     background: rgba(249, 174, 60, 0.12);
+  }
+
+  &--success {
+    color: #2e9e5b;
+    background: rgba(46, 158, 91, 0.12);
+    transform: scale(1.15);
   }
 }
 </style>
