@@ -11,6 +11,13 @@ export const CONTRACT_VERSION = "0.2.0" as const;
 
 export const CONTRACT_ADDRESS = "0xc5279023174a56b076a1C501523B3D362408ecbe" as const;
 
+// Bloc de déploiement (ignition/deployments/chain-11155111/journal.jsonl) :
+// point de départ des requêtes de logs, pour ne jamais interroger depuis le
+// bloc 0 — les RPC publics plafonnent la plage `eth_getLogs` (10 000 blocs
+// sur celui utilisé ici), et le contrat n'a de toute façon aucune activité
+// avant ce bloc.
+export const CONTRACT_DEPLOY_BLOCK = 11319851n;
+
 export const CONTRACT_ABI = [
   {
     "inputs": [
