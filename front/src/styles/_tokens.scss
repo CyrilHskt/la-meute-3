@@ -1,0 +1,42 @@
+// Design tokens partagés par tous les composants Vue.
+// Reprennent les couleurs/polices déjà posées par public/css/theme.css
+// (le v2), pour que la partie Vue (gouvernance) reste visuellement
+// cohérente avec la partie marketing sans dupliquer les valeurs à la main
+// dans chaque composant.
+
+// Couleurs
+$color-orange: #f9ae3c;
+$color-orange-dark: #e0932c;
+$color-black: #1a1a1a;
+$color-text: #333333;
+$color-text-dim: #767676;
+$color-border: #e4e4e4;
+$color-card-bg: #ffffff;
+$color-page-bg: #f9f9f9;
+$color-danger: #d9534f;
+$color-loup: #a84300;
+$color-louveteau: #9159ae;
+
+// Polices — identiques à theme.css (h1-h6 en Montserrat, corps en Open Sans)
+$font-display: "Montserrat", "Helvetica Neue", Helvetica, Arial, sans-serif;
+$font-body: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+$font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+// Échelle typographique — copiée telle quelle des valeurs réellement
+// calculées par theme.css/bootstrap.min.css sur la page d'accueil (pas une
+// approximation) : h2 38px, h3 24px, h4 18px, p 20px (desktop, ≥768px).
+// Toute nouvelle taille de texte doit passer par un de ces tokens plutôt
+// qu'une valeur en dur, pour que gouvernance et accueil restent au même
+// diapason sans copier-coller de pixels.
+//
+// En px, pas en rem : bootstrap.min.css redéfinit `html{font-size:10px}`
+// (son propre système d'échelle interne), donc 1rem = 10px dans toute
+// l'app, pas 16px. La page d'accueil ne le voit jamais parce que theme.css
+// n'utilise que des px en dur — mais un token en rem y serait ~62% trop
+// petit. Px direct = immunisé contre ce piège, quelle que soit la valeur
+// de html{font-size} imposée par Bootstrap.
+$fs-caption: 13px; // légendes, labels, texte secondaire
+$fs-body: 17px; // paragraphes (p, desktop)
+$fs-h4: 16px; // sous-titres de carte
+$fs-card-title: 21px; // h3
+$fs-section-title: 34px; // h2
