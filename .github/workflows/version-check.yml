@@ -1,8 +1,8 @@
 name: Version check
 
-# Ne couvre que les tags contract-vX.Y.Z : le front (front-vA.B.C) a son
-# propre cycle de version, indépendant, et n'a pas de constante on-chain à
-# recouper (cf. .github/workflows/release-front.yml).
+# Only covers contract-vX.Y.Z tags: the front (front-vA.B.C) has its own,
+# independent version track and no on-chain constant to cross-check
+# against (see .github/workflows/release-front.yml).
 on:
   push:
     tags:

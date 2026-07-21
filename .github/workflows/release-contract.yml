@@ -1,15 +1,15 @@
 name: Release contract
 
-# Déclenché à la main depuis l'onglet Actions (jamais automatiquement sur un
-# push) : lit VERSION dans contracts/Meute.sol, l'incrémente, commite et
-# pose un tag contract-vX.Y.Z. Indépendant du versionnage du front — les
-# deux n'évoluent pas au même rythme (cf. CONTRACT_VERSION dans
-# front/src/contract.ts pour le lien de compatibilité réel entre les deux).
+# Manually triggered from the Actions tab (never fires on a push): reads
+# VERSION in contracts/Meute.sol, bumps it, commits, and tags
+# contract-vX.Y.Z. Independent from the front's versioning — the two don't
+# evolve at the same pace (see CONTRACT_VERSION in front/src/contract.ts
+# for the actual compatibility link between them).
 on:
   workflow_dispatch:
     inputs:
       bump:
-        description: "Type d'incrément de version"
+        description: "Version bump type"
         required: true
         default: patch
         type: choice
