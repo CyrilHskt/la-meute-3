@@ -202,6 +202,19 @@ const monActivite = computed(() => {
   return memberActivity.value.get(address.value.toLowerCase()) ?? { votesSoumis: 0, propositionsOuvertes: 0 };
 });
 
+// candidater() ne mint rien tant que le vote n'est pas passé : balanceOf
+// reste à 0 pendant toute la candidature, donc le rôle seul ne distingue
+// pas "visiteur" de "candidat en attente" — il faut croiser avec les
+// propositions déjà chargées pour le savoir.
+const maCandidatureOuverte = computed(() => {
+  if (!address.value) return null;
+  return (
+    proposals.value.find(
+      (p) => p.typeProp === TypeProposition.Admission && !p.executee && p.cible.toLowerCase() === address.value!.toLowerCase(),
+    ) ?? null
+  );
+});
+
 function eurTooltip(wei: bigint): string {
   if (eurPerEth.value === null) return "";
   const eur = Number(formatEther(wei)) * eurPerEth.value;
@@ -278,6 +291,14 @@ function startTour() {
         </template>
         <template v-else-if="wrongNetwork">
           <p class="gv-error">Mauvais réseau — connecte-toi à Sepolia dans MetaMask.</p>
+        </template>
+        <template v-else-if="role === 'visiteur' && maCandidatureOuverte">
+          <p class="gv-card-title">Candidature en cours d'examen</p>
+          <p class="gv-card-note">
+            Ta candidature a été soumise et attend le vote des Loups —
+            <span :title="dateExacte(maCandidatureOuverte)">{{ compteARebours(maCandidatureOuverte) }}</span>.
+            Ta cotisation ({{ formatEther(cotisation) }} ETH) est remboursée si elle est refusée.
+          </p>
         </template>
         <template v-else-if="role === 'visiteur'">
           <p class="gv-card-title">Rejoindre la Meute</p>
