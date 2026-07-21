@@ -1,0 +1,70 @@
+name: Release
+
+# Déclenché à la main depuis l'onglet Actions (jamais automatiquement sur un
+# push) : lit la version actuelle dans contracts/Meute.sol, l'incrémente,
+# la répercute dans front/package.json, commite et pose le tag — pour que
+# contrat et front restent toujours d'accord sur le numéro de version,
+# sans dépendre de le faire correctement à la main.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Type d'incrément de version"
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Compute new version
+        id: version
+        run: |
+          CURRENT=$(grep -oP 'string public constant VERSION = "\K[^"]+' contracts/Meute.sol)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          case "${{ inputs.bump }}" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+          NEW="$MAJOR.$MINOR.$PATCH"
+          echo "Current version: $CURRENT"
+          echo "New version:     $NEW"
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+
+      - name: Bump contract VERSION
+        run: |
+          sed -i "s/string public constant VERSION = \"${{ steps.version.outputs.current }}\";/string public constant VERSION = \"${{ steps.version.outputs.new }}\";/" contracts/Meute.sol
+
+      - name: Bump front package.json
+        run: |
+          node -e "
+            const fs = require('fs');
+            const path = 'front/package.json';
+            const pkg = JSON.parse(fs.readFileSync(path, 'utf8'));
+            pkg.version = '${{ steps.version.outputs.new }}';
+            fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+      - name: Commit and tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add contracts/Meute.sol front/package.json
+          git commit -m "Bump version to v${{ steps.version.outputs.new }}"
+          git tag -a "v${{ steps.version.outputs.new }}" -m "v${{ steps.version.outputs.new }}"
+          git push origin main
+          git push origin "v${{ steps.version.outputs.new }}"
