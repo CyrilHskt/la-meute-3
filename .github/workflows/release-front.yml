@@ -1,0 +1,64 @@
+name: Release front
+
+# Manually triggered from the Actions tab (never fires on a push): reads
+# the version in front/package.json, bumps it, commits, and tags
+# front-vA.B.C. Independent from the contract's versioning — a CSS or
+# wording change has no reason to bump the contract version.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump type"
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Compute new version
+        id: version
+        run: |
+          CURRENT=$(node -p "require('./front/package.json').version")
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          case "${{ inputs.bump }}" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+          NEW="$MAJOR.$MINOR.$PATCH"
+          echo "Current version: $CURRENT"
+          echo "New version:     $NEW"
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+
+      - name: Bump front package.json
+        run: |
+          node -e "
+            const fs = require('fs');
+            const path = 'front/package.json';
+            const pkg = JSON.parse(fs.readFileSync(path, 'utf8'));
+            pkg.version = '${{ steps.version.outputs.new }}';
+            fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+      - name: Commit and tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add front/package.json
+          git commit -m "Bump front version to v${{ steps.version.outputs.new }}"
+          git tag -a "front-v${{ steps.version.outputs.new }}" -m "front-v${{ steps.version.outputs.new }}"
+          git push origin main
+          git push origin "front-v${{ steps.version.outputs.new }}"

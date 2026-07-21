@@ -1,9 +1,12 @@
 name: Version check
 
+# Only covers contract-vX.Y.Z tags: the front (front-vA.B.C) has its own,
+# independent version track and no on-chain constant to cross-check
+# against (see .github/workflows/release-front.yml).
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "contract-v*.*.*"
 
 jobs:
   check:
@@ -13,7 +16,7 @@ jobs:
 
       - name: Compare tag to on-chain VERSION constant
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          TAG_VERSION="${GITHUB_REF_NAME#contract-v}"
           CONTRACT_VERSION=$(grep -oP 'string public constant VERSION = "\K[^"]+' contracts/Meute.sol)
 
           echo "Tag:      $GITHUB_REF_NAME (version $TAG_VERSION)"

@@ -1,0 +1,60 @@
+name: Release contract
+
+# Manually triggered from the Actions tab (never fires on a push): reads
+# VERSION in contracts/Meute.sol, bumps it, commits, and tags
+# contract-vX.Y.Z. Independent from the front's versioning — the two don't
+# evolve at the same pace (see CONTRACT_VERSION in front/src/contract.ts
+# for the actual compatibility link between them).
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump type"
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Compute new version
+        id: version
+        run: |
+          CURRENT=$(grep -oP 'string public constant VERSION = "\K[^"]+' contracts/Meute.sol)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          case "${{ inputs.bump }}" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+          NEW="$MAJOR.$MINOR.$PATCH"
+          echo "Current version: $CURRENT"
+          echo "New version:     $NEW"
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+
+      - name: Bump contract VERSION
+        run: |
+          sed -i "s/string public constant VERSION = \"${{ steps.version.outputs.current }}\";/string public constant VERSION = \"${{ steps.version.outputs.new }}\";/" contracts/Meute.sol
+
+      - name: Commit and tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add contracts/Meute.sol
+          git commit -m "Bump contract version to v${{ steps.version.outputs.new }}"
+          git tag -a "contract-v${{ steps.version.outputs.new }}" -m "contract-v${{ steps.version.outputs.new }}"
+          git push origin main
+          git push origin "contract-v${{ steps.version.outputs.new }}"

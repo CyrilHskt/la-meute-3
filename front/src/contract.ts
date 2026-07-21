@@ -1,6 +1,13 @@
 // Adresse et ABI copiées depuis artifacts/contracts/Meute.sol/Meute.json
 // après compilation (`npx hardhat compile` à la racine du dépôt).
 // À régénérer manuellement si le contrat change.
+//
+// Le front et le contrat ont chacun leur propre version (tags séparés
+// contract-vX.Y.Z / front-vA.B.C, cf. .github/workflows/) : rien n'oblige
+// leurs numéros à matcher. Le vrai lien de compatibilité, c'est cette
+// constante : elle documente quelle version du contrat ce build du front
+// cible réellement, à mettre à jour à chaque redéploiement.
+export const CONTRACT_VERSION = "0.1.0" as const;
 
 export const CONTRACT_ADDRESS = "0x436b3D5fdaa17ED68d3B04b91F735905e83BAB8D" as const;
 
