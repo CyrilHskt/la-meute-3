@@ -19,6 +19,7 @@ const deployBlock = isLocal ? 0n : CONTRACT_DEPLOY_BLOCK;
 
 const address = ref<Address | null>(null);
 const wrongNetwork = ref(false);
+const noWalletDetected = ref(false);
 
 // Lecture seule : ne nécessite aucun wallet, fonctionne même pour un
 // visiteur sans MetaMask installé — RPC public de la chaîne, pas de clé
@@ -36,9 +37,10 @@ function getInjected() {
 async function connect() {
   const injected = getInjected();
   if (!injected) {
-    alert("Aucun wallet détecté. Installe MetaMask (ou équivalent) pour continuer.");
+    noWalletDetected.value = true;
     return;
   }
+  noWalletDetected.value = false;
   attachWalletListeners();
 
   const walletClient = createWalletClient({
@@ -94,5 +96,15 @@ function writableContract() {
 }
 
 export function useWallet() {
-  return { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient, contractAddress, deployBlock };
+  return {
+    address,
+    wrongNetwork,
+    noWalletDetected,
+    connect,
+    readOnlyContract,
+    writableContract,
+    publicClient,
+    contractAddress,
+    deployBlock,
+  };
 }

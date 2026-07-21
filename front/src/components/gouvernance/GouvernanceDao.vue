@@ -8,6 +8,8 @@ import { useMeute, TypeProposition, ChoixVote, type Proposal } from "../../compo
 import { useEthPrice } from "../../composables/useEthPrice";
 import { friendlyContractError } from "../../composables/contractErrors";
 import AddressChip from "./AddressChip.vue";
+import CandidatureChecklist from "./CandidatureChecklist.vue";
+import WalletInstallModal from "./WalletInstallModal.vue";
 
 const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient } = useWallet();
 const { stats, proposals, memberActivity, loading, error, loadAll } = useMeute();
@@ -39,6 +41,17 @@ async function loadPseudo() {
   monPseudo.value = (await readOnlyContract().read.pseudo([address.value])) as string;
 }
 
+// Pour la checklist candidat (étape "avoir des ETH Sepolia") — le solde du
+// wallet, pas celui du contrat.
+const monSolde = ref(0n);
+async function loadSolde() {
+  if (!address.value) {
+    monSolde.value = 0n;
+    return;
+  }
+  monSolde.value = await publicClient.getBalance({ address: address.value });
+}
+
 function startEditPseudo() {
   pseudoInput.value = monPseudo.value;
   editingPseudo.value = true;
@@ -67,6 +80,7 @@ onMounted(async () => {
 watch(address, () => {
   refreshMembership();
   loadPseudo();
+  loadSolde();
 });
 
 // L'image de la carte n'est jamais recréée côté front : on lit tokenURI()
@@ -105,7 +119,7 @@ async function onConnect() {
   txError.value = null;
   try {
     await connect();
-    await Promise.all([refreshMembership(), loadPseudo()]);
+    await Promise.all([refreshMembership(), loadPseudo(), loadSolde()]);
   } catch (e) {
     txError.value = friendlyContractError(e);
   }
@@ -125,7 +139,7 @@ async function runTx(
     await simulateFn();
     const hash = await writeFn();
     await publicClient.waitForTransactionReceipt({ hash });
-    await Promise.all([loadAll(), refreshMembership(), loadPseudo()]);
+    await Promise.all([loadAll(), refreshMembership(), loadPseudo(), loadSolde()]);
     now.value = Number((await publicClient.getBlock()).timestamp);
   } catch (e) {
     txError.value = friendlyContractError(e);
@@ -303,6 +317,7 @@ function startTour() {
 
 <template>
   <section id="gouvernance-dao" class="gv-dao">
+    <WalletInstallModal />
     <div class="gv-tour-bar">
       <button class="gv-tour-trigger" type="button" @click="startTour">Visite guidée</button>
     </div>
@@ -346,21 +361,18 @@ function startTour() {
         <template v-else-if="wrongNetwork">
           <p class="gv-error">Mauvais réseau — connecte-toi à Sepolia dans MetaMask.</p>
         </template>
-        <template v-else-if="role === 'visiteur' && maCandidatureOuverte">
-          <p class="gv-card-title">Candidature en cours d'examen</p>
-          <p class="gv-card-note">
-            Ta candidature a été soumise et attend le vote des Loups —
-            <span :title="dateExacte(maCandidatureOuverte)">{{ compteARebours(maCandidatureOuverte) }}</span>.
-            Ta cotisation ({{ formatEther(cotisation) }} ETH) est remboursée si elle est refusée.
-          </p>
-        </template>
         <template v-else-if="role === 'visiteur'">
-          <p class="gv-card-title">Rejoindre la Meute</p>
-          <p class="gv-card-note">
-            Aucune carte associée à cette adresse. Ta cotisation
-            ({{ formatEther(cotisation) }} ETH) est remboursée si ta candidature est refusée.
-          </p>
-          <button class="btn btn-primary" :disabled="txPending" @click="candidater">Candidater</button>
+          <CandidatureChecklist
+            :address="address!"
+            :balance="monSolde"
+            :cotisation="cotisation"
+            :candidature="maCandidatureOuverte"
+            :now="now"
+            :tx-pending="txPending"
+            :compte-a-rebours="compteARebours"
+            :date-exacte="dateExacte"
+            @candidater="candidater"
+          />
         </template>
         <template v-else>
           <div class="gv-badge-frame" :class="`gv-badge-frame--${role}`">
