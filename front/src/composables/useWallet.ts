@@ -29,12 +29,17 @@ const publicClient = createPublicClient({
   transport: http(),
 });
 
+function getInjected() {
+  return (window as unknown as { ethereum?: Record<string, unknown> }).ethereum;
+}
+
 async function connect() {
-  const injected = (window as unknown as { ethereum?: unknown }).ethereum;
+  const injected = getInjected();
   if (!injected) {
     alert("Aucun wallet détecté. Installe MetaMask (ou équivalent) pour continuer.");
     return;
   }
+  attachWalletListeners();
 
   const walletClient = createWalletClient({
     chain,
@@ -47,6 +52,29 @@ async function connect() {
   address.value = account;
   wrongNetwork.value = chainId !== chain.id;
 }
+
+// Sans ça, changer de compte ou de réseau *après* le clic sur "Connecter"
+// laisse le front bloqué sur son ancien état (ex: "mauvais réseau" qui ne
+// se corrige jamais tout seul) — MetaMask ne recharge pas la page pour
+// nous, il faut écouter ses événements explicitement.
+let listenersAttached = false;
+function attachWalletListeners() {
+  if (listenersAttached) return;
+  const injected = getInjected() as { on?: (event: string, cb: (...args: unknown[]) => void) => void } | undefined;
+  if (!injected?.on) return;
+  listenersAttached = true;
+
+  injected.on("accountsChanged", (...args: unknown[]) => {
+    const accounts = args[0] as string[];
+    address.value = accounts.length > 0 ? (accounts[0] as Address) : null;
+  });
+
+  injected.on("chainChanged", (...args: unknown[]) => {
+    const chainIdHex = args[0] as string;
+    wrongNetwork.value = parseInt(chainIdHex, 16) !== chain.id;
+  });
+}
+attachWalletListeners();
 
 /** Contrat en lecture seule (view) : fonctionne sans wallet connecté. */
 function readOnlyContract() {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { formatEther, parseEther } from "viem";
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
@@ -23,6 +23,13 @@ const cardImage = ref<string | null>(null);
 onMounted(async () => {
   await loadAll();
   cotisation.value = (await readOnlyContract().read.cotisation()) as bigint;
+});
+
+// Se resynchronise tout seul si l'adresse change depuis MetaMask (switch de
+// compte) sans que l'utilisateur reclique sur "Connecter mon wallet" — la
+// route par défaut avant, qui laissait l'ancien état affiché indéfiniment.
+watch(address, () => {
+  refreshMembership();
 });
 
 // L'image de la carte n'est jamais recréée côté front : on lit tokenURI()
