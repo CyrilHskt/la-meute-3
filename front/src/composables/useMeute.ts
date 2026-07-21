@@ -1,22 +1,23 @@
 import { ref } from "vue";
 import type { Address } from "viem";
 import { useWallet } from "./useWallet";
-import { CONTRACT_ADDRESS, CONTRACT_DEPLOY_BLOCK } from "../contract";
 
 // Les RPC publics (dont celui utilisé par défaut par viem sur Sepolia)
 // plafonnent la plage `eth_getLogs` à 10 000 blocs par requête. Ce plafond
 // sera dépassé au bout d'environ 33h de vie du contrat (blocs ~12s) — donc
 // pas une hypothèse théorique, un vrai découpage en fenêtres est
-// nécessaire dès maintenant, pas seulement "au cas où".
+// nécessaire dès maintenant, pas seulement "au cas où". Sans effet sur un
+// nœud local (peu de blocs), juste des fenêtres inutiles mais inoffensives.
 const BLOCK_RANGE = 9_000n;
 
 async function getEventsChunked<T>(
   publicClient: { getBlockNumber: () => Promise<bigint> },
+  deployBlock: bigint,
   fetchWindow: (fromBlock: bigint, toBlock: bigint) => Promise<T[]>,
 ): Promise<T[]> {
   const latest = await publicClient.getBlockNumber();
   const windows: Promise<T[]>[] = [];
-  for (let from = CONTRACT_DEPLOY_BLOCK; from <= latest; from += BLOCK_RANGE + 1n) {
+  for (let from = deployBlock; from <= latest; from += BLOCK_RANGE + 1n) {
     const to = from + BLOCK_RANGE > latest ? latest : from + BLOCK_RANGE;
     windows.push(fetchWindow(from, to));
   }
@@ -65,7 +66,7 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 
 export function useMeute() {
-  const { readOnlyContract, publicClient } = useWallet();
+  const { readOnlyContract, publicClient, contractAddress, deployBlock } = useWallet();
 
   async function loadAll() {
     loading.value = true;
@@ -76,21 +77,21 @@ export function useMeute() {
 
       const [treasuryWei, loupsActifsCount, openedLogs, voteLogs, executedLogs, mintLogs, burnLogs] =
         await Promise.all([
-          publicClient.getBalance({ address: CONTRACT_ADDRESS }),
+          publicClient.getBalance({ address: contractAddress }),
           contract.read.loupsActifs() as Promise<bigint>,
-          getEventsChunked(publicClient, (fromBlock, toBlock) =>
+          getEventsChunked(publicClient, deployBlock, (fromBlock, toBlock) =>
             contract.getEvents.PropositionOuverte({}, { fromBlock, toBlock }),
           ),
-          getEventsChunked(publicClient, (fromBlock, toBlock) =>
+          getEventsChunked(publicClient, deployBlock, (fromBlock, toBlock) =>
             contract.getEvents.VoteExprime({}, { fromBlock, toBlock }),
           ),
-          getEventsChunked(publicClient, (fromBlock, toBlock) =>
+          getEventsChunked(publicClient, deployBlock, (fromBlock, toBlock) =>
             contract.getEvents.PropositionExecutee({}, { fromBlock, toBlock }),
           ),
-          getEventsChunked(publicClient, (fromBlock, toBlock) =>
+          getEventsChunked(publicClient, deployBlock, (fromBlock, toBlock) =>
             contract.getEvents.Transfer({ from: ZERO_ADDRESS }, { fromBlock, toBlock }),
           ),
-          getEventsChunked(publicClient, (fromBlock, toBlock) =>
+          getEventsChunked(publicClient, deployBlock, (fromBlock, toBlock) =>
             contract.getEvents.Transfer({ to: ZERO_ADDRESS }, { fromBlock, toBlock }),
           ),
         ]);

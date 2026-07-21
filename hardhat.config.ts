@@ -29,6 +29,15 @@ export default defineConfig({
       type: "edr-simulated",
       chainType: "op",
     },
+    // Nœud JSON-RPC autonome (`npx hardhat node`), pour tester le front en
+    // conditions de vote réelles (avance de temps) sans attendre les 7
+    // jours/90 jours réels que Sepolia impose. Pas d'`accounts` : le nœud
+    // expose déjà ses propres comptes de test préfinancés.
+    localhost: {
+      type: "http",
+      chainType: "l1",
+      url: "http://127.0.0.1:8545",
+    },
     sepolia: {
       type: "http",
       chainType: "l1",

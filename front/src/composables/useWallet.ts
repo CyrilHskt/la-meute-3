@@ -1,7 +1,21 @@
 import { ref } from "vue";
-import { createPublicClient, createWalletClient, custom, http, getContract, type Address } from "viem";
-import { sepolia } from "viem/chains";
-import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../contract";
+import { createPublicClient, createWalletClient, custom, http, getContract, type Address, type Chain } from "viem";
+import { sepolia, hardhat } from "viem/chains";
+import { CONTRACT_ADDRESS, CONTRACT_ABI, CONTRACT_DEPLOY_BLOCK } from "../contract";
+
+// Réseau ciblé : Sepolia par défaut (le déploiement réel et committé), ou
+// le nœud Hardhat local pour tester tout le cycle en quelques secondes
+// (avance de temps via networkHelpers) plutôt qu'en jours réels. Se
+// configure via front/.env.local (jamais committé, cf. *.local dans
+// .gitignore) — ne touche jamais contract.ts, qui reste la source de
+// vérité du déploiement Sepolia.
+const isLocal = import.meta.env.VITE_CHAIN === "local";
+const chain: Chain = isLocal ? hardhat : sepolia;
+const contractAddress = (import.meta.env.VITE_CONTRACT_ADDRESS as Address | undefined) ?? CONTRACT_ADDRESS;
+// Un nœud Hardhat local repart toujours du bloc 0 : le bloc de déploiement
+// Sepolia (~11M) n'a aucun sens là-dessus et ferait chercher des
+// événements depuis un bloc qui n'existe pas encore sur cette chaîne.
+const deployBlock = isLocal ? 0n : CONTRACT_DEPLOY_BLOCK;
 
 const address = ref<Address | null>(null);
 const wrongNetwork = ref(false);
@@ -11,7 +25,7 @@ const wrongNetwork = ref(false);
 // nécessaire pour lire. Ne pas utiliser `custom(window.ethereum)` ici :
 // ça exigerait un wallet juste pour afficher des stats publiques.
 const publicClient = createPublicClient({
-  chain: sepolia,
+  chain,
   transport: http(),
 });
 
@@ -23,7 +37,7 @@ async function connect() {
   }
 
   const walletClient = createWalletClient({
-    chain: sepolia,
+    chain,
     transport: custom(injected as Parameters<typeof custom>[0]),
   });
 
@@ -31,12 +45,12 @@ async function connect() {
   const chainId = await walletClient.getChainId();
 
   address.value = account;
-  wrongNetwork.value = chainId !== sepolia.id;
+  wrongNetwork.value = chainId !== chain.id;
 }
 
 /** Contrat en lecture seule (view) : fonctionne sans wallet connecté. */
 function readOnlyContract() {
-  return getContract({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI, client: publicClient });
+  return getContract({ address: contractAddress, abi: CONTRACT_ABI, client: publicClient });
 }
 
 /** Contrat signé : nécessite un wallet connecté, pour les fonctions qui écrivent. */
@@ -45,12 +59,12 @@ function writableContract() {
   const injected = (window as unknown as { ethereum: unknown }).ethereum;
   const walletClient = createWalletClient({
     account: address.value,
-    chain: sepolia,
+    chain,
     transport: custom(injected as Parameters<typeof custom>[0]),
   });
-  return getContract({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI, client: walletClient });
+  return getContract({ address: contractAddress, abi: CONTRACT_ABI, client: walletClient });
 }
 
 export function useWallet() {
-  return { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient };
+  return { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient, contractAddress, deployBlock };
 }
