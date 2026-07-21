@@ -17,12 +17,14 @@
 //   Account #8        -> Loup rendu dormant
 //   Account #9        -> Loup actif
 //   Account #10       -> Loup actif
-//   Account #11, #12, #13 -> admis puis démissionnaires, gonflent juste le trésor
+//   Account #11       -> Banni (admis puis exclu par vote — carte brûlée,
+//                        distinct d'une démission volontaire)
+//   Account #12, #13, #14 -> admis puis démissionnaires, gonflent juste le trésor
 //   (le fondateur du module Ignition, une adresse à part, reste Loup actif)
 //
 // État final : 4 Loups actifs (fondateur + #0, #9, #10), 3 Loups dormants
-// (#3, #7, #8), 2 Louveteaux (#1, #6), 1 candidature en cours (#2), trésor
-// > 0, une dépense laissée ouverte.
+// (#3, #7, #8), 2 Louveteaux (#1, #6), 1 candidature en cours (#2), 1 banni
+// (#11), trésor > 0, une dépense laissée ouverte.
 //
 // Prérequis : `npx hardhat node` dans un terminal, puis
 //   npx hardhat ignition deploy ignition/modules/Meute.ts --network localhost
@@ -133,7 +135,7 @@ async function main() {
   const founderSigner = new ethers.JsonRpcSigner(provider, ethers.getAddress(FOUNDER));
 
   const nodeAccounts = await provider.send("eth_accounts", []);
-  if (nodeAccounts.length < 14) throw new Error("Pas assez de comptes de test sur le nœud (besoin d'au moins 14).");
+  if (nodeAccounts.length < 15) throw new Error("Pas assez de comptes de test sur le nœud (besoin d'au moins 15).");
 
   const acc = (n) => nodeAccounts[n];
   const loup0 = acc(0);
@@ -146,7 +148,8 @@ async function main() {
   const dormant8 = acc(8);
   const loup9 = acc(9);
   const loup10 = acc(10);
-  const boosters = [acc(11), acc(12), acc(13)];
+  const banni11 = acc(11);
+  const boosters = [acc(12), acc(13), acc(14)];
 
   const usedAccounts = [
     loup0,
@@ -158,6 +161,7 @@ async function main() {
     dormant8,
     loup9,
     loup10,
+    banni11,
     ...boosters,
   ];
   const signers = new Map();
@@ -184,21 +188,22 @@ async function main() {
   console.log(`Account #8  (Loup dormant): ${dormant8}`);
   console.log(`Account #9  (Loup actif)  : ${loup9}`);
   console.log(`Account #10 (Loup actif)  : ${loup10}`);
+  console.log(`Account #11 (Banni)       : ${banni11}`);
   console.log("");
 
-  console.log("1/7 — Account #0 rejoint la meute...");
+  console.log("1/8 — Account #0 rejoint la meute...");
   await devenirLoup(contracts, loup0, [FOUNDER]);
 
-  console.log("2/7 — Account #3 rejoint la meute (deviendra dormant)...");
+  console.log("2/8 — Account #3 rejoint la meute (deviendra dormant)...");
   await devenirLoup(contracts, dormant3, [FOUNDER, loup0]);
 
-  console.log("3/7 — Account #7 rejoint la meute (deviendra dormant)...");
+  console.log("3/8 — Account #7 rejoint la meute (deviendra dormant)...");
   await devenirLoup(contracts, dormant7, [FOUNDER, loup0, dormant3]);
 
-  console.log("4/7 — Account #8 rejoint la meute (deviendra dormant)...");
+  console.log("4/8 — Account #8 rejoint la meute (deviendra dormant)...");
   await devenirLoup(contracts, dormant8, [FOUNDER, loup0, dormant3, dormant7]);
 
-  console.log("5/7 — Account #9 et #10 rejoignent la meute...");
+  console.log("5/8 — Account #9 et #10 rejoignent la meute...");
   await devenirLoup(contracts, loup9, [FOUNDER, loup0, dormant3, dormant7, dormant8]);
   await devenirLoup(contracts, loup10, [FOUNDER, loup0, dormant3, dormant7, dormant8, loup9]);
 
@@ -208,11 +213,20 @@ async function main() {
   // fois, plutôt qu'un sous-ensemble fixe qui suffisait au début.
   const tousLesLoups = [FOUNDER, loup0, dormant3, dormant7, dormant8, loup9, loup10];
 
-  console.log("6/7 — Account #1 et #6 candidatent et restent en probation (jamais titularisés)...");
+  console.log("6/8 — Account #1 et #6 candidatent et restent en probation (jamais titularisés)...");
   await devenirLouveteau(contracts, louveteau1, tousLesLoups);
   await devenirLouveteau(contracts, louveteau6, tousLesLoups);
 
-  console.log("7/7 — Trésor : 3 candidats admis puis démissionnaires (cotisation non remboursée)...");
+  console.log("7/8 — Account #11 rejoint la meute puis est exclu par vote (banni, pas démissionnaire)...");
+  await devenirLouveteau(contracts, banni11, tousLesLoups);
+  {
+    const idExclusion = await ouvrirEtRecupererId(asFounder, asFounder.proposerExclusion(banni11));
+    for (const v of tousLesLoups) await (await contracts.get(v).voter(idExclusion, ChoixVote.Approuver)).wait();
+    await advanceTime(provider, 7 * JOUR + 1);
+    await (await asFounder.executer(idExclusion)).wait();
+  }
+
+  console.log("8/8 — Trésor : 3 candidats admis puis démissionnaires (cotisation non remboursée)...");
   for (const boosterAddr of boosters) {
     const c = contracts.get(boosterAddr);
     const id = await ouvrirEtRecupererId(c, c.candidater({ value: contracts.cotisation }));
@@ -247,6 +261,7 @@ async function main() {
   console.log(`  Account #8  (Loup dormant): ${dormant8}`);
   console.log(`  Account #9  (Loup actif)  : ${loup9}`);
   console.log(`  Account #10 (Loup actif)  : ${loup10}`);
+  console.log(`  Account #11 (Banni)       : ${banni11}`);
 }
 
 main().catch((e) => {
