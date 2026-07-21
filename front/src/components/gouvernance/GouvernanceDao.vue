@@ -571,6 +571,10 @@ function startTour() {
   padding: 2.4rem 1.6rem 4rem;
   display: grid;
   grid-template-columns: 300px 1fr;
+  // Sans ça, le panneau de carte s'étire par défaut sur toute la hauteur
+  // de la colonne des propositions (comportement grid par défaut) — un
+  // rectangle vide géant dès que son contenu est court (visiteur/candidat).
+  align-items: start;
   gap: 1.8rem;
 }
 @media (max-width: 820px) { .gv-layout { grid-template-columns: 1fr; } }
