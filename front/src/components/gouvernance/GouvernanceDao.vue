@@ -18,11 +18,28 @@ const txPending = ref(false);
 const role = ref<"visiteur" | "louveteau" | "loup">("visiteur");
 const carte = ref<{ rang: number; derniereActivite: number; ajournements: number } | null>(null);
 const cotisation = ref<bigint>(0n);
+const cardImage = ref<string | null>(null);
 
 onMounted(async () => {
   await loadAll();
   cotisation.value = (await readOnlyContract().read.cotisation()) as bigint;
 });
+
+// L'image de la carte n'est jamais recréée côté front : on lit tokenURI()
+// tel quel et on affiche l'image qu'il contient. Si _svg() change dans le
+// contrat, cette image change avec lui, sans rien à retoucher ici — pas de
+// dessin dupliqué qui pourrait diverger silencieusement du vrai token.
+async function loadCardImage() {
+  if (!address.value) {
+    cardImage.value = null;
+    return;
+  }
+  const contract = readOnlyContract();
+  const tokenId = BigInt(address.value);
+  const tokenUri = (await contract.read.tokenURI([tokenId])) as string;
+  const json = JSON.parse(atob(tokenUri.replace("data:application/json;base64,", ""))) as { image: string };
+  cardImage.value = json.image;
+}
 
 async function refreshMembership() {
   if (!address.value) return;
@@ -31,11 +48,13 @@ async function refreshMembership() {
   if (balance === 0n) {
     role.value = "visiteur";
     carte.value = null;
+    cardImage.value = null;
     return;
   }
   const c = (await contract.read.carte([address.value])) as { rang: number; derniereActivite: number; ajournements: number };
   carte.value = c;
   role.value = c.rang === 1 ? "loup" : "louveteau";
+  await loadCardImage();
 }
 
 async function onConnect() {
@@ -218,8 +237,11 @@ function startTour() {
           <button class="btn btn-primary" :disabled="txPending" @click="candidater">Candidater</button>
         </template>
         <template v-else>
-          <p class="gv-card-title">Ma carte — {{ role === "loup" ? "Loup" : "Louveteau" }}</p>
-          <p class="gv-card-note"><AddressChip v-if="address" :address="address" short /></p>
+          <div class="gv-badge-frame" :class="`gv-badge-frame--${role}`">
+            <img v-if="cardImage" :src="cardImage" alt="Illustration de la carte de membre" />
+          </div>
+          <p class="gv-card-title" style="text-align: center">Ma carte — {{ role === "loup" ? "Loup" : "Louveteau" }}</p>
+          <p class="gv-card-note" style="text-align: center"><AddressChip v-if="address" :address="address" short /></p>
           <div class="gv-stat-row">
             <span>Statut</span>
             <span>{{ carte && Math.floor(Date.now() / 1000) - carte.derniereActivite > 365 * 24 * 60 * 60 ? "Dormant" : "Actif" }}</span>
@@ -450,6 +472,26 @@ function startTour() {
   letter-spacing: 1px;
   font-size: $fs-h4;
   margin: 0 0 1rem;
+}
+
+.gv-badge-frame {
+  width: 110px;
+  height: 110px;
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  img {
+    width: 68px;
+    height: 68px;
+  }
+
+  &--loup { border-color: $color-loup; }
+  &--louveteau { border-color: $color-louveteau; }
 }
 
 .gv-stat-row {
