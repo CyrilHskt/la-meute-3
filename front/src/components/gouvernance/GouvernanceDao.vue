@@ -370,7 +370,9 @@ function startTour() {
               <span>{{ p.votesApprouver }} pour</span>
               <span>{{ p.votesRejeter }} contre</span>
               <span v-if="p.typeProp === TypeProposition.Titularisation">{{ p.votesAjourner }} ajourner</span>
-              <span>seuil : {{ seuil(p) }} / {{ p.snapshotActifs }} actifs</span>
+              <span title="Majorité absolue des Loups actifs au moment de l'ouverture du vote">
+                {{ seuil(p) }} votes « pour » requis (sur {{ p.snapshotActifs }} Loups actifs)
+              </span>
             </div>
             <div class="gv-prop-actions">
               <template v-if="role === 'loup' && Number(p.echeance) > now">
@@ -407,7 +409,9 @@ function startTour() {
             <div class="gv-vote-legend">
               <span>{{ p.votesApprouver }} pour</span>
               <span>{{ p.votesRejeter }} contre</span>
-              <span>seuil : {{ seuil(p) }} / {{ p.snapshotActifs }} actifs</span>
+              <span title="Majorité absolue des Loups actifs au moment de l'ouverture du vote">
+                {{ seuil(p) }} votes « pour » requis (sur {{ p.snapshotActifs }} Loups actifs)
+              </span>
             </div>
           </article>
           <p v-if="!propositionsPassees.length" class="gv-card-note">Aucune proposition passée.</p>
