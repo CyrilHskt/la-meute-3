@@ -183,6 +183,20 @@ function seuil(p: Proposal): number {
   return Math.floor(p.snapshotActifs / 2) + 1;
 }
 
+function dateExacte(p: Proposal): string {
+  return new Date(Number(p.echeance) * 1000).toLocaleString("fr-FR");
+}
+
+function compteARebours(p: Proposal): string {
+  const diff = Number(p.echeance) - now.value;
+  if (diff <= 0) return "clôturé, à exécuter";
+  const jours = Math.floor(diff / 86400);
+  const heures = Math.floor((diff % 86400) / 3600);
+  if (jours > 0) return `${jours}j ${heures}h restantes`;
+  const minutes = Math.floor((diff % 3600) / 60);
+  return `${heures}h ${minutes}min restantes`;
+}
+
 const monActivite = computed(() => {
   if (!address.value) return { votesSoumis: 0, propositionsOuvertes: 0 };
   return memberActivity.value.get(address.value.toLowerCase()) ?? { votesSoumis: 0, propositionsOuvertes: 0 };
@@ -359,20 +373,24 @@ function startTour() {
           <article v-for="p in [...propositionsClotureesNonExecutees, ...propositionsEnCours]" :key="p.id.toString()" class="gv-prop-card">
             <div class="gv-prop-head">
               <span class="gv-prop-type">{{ typeLabels[p.typeProp] }}</span>
-              <span class="gv-prop-deadline mono">
-                {{ Number(p.echeance) > now ? "clôture " + new Date(Number(p.echeance) * 1000).toLocaleString("fr-FR") : "clôturé, à exécuter" }}
-              </span>
+              <span class="gv-prop-deadline mono" :title="dateExacte(p)">{{ compteARebours(p) }}</span>
             </div>
             <p class="gv-prop-title">
               {{ propositionPrefixe(p) }} <AddressChip :address="p.cible" short /> {{ propositionSuffixe(p) }}
             </p>
-            <div class="gv-vote-legend">
-              <span>{{ p.votesApprouver }} pour</span>
-              <span>{{ p.votesRejeter }} contre</span>
-              <span v-if="p.typeProp === TypeProposition.Titularisation">{{ p.votesAjourner }} ajourner</span>
-              <span title="Majorité absolue des Loups actifs au moment de l'ouverture du vote">
-                {{ seuil(p) }} votes « pour » requis (sur {{ p.snapshotActifs }} Loups actifs)
+            <div class="gv-vote-line">
+              <span class="gv-vote-count gv-vote-count--pour">
+                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8.5 6.5 12 13 4.5" /></svg>
+                {{ p.votesApprouver }} pour
               </span>
+              <span class="gv-vote-count gv-vote-count--contre">
+                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+                {{ p.votesRejeter }} contre
+              </span>
+              <span v-if="p.typeProp === TypeProposition.Titularisation">{{ p.votesAjourner }} ajourner</span>
+            </div>
+            <div class="gv-quorum-line" title="Majorité absolue des Loups actifs au moment de l'ouverture du vote">
+              {{ seuil(p) }} votes « pour » requis (sur {{ p.snapshotActifs }} Loups actifs)
             </div>
             <div class="gv-prop-actions">
               <template v-if="role === 'loup' && Number(p.echeance) > now">
@@ -401,17 +419,23 @@ function startTour() {
           <article v-for="p in propositionsPassees" :key="p.id.toString()" class="gv-prop-card">
             <div class="gv-prop-head">
               <span class="gv-prop-type">{{ typeLabels[p.typeProp] }}</span>
-              <span class="gv-prop-deadline mono">clôturé</span>
+              <span class="gv-prop-deadline mono" :title="dateExacte(p)">clôturé</span>
             </div>
             <p class="gv-prop-title">
               {{ propositionPrefixe(p) }} <AddressChip :address="p.cible" short /> {{ propositionSuffixe(p) }}
             </p>
-            <div class="gv-vote-legend">
-              <span>{{ p.votesApprouver }} pour</span>
-              <span>{{ p.votesRejeter }} contre</span>
-              <span title="Majorité absolue des Loups actifs au moment de l'ouverture du vote">
-                {{ seuil(p) }} votes « pour » requis (sur {{ p.snapshotActifs }} Loups actifs)
+            <div class="gv-vote-line">
+              <span class="gv-vote-count gv-vote-count--pour">
+                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8.5 6.5 12 13 4.5" /></svg>
+                {{ p.votesApprouver }} pour
               </span>
+              <span class="gv-vote-count gv-vote-count--contre">
+                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+                {{ p.votesRejeter }} contre
+              </span>
+            </div>
+            <div class="gv-quorum-line" title="Majorité absolue des Loups actifs au moment de l'ouverture du vote">
+              {{ seuil(p) }} votes « pour » requis (sur {{ p.snapshotActifs }} Loups actifs)
             </div>
           </article>
           <p v-if="!propositionsPassees.length" class="gv-card-note">Aucune proposition passée.</p>
@@ -593,6 +617,24 @@ function startTour() {
 .gv-prop-type { font-size: $fs-caption; font-weight: 700; color: $color-orange-dark; text-transform: uppercase; }
 .gv-prop-deadline { font-size: $fs-caption; color: $color-text-dim; }
 .gv-prop-title { font-size: $fs-h4; color: $color-black; margin: 0 0 0.8rem; }
-.gv-vote-legend { display: flex; gap: 1rem; flex-wrap: wrap; font-size: $fs-caption; color: $color-text-dim; margin-bottom: 1rem; }
-.gv-prop-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.gv-vote-line {
+  display: flex;
+  justify-content: center;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+  font-size: $fs-body;
+  font-weight: 700;
+  color: $color-black;
+  margin-bottom: 0.3rem;
+}
+.gv-vote-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+
+  &--pour svg { color: #2e9e5b; }
+  &--contre svg { color: $color-danger; }
+}
+.gv-quorum-line { text-align: center; font-size: $fs-caption; color: $color-text-dim; margin-bottom: 1rem; }
+.gv-prop-actions { display: flex; justify-content: center; gap: 0.6rem; flex-wrap: wrap; }
 </style>
