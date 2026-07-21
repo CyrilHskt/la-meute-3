@@ -68,7 +68,7 @@ describe("Meute", function () {
 
       await expect(meute.connect(candidat).candidater({ value: COTISATION }))
         .to.emit(meute, "PropositionOuverte")
-        .withArgs(0n, TypeProposition.Admission, candidat.address);
+        .withArgs(0n, candidat.address, candidat.address, TypeProposition.Admission);
 
       const prop = await meute.proposition(0n);
       assert.equal(prop.typeProp, BigInt(TypeProposition.Admission));
@@ -333,7 +333,7 @@ describe("Meute", function () {
       const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
       await expect(meute.connect(fondateurs[0]).proposerExclusion(fondateurs[1].address))
         .to.emit(meute, "PropositionOuverte")
-        .withArgs(0n, TypeProposition.Exclusion, fondateurs[1].address);
+        .withArgs(0n, fondateurs[1].address, fondateurs[0].address, TypeProposition.Exclusion);
     });
 
     it("bout en bout : exclusion votée à la majorité brûle la carte du membre visé", async function () {
@@ -395,7 +395,7 @@ describe("Meute", function () {
 
       await expect(meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "serveur de jeu"))
         .to.emit(meute, "PropositionOuverte")
-        .withArgs(0n, TypeProposition.Depense, etranger.address);
+        .withArgs(0n, etranger.address, fondateurs[0].address, TypeProposition.Depense);
 
       const prop = await meute.proposition(0n);
       assert.equal(prop.montant, montant);
