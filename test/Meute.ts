@@ -653,6 +653,64 @@ describe("Meute", function () {
     });
   });
 
+  describe("definirPseudo", function () {
+    it("permet à n'importe quelle adresse de définir son pseudo, même sans être membre", async function () {
+      const { meute, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await expect(meute.connect(etranger).definirPseudo("Riddick"))
+        .to.emit(meute, "PseudoModifie")
+        .withArgs(etranger.address, "Riddick");
+
+      assert.equal(await meute.pseudo(etranger.address), "Riddick");
+    });
+
+    it("permet de changer son propre pseudo librement", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await meute.connect(fondateurs[0]).definirPseudo("Alpha");
+      await meute.connect(fondateurs[0]).definirPseudo("Beta");
+
+      assert.equal(await meute.pseudo(fondateurs[0].address), "Beta");
+    });
+
+    it("une chaîne vide efface le pseudo", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await meute.connect(fondateurs[0]).definirPseudo("Alpha");
+      await meute.connect(fondateurs[0]).definirPseudo("");
+
+      assert.equal(await meute.pseudo(fondateurs[0].address), "");
+    });
+
+    it("revert si le pseudo dépasse 32 octets", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+      const tropLong = "a".repeat(33);
+
+      await expect(meute.connect(fondateurs[0]).definirPseudo(tropLong)).to.be.revertedWithCustomError(
+        meute,
+        "PseudoTropLong",
+      );
+    });
+
+    it("accepte exactement 32 octets", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+      const pileTailleMax = "a".repeat(32);
+
+      await meute.connect(fondateurs[0]).definirPseudo(pileTailleMax);
+      assert.equal(await meute.pseudo(fondateurs[0].address), pileTailleMax);
+    });
+
+    it("ne modifie pas le pseudo d'une autre adresse", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await meute.connect(fondateurs[0]).definirPseudo("Alpha");
+      await meute.connect(fondateurs[1]).definirPseudo("Beta");
+
+      assert.equal(await meute.pseudo(fondateurs[0].address), "Alpha");
+      assert.equal(await meute.pseudo(fondateurs[1].address), "Beta");
+    });
+  });
+
   describe("non-transférabilité (§6, C3)", function () {
     it("revert sur un transfert entre deux détenteurs", async function () {
       const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
