@@ -59,13 +59,18 @@ function startEditPseudo() {
 function cancelEditPseudo() {
   editingPseudo.value = false;
 }
-function savePseudo() {
+async function savePseudo() {
   const nouveau = pseudoInput.value.trim();
-  editingPseudo.value = false;
-  return runTx(
+  // On garde le formulaire ouvert (juste désactivé via txPending) tant que
+  // la transaction n'est pas confirmée — le fermer tout de suite faisait
+  // réapparaître l'ancien pseudo ("Pas encore de pseudo") pendant les
+  // quelques secondes d'attente sur Sepolia, avant que loadPseudo() ne
+  // rattrape la vraie valeur.
+  await runTx(
     () => readOnlyContract().simulate.definirPseudo([nouveau], { account: address.value! }),
     () => writableContract().write.definirPseudo([nouveau]),
   );
+  editingPseudo.value = false;
 }
 
 onMounted(async () => {
@@ -432,13 +437,19 @@ function startTour() {
             </button>
           </p>
           <form v-else class="gv-pseudo-edit" @submit.prevent="savePseudo">
-            <input v-model="pseudoInput" maxlength="32" placeholder="Ton pseudo (32 car. max)" autofocus />
-            <button class="icon-btn" type="submit" title="Enregistrer" :disabled="txPending">
-              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5 6.5 12 13 4.5" /></svg>
-            </button>
-            <button class="icon-btn" type="button" title="Annuler" @click="cancelEditPseudo">
-              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4l8 8M12 4l-8 8" /></svg>
-            </button>
+            <template v-if="txPending">
+              <span class="gv-pseudo-spinner" aria-hidden="true"></span>
+              <span class="gv-pseudo-pending">Enregistrement…</span>
+            </template>
+            <template v-else>
+              <input v-model="pseudoInput" maxlength="32" placeholder="Ton pseudo (32 car. max)" autofocus />
+              <button class="icon-btn" type="submit" title="Enregistrer">
+                <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5 6.5 12 13 4.5" /></svg>
+              </button>
+              <button class="icon-btn" type="button" title="Annuler" @click="cancelEditPseudo">
+                <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+              </button>
+            </template>
           </form>
 
           <p class="gv-card-note" style="text-align: center"><AddressChip v-if="address" :address="address" short /></p>
@@ -750,6 +761,22 @@ function startTour() {
     font: inherit;
     font-size: $fs-caption;
   }
+}
+
+.gv-pseudo-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid $color-border;
+  border-top-color: $color-orange;
+  border-radius: 50%;
+  animation: gv-spin 0.7s linear infinite;
+}
+.gv-pseudo-pending {
+  font-size: $fs-caption;
+  color: $color-text-dim;
+}
+@keyframes gv-spin {
+  to { transform: rotate(360deg); }
 }
 
 .icon-btn {
