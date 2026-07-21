@@ -19,10 +19,15 @@ const role = ref<"visiteur" | "louveteau" | "loup">("visiteur");
 const carte = ref<{ rang: number; derniereActivite: number; ajournements: number } | null>(null);
 const cotisation = ref<bigint>(0n);
 const cardImage = ref<string | null>(null);
+// L'heure du navigateur n'a aucun rapport avec l'horloge de la chaîne dès
+// qu'on manipule le temps sur un nœud local (evm_increaseTime) : on lit le
+// timestamp du dernier bloc plutôt que Date.now().
+const now = ref(0);
 
 onMounted(async () => {
   await loadAll();
   cotisation.value = (await readOnlyContract().read.cotisation()) as bigint;
+  now.value = Number((await publicClient.getBlock()).timestamp);
 });
 
 // Se resynchronise tout seul si l'adresse change depuis MetaMask (switch de
@@ -81,6 +86,7 @@ async function runTx(fn: () => Promise<`0x${string}`>) {
     const hash = await fn();
     await publicClient.waitForTransactionReceipt({ hash });
     await Promise.all([loadAll(), refreshMembership()]);
+    now.value = Number((await publicClient.getBlock()).timestamp);
   } catch (e) {
     txError.value = e instanceof Error ? e.message : String(e);
   } finally {
@@ -119,8 +125,6 @@ function voter(id: bigint, choix: number) {
 function executer(id: bigint) {
   return runTx(() => writableContract().write.executer([id]));
 }
-
-const now = ref(Math.floor(Date.now() / 1000));
 
 const propositionsEnCours = computed(() => proposals.value.filter((p) => !p.executee && Number(p.echeance) > now.value));
 const propositionsClotureesNonExecutees = computed(() =>
@@ -251,7 +255,7 @@ function startTour() {
           <p class="gv-card-note" style="text-align: center"><AddressChip v-if="address" :address="address" short /></p>
           <div class="gv-stat-row">
             <span>Statut</span>
-            <span>{{ carte && Math.floor(Date.now() / 1000) - carte.derniereActivite > 365 * 24 * 60 * 60 ? "Dormant" : "Actif" }}</span>
+            <span>{{ carte && now - carte.derniereActivite > 365 * 24 * 60 * 60 ? "Dormant" : "Actif" }}</span>
           </div>
           <div class="gv-stat-row">
             <span>Dernière activité</span>

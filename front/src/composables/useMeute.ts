@@ -109,7 +109,11 @@ export function useMeute() {
 
       let louveteaux = 0;
       let loupsDormants = 0;
-      const now = Math.floor(Date.now() / 1000);
+      // L'heure du navigateur (Date.now()) n'a rien à voir avec l'horloge
+      // de la chaîne dès qu'on manipule le temps sur un nœud local
+      // (evm_increaseTime) : il faut lire le timestamp du dernier bloc, le
+      // seul qui compte pour block.timestamp côté contrat.
+      const now = Number((await publicClient.getBlock()).timestamp);
       const DELAI_DORMANCE = 365 * 24 * 60 * 60;
 
       cartes.forEach((c) => {
