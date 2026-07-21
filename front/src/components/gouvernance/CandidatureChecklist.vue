@@ -49,7 +49,7 @@ const etapeVote = computed<EtatEtape>(() => (props.candidature ? "current" : "to
           <template v-if="etapeFonds === 'current'">— il en faut au moins {{ formatEther(cotisation) }}</template>
         </div>
         <div v-if="etapeFonds === 'current'" class="ccl-action">
-          <a class="btn btn-outline" href="https://www.alchemy.com/faucets/ethereum-sepolia" target="_blank" rel="noopener">
+          <a class="ccl-faucet-btn" href="https://www.alchemy.com/faucets/ethereum-sepolia" target="_blank" rel="noopener">
             Obtenir des ETH de test
           </a>
           <button class="ccl-refresh" type="button" title="Vérifier à nouveau mon solde" @click="emit('refresh-solde')">
@@ -132,7 +132,26 @@ const etapeVote = computed<EtatEtape>(() => (props.candidature ? "current" : "to
 .ccl-step-title { font-weight: 700; font-size: $fs-h4; color: $color-black; }
 .ccl-step--todo .ccl-step-title { color: $color-text-dim; }
 .ccl-note { font-size: $fs-caption; color: $color-text-dim; margin-top: 0.2rem; }
-.ccl-action { margin-top: 0.5rem; display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; }
+.ccl-action {
+  margin-top: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ccl-faucet-btn {
+  display: inline-block;
+  background: $color-orange;
+  color: #fff;
+  border-radius: 3px;
+  padding: 0.45rem 1rem;
+  font-size: $fs-caption;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  text-decoration: none;
+
+  &:hover { background: $color-orange-dark; color: #fff; }
+}
 .ccl-refresh {
   display: inline-flex;
   align-items: center;
