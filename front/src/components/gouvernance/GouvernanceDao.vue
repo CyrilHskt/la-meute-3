@@ -197,6 +197,26 @@ function executer(id: bigint) {
   );
 }
 
+const DELAI_DORMANCE = 365 * 24 * 60 * 60;
+const estDormant = computed(() => !!carte.value && now.value - carte.value.derniereActivite > DELAI_DORMANCE);
+const statutTooltip = computed(() => {
+  if (role.value !== "loup") return undefined;
+  return estDormant.value
+    ? "Ce Loup n'a voté ni agi depuis plus d'un an — il ne compte plus dans le quorum tant qu'il ne se manifeste pas (vote ou « Se réveiller »)."
+    : "Vote ou action dans les 365 derniers jours. Sans activité pendant un an, ce Loup deviendrait dormant et sortirait du quorum.";
+});
+
+// jeSuisLa() : un Loup se réveille explicitement sans attendre qu'un vote
+// passe, pour être recompté dans le quorum avant qu'une décision ne
+// s'ouvre (§7.5) — le seul cas où un Loup dormant a une action à faire
+// depuis sa carte plutôt qu'en votant.
+function seReveiller() {
+  return runTx(
+    () => readOnlyContract().simulate.jeSuisLa({ account: address.value! }),
+    () => writableContract().write.jeSuisLa(),
+  );
+}
+
 const propositionsEnCours = computed(() => proposals.value.filter((p) => !p.executee && Number(p.echeance) > now.value));
 const propositionsClotureesNonExecutees = computed(() =>
   proposals.value.filter((p) => !p.executee && Number(p.echeance) <= now.value),
@@ -398,10 +418,18 @@ function startTour() {
           </form>
 
           <p class="gv-card-note" style="text-align: center"><AddressChip v-if="address" :address="address" short /></p>
-          <div class="gv-stat-row">
+          <div class="gv-stat-row" :title="statutTooltip">
             <span>Statut</span>
-            <span>{{ carte && now - carte.derniereActivite > 365 * 24 * 60 * 60 ? "Dormant" : "Actif" }}</span>
+            <span>{{ estDormant ? "Dormant" : "Actif" }}</span>
           </div>
+          <button
+            v-if="role === 'loup' && estDormant"
+            class="btn btn-primary gv-reveil-btn"
+            :disabled="txPending"
+            @click="seReveiller"
+          >
+            Se réveiller
+          </button>
           <div class="gv-stat-row">
             <span>Dernière activité</span>
             <span>{{ carte ? new Date(carte.derniereActivite * 1000).toLocaleDateString("fr-FR") : "—" }}</span>
@@ -730,6 +758,14 @@ function startTour() {
   font-size: $fs-caption;
 
   &--sub { color: $color-text-dim; }
+  &[title] { cursor: help; }
+}
+
+.gv-reveil-btn {
+  display: block;
+  width: 100%;
+  margin: 0.5rem 0;
+  font-size: $fs-caption;
 }
 
 .gv-form-label {
