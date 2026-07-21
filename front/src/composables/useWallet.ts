@@ -1,16 +1,18 @@
 import { ref } from "vue";
-import { createPublicClient, createWalletClient, custom, getContract, type Address } from "viem";
+import { createPublicClient, createWalletClient, custom, http, getContract, type Address } from "viem";
 import { sepolia } from "viem/chains";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../contract";
 
 const address = ref<Address | null>(null);
 const wrongNetwork = ref(false);
 
-// Lecture seule : ne nécessite aucun wallet, fonctionne même non connecté,
-// via le RPC public de la chaîne viem (pas de clé nécessaire pour lire).
+// Lecture seule : ne nécessite aucun wallet, fonctionne même pour un
+// visiteur sans MetaMask installé — RPC public de la chaîne, pas de clé
+// nécessaire pour lire. Ne pas utiliser `custom(window.ethereum)` ici :
+// ça exigerait un wallet juste pour afficher des stats publiques.
 const publicClient = createPublicClient({
   chain: sepolia,
-  transport: custom((window as unknown as { ethereum: Parameters<typeof custom>[0] }).ethereum),
+  transport: http(),
 });
 
 async function connect() {
@@ -50,5 +52,5 @@ function writableContract() {
 }
 
 export function useWallet() {
-  return { address, wrongNetwork, connect, readOnlyContract, writableContract };
+  return { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient };
 }
