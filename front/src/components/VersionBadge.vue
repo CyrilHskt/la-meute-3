@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { CONTRACT_VERSION } from "../contract";
-import { FRONT_VERSION, SITE_CHANGELOG, DASHBOARD_CHANGELOG, CONTRACT_CHANGELOG } from "../changelog";
+import {
+  SITE_VERSION,
+  DASHBOARD_VERSION,
+  CONTRACT_DISPLAY_VERSION,
+  SITE_CHANGELOG,
+  DASHBOARD_CHANGELOG,
+  CONTRACT_CHANGELOG,
+} from "../changelog";
 
 const open = ref(false);
 </script>
@@ -26,7 +32,7 @@ const open = ref(false);
         <div class="vm-col">
           <div class="vm-col-head">
             <p class="vm-col-title">Site</p>
-            <span class="vm-col-version">front v{{ FRONT_VERSION }}</span>
+            <span class="vm-col-version">v{{ SITE_VERSION }}</span>
           </div>
           <div class="vm-col-scroll">
             <div v-for="entry in SITE_CHANGELOG" :key="entry.date + entry.title" class="vm-entry">
@@ -39,7 +45,7 @@ const open = ref(false);
         <div class="vm-col">
           <div class="vm-col-head">
             <p class="vm-col-title">Dashboard</p>
-            <span class="vm-col-version">front v{{ FRONT_VERSION }}</span>
+            <span class="vm-col-version">v{{ DASHBOARD_VERSION }}</span>
           </div>
           <div class="vm-col-scroll">
             <div v-for="entry in DASHBOARD_CHANGELOG" :key="entry.date + entry.title" class="vm-entry">
@@ -52,7 +58,7 @@ const open = ref(false);
         <div class="vm-col">
           <div class="vm-col-head">
             <p class="vm-col-title">Contrat</p>
-            <span class="vm-col-version">contract v{{ CONTRACT_VERSION }}</span>
+            <span class="vm-col-version">v{{ CONTRACT_DISPLAY_VERSION }}</span>
           </div>
           <div class="vm-col-scroll">
             <div v-for="entry in CONTRACT_CHANGELOG" :key="entry.date + entry.title" class="vm-entry">
@@ -82,12 +88,12 @@ const open = ref(false);
 .version-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 4.5px;
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 999px;
-  padding: 0.5rem 1.1rem;
-  font-size: 0.9rem;
+  padding: 5px 11px;
+  font-size: 14px;
   color: rgba(255, 255, 255, 0.65);
   cursor: pointer;
   font-family: $font-mono;
@@ -109,7 +115,7 @@ const open = ref(false);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
+  padding: 15px;
   z-index: 200;
 }
 
@@ -127,7 +133,7 @@ const open = ref(false);
 
 .vm-head {
   position: relative;
-  padding: 1.4rem 1.4rem 1.2rem;
+  padding: 14px 14px 12px;
   border-bottom: 1px solid $color-border;
   text-align: center;
 
@@ -136,20 +142,20 @@ const open = ref(false);
     font-family: $font-display;
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    font-size: 1.4rem;
+    font-size: 22px;
     color: $color-black;
   }
 }
 
 .vm-close {
   position: absolute;
-  top: 1.2rem;
-  right: 1.2rem;
+  top: 12px;
+  right: 12px;
   background: none;
   border: none;
   color: $color-text-dim;
   cursor: pointer;
-  padding: 0.2rem;
+  padding: 2px;
 
   &:hover { color: $color-orange-dark; }
 }
@@ -168,7 +174,7 @@ const open = ref(false);
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 1.2rem 1.3rem;
+  padding: 12px 13px;
 
   &:not(:last-child) {
     border-right: 1px solid $color-border;
@@ -176,8 +182,9 @@ const open = ref(false);
 }
 
 .vm-col-head {
-  margin-bottom: 0.9rem;
+  margin-bottom: 9px;
   flex-shrink: 0;
+  text-align: center;
 }
 
 .vm-col-title {
@@ -186,38 +193,38 @@ const open = ref(false);
   letter-spacing: 1px;
   font-size: $fs-caption;
   color: $color-orange-dark;
-  margin: 0 0 0.15rem;
+  margin: 0 0 1.5px;
 }
 
 .vm-col-version {
   font-family: $font-mono;
-  font-size: 0.72rem;
+  font-size: 12px;
   color: $color-text-dim;
 }
 
 .vm-col-scroll {
   overflow-y: auto;
   max-height: 46vh;
-  padding-right: 0.3rem;
+  padding-right: 3px;
 }
 
 .vm-entry {
-  padding: 0.7rem 0;
+  padding: 7px 0;
   border-bottom: 1px solid $color-border;
 
   &:last-child { border-bottom: none; }
 }
 
 .vm-entry-date {
-  font-size: 0.66rem;
+  font-size: 11px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: $color-text-dim;
-  margin-bottom: 0.25rem;
+  margin-bottom: 2.5px;
 }
 
 .vm-entry-title {
-  font-size: 0.86rem;
+  font-size: 14px;
   color: $color-black;
   font-weight: 600;
   line-height: 1.4;
@@ -226,15 +233,15 @@ const open = ref(false);
 .vm-credit {
   flex-shrink: 0;
   text-align: center;
-  padding: 0.9rem 1.4rem;
+  padding: 9px 14px;
   border-top: 1px solid $color-border;
-  font-size: 0.76rem;
+  font-size: 12px;
   color: $color-text-dim;
 
   a {
     display: inline-flex;
     align-items: center;
-    gap: 0.3rem;
+    gap: 3px;
     color: $color-text;
     font-weight: 700;
     text-decoration: none;

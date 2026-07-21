@@ -3,21 +3,27 @@
 // messages de commit techniques, juste ce qui vaut la peine d'être annoncé.
 // Mettre à jour ce fichier à chaque nouvelle version qu'on veut annoncer.
 //
-// Site et Dashboard partagent le même numéro de version (un seul
-// déploiement front, un seul package.json) — seul le Contrat a une
-// version réellement distincte (bytecode déployé séparément).
+// Ces numéros de version sont propres à cette popup ("informative"),
+// tenus à la main indépendamment de package.json ou du contrat déployé —
+// Site, Dashboard et Contrat ont chacun leur propre historique.
 
 export interface ChangelogEntry {
   date: string;
   title: string;
 }
 
-export const FRONT_VERSION = "0.2.0";
+export const SITE_VERSION = "3.0.0";
+export const DASHBOARD_VERSION = "1.0.0";
+export const CONTRACT_DISPLAY_VERSION = "1.0.0";
 
 export const SITE_CHANGELOG: ChangelogEntry[] = [
   {
     date: "18 juillet 2026",
     title: "Fusion du site vitrine et du dashboard en un seul site",
+  },
+  {
+    date: "Juillet 2026",
+    title: "Passage en version 3.0",
   },
   {
     date: "2011",
