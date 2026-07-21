@@ -7,9 +7,9 @@
 // leurs numéros à matcher. Le vrai lien de compatibilité, c'est cette
 // constante : elle documente quelle version du contrat ce build du front
 // cible réellement, à mettre à jour à chaque redéploiement.
-export const CONTRACT_VERSION = "0.1.0" as const;
+export const CONTRACT_VERSION = "0.2.0" as const;
 
-export const CONTRACT_ADDRESS = "0xc46afFe7d978B16d185671433D94e2642aadC2c8" as const;
+export const CONTRACT_ADDRESS = "0xc5279023174a56b076a1C501523B3D362408ecbe" as const;
 
 export const CONTRACT_ABI = [
   {
@@ -208,6 +208,11 @@ export const CONTRACT_ABI = [
   },
   {
     "inputs": [],
+    "name": "PseudoTropLong",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "ReentrancyGuardReentrantCall",
     "type": "error"
   },
@@ -357,6 +362,25 @@ export const CONTRACT_ABI = [
       }
     ],
     "name": "PropositionOuverte",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "compte",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "pseudo",
+        "type": "string"
+      }
+    ],
+    "name": "PseudoModifie",
     "type": "event"
   },
   {
@@ -559,6 +583,19 @@ export const CONTRACT_ABI = [
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "nouveau",
+        "type": "string"
+      }
+    ],
+    "name": "definirPseudo",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -815,6 +852,25 @@ export const CONTRACT_ABI = [
         "internalType": "struct Meute.Proposition",
         "name": "",
         "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "compte",
+        "type": "address"
+      }
+    ],
+    "name": "pseudo",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
       }
     ],
     "stateMutability": "view",
