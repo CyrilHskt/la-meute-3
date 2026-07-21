@@ -20,6 +20,14 @@ contract Meute is ERC721, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.AddressSet;
     using Strings for address;
 
+    /// @notice Version du contrat déployé (semver), indépendante du nom de
+    ///         génération "La Meute 3.0" — celui-ci ne change qu'à la
+    ///         prochaine refonte majeure, cette version-ci à chaque
+    ///         redéploiement. Immuable : le contrat n'étant pas upgradable
+    ///         (§9), c'est le seul moyen de savoir, depuis Etherscan ou le
+    ///         front, à quel commit une adresse déployée correspond.
+    string public constant VERSION = "0.1.0";
+
     // ---------------------------------------------------------------------
     // Types
     // ---------------------------------------------------------------------
