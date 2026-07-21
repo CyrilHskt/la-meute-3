@@ -522,8 +522,10 @@ function startTour() {
               </span>
               <span v-if="p.typeProp === TypeProposition.Titularisation">{{ p.votesAjourner }} ajourner</span>
             </div>
-            <div class="gv-quorum-line" title="Majorité absolue des Loups actifs au moment de l'ouverture du vote">
-              {{ seuil(p) }} votes « pour » requis (sur {{ p.snapshotActifs }} Loups actifs)
+            <div class="gv-quorum-line">
+              <span title="Majorité absolue des Loups actifs au moment de l'ouverture du vote">
+                {{ seuil(p) }} votes « pour » requis (sur {{ p.snapshotActifs }} Loups actifs)
+              </span>
             </div>
             <div class="gv-prop-actions">
               <template v-if="role === 'loup' && Number(p.echeance) > now">
@@ -572,8 +574,10 @@ function startTour() {
                 {{ p.votesRejeter }} contre
               </span>
             </div>
-            <div class="gv-quorum-line" title="Majorité absolue des Loups actifs au moment de l'ouverture du vote">
-              {{ seuil(p) }} votes « pour » requis (sur {{ p.snapshotActifs }} Loups actifs)
+            <div class="gv-quorum-line">
+              <span title="Majorité absolue des Loups actifs au moment de l'ouverture du vote">
+                {{ seuil(p) }} votes « pour » requis (sur {{ p.snapshotActifs }} Loups actifs)
+              </span>
             </div>
           </article>
           <p v-if="!propositionsPassees.length" class="gv-card-note">Aucune proposition passée.</p>
@@ -834,7 +838,14 @@ function startTour() {
   &--pour svg { color: #2e9e5b; }
   &--contre svg { color: $color-danger; }
 }
-.gv-quorum-line { text-align: center; font-size: $fs-caption; color: $color-text-dim; margin-bottom: 1rem; }
+.gv-quorum-line {
+  text-align: center;
+  font-size: $fs-caption;
+  color: $color-text-dim;
+  margin-bottom: 1rem;
+
+  span[title] { cursor: help; }
+}
 .gv-prop-actions { display: flex; justify-content: center; gap: 0.6rem; flex-wrap: wrap; }
 
 .gv-pagination {
