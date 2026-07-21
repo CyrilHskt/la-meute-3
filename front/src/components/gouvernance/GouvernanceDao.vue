@@ -25,6 +25,36 @@ const cardImage = ref<string | null>(null);
 // timestamp du dernier bloc plutôt que Date.now().
 const now = ref(0);
 
+// Le pseudo est un registre à part, ouvert à n'importe quelle adresse (pas
+// seulement aux membres) : chargé indépendamment du rôle/de la carte.
+const monPseudo = ref("");
+const editingPseudo = ref(false);
+const pseudoInput = ref("");
+
+async function loadPseudo() {
+  if (!address.value) {
+    monPseudo.value = "";
+    return;
+  }
+  monPseudo.value = (await readOnlyContract().read.pseudo([address.value])) as string;
+}
+
+function startEditPseudo() {
+  pseudoInput.value = monPseudo.value;
+  editingPseudo.value = true;
+}
+function cancelEditPseudo() {
+  editingPseudo.value = false;
+}
+function savePseudo() {
+  const nouveau = pseudoInput.value.trim();
+  editingPseudo.value = false;
+  return runTx(
+    () => readOnlyContract().simulate.definirPseudo([nouveau], { account: address.value! }),
+    () => writableContract().write.definirPseudo([nouveau]),
+  );
+}
+
 onMounted(async () => {
   await loadAll();
   cotisation.value = (await readOnlyContract().read.cotisation()) as bigint;
@@ -36,6 +66,7 @@ onMounted(async () => {
 // route par défaut avant, qui laissait l'ancien état affiché indéfiniment.
 watch(address, () => {
   refreshMembership();
+  loadPseudo();
 });
 
 // L'image de la carte n'est jamais recréée côté front : on lit tokenURI()
@@ -74,7 +105,7 @@ async function onConnect() {
   txError.value = null;
   try {
     await connect();
-    await refreshMembership();
+    await Promise.all([refreshMembership(), loadPseudo()]);
   } catch (e) {
     txError.value = friendlyContractError(e);
   }
@@ -94,7 +125,7 @@ async function runTx(
     await simulateFn();
     const hash = await writeFn();
     await publicClient.waitForTransactionReceipt({ hash });
-    await Promise.all([loadAll(), refreshMembership()]);
+    await Promise.all([loadAll(), refreshMembership(), loadPseudo()]);
     now.value = Number((await publicClient.getBlock()).timestamp);
   } catch (e) {
     txError.value = friendlyContractError(e);
@@ -336,6 +367,23 @@ function startTour() {
             <img v-if="cardImage" :src="cardImage" alt="Illustration de la carte de membre" />
           </div>
           <p class="gv-card-title" style="text-align: center">Ma carte — {{ role === "loup" ? "Loup" : "Louveteau" }}</p>
+
+          <p v-if="!editingPseudo" class="gv-pseudo">
+            {{ monPseudo || "Pas encore de pseudo" }}
+            <button class="icon-btn" type="button" title="Modifier mon pseudo" @click="startEditPseudo">
+              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M11 2l3 3-8 8H3v-3l8-8Z" /></svg>
+            </button>
+          </p>
+          <form v-else class="gv-pseudo-edit" @submit.prevent="savePseudo">
+            <input v-model="pseudoInput" maxlength="32" placeholder="Ton pseudo (32 car. max)" autofocus />
+            <button class="icon-btn" type="submit" title="Enregistrer" :disabled="txPending">
+              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5 6.5 12 13 4.5" /></svg>
+            </button>
+            <button class="icon-btn" type="button" title="Annuler" @click="cancelEditPseudo">
+              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+            </button>
+          </form>
+
           <p class="gv-card-note" style="text-align: center"><AddressChip v-if="address" :address="address" short /></p>
           <div class="gv-stat-row">
             <span>Statut</span>
@@ -595,6 +643,50 @@ function startTour() {
   letter-spacing: 1px;
   font-size: $fs-h4;
   margin: 0 0 1rem;
+}
+
+.gv-pseudo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  font-weight: 700;
+  color: $color-black;
+  margin: 0 0 0.3rem;
+}
+
+.gv-pseudo-edit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  margin: 0 0 0.3rem;
+
+  input {
+    max-width: 150px;
+    border: 1px solid $color-border;
+    border-radius: 3px;
+    padding: 0.3rem 0.5rem;
+    font: inherit;
+    font-size: $fs-caption;
+  }
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  border: none;
+  background: transparent;
+  color: $color-text-dim;
+  cursor: pointer;
+  padding: 0;
+
+  &:hover:not(:disabled) { color: $color-orange-dark; background: rgba(249, 174, 60, 0.12); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
 .gv-badge-frame {

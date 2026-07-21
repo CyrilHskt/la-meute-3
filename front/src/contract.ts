@@ -215,6 +215,11 @@ export const CONTRACT_ABI = [
   },
   {
     "inputs": [],
+    "name": "PseudoTropLong",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "ReentrancyGuardReentrantCall",
     "type": "error"
   },
@@ -364,6 +369,25 @@ export const CONTRACT_ABI = [
       }
     ],
     "name": "PropositionOuverte",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "compte",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "pseudo",
+        "type": "string"
+      }
+    ],
+    "name": "PseudoModifie",
     "type": "event"
   },
   {
@@ -566,6 +590,19 @@ export const CONTRACT_ABI = [
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "nouveau",
+        "type": "string"
+      }
+    ],
+    "name": "definirPseudo",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -822,6 +859,25 @@ export const CONTRACT_ABI = [
         "internalType": "struct Meute.Proposition",
         "name": "",
         "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "compte",
+        "type": "address"
+      }
+    ],
+    "name": "pseudo",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
       }
     ],
     "stateMutability": "view",
