@@ -148,6 +148,16 @@ contract Meute is ERC721, ReentrancyGuard {
 
     uint256 private _prochainProposalId;
 
+    /// @notice Pseudo lisible associé à une adresse, en libre-service.
+    /// @dev Volontairement découplé de {Carte} : ouvert à n'importe quelle
+    ///      adresse (même un candidat pas encore admis), pas seulement aux
+    ///      membres — chacun ne modifie que le sien, aucun rôle privilégié.
+    ///      Alternative à une table en dur côté front (nécessiterait un
+    ///      commit/PR pour chaque changement) ou une base de données
+    ///      externe (réintroduit hébergement + login, contraire à la
+    ///      philosophie "pas de serveur, le wallet est l'identité").
+    mapping(address compte => string) public pseudo;
+
     // ---------------------------------------------------------------------
     // Erreurs
     // ---------------------------------------------------------------------
@@ -172,6 +182,7 @@ contract Meute is ERC721, ReentrancyGuard {
     error TransfertEchoue();
     error PasMembre();
     error TitularisationDejaOuverte();
+    error PseudoTropLong();
 
     // ---------------------------------------------------------------------
     // Événements
@@ -193,6 +204,7 @@ contract Meute is ERC721, ReentrancyGuard {
     event VoteExprime(uint256 indexed proposalId, address indexed votant);
     event PropositionExecutee(uint256 indexed proposalId);
     event MembreReveille(address indexed membre);
+    event PseudoModifie(address indexed compte, string pseudo);
 
     // ---------------------------------------------------------------------
     // Construction
@@ -363,6 +375,16 @@ contract Meute is ERC721, ReentrancyGuard {
         if (!_estMembre(msg.sender)) revert PasMembre();
         _titularisationOuverte[msg.sender] = false;
         _bruler(msg.sender);
+    }
+
+    /// @notice Définit ou change le pseudo associé à l'appelant. Ouvert à
+    ///         n'importe quelle adresse, pas seulement aux membres — voir
+    ///         {pseudo}. Une chaîne vide efface le pseudo.
+    /// @param nouveau Pseudo souhaité, 32 octets maximum.
+    function definirPseudo(string calldata nouveau) external {
+        if (bytes(nouveau).length > 32) revert PseudoTropLong();
+        pseudo[msg.sender] = nouveau;
+        emit PseudoModifie(msg.sender, nouveau);
     }
 
     // ---------------------------------------------------------------------
