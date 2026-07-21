@@ -1,10 +1,10 @@
-name: Release
+name: Release contract
 
 # Déclenché à la main depuis l'onglet Actions (jamais automatiquement sur un
-# push) : lit la version actuelle dans contracts/Meute.sol, l'incrémente,
-# la répercute dans front/package.json, commite et pose le tag — pour que
-# contrat et front restent toujours d'accord sur le numéro de version,
-# sans dépendre de le faire correctement à la main.
+# push) : lit VERSION dans contracts/Meute.sol, l'incrémente, commite et
+# pose un tag contract-vX.Y.Z. Indépendant du versionnage du front — les
+# deux n'évoluent pas au même rythme (cf. CONTRACT_VERSION dans
+# front/src/contract.ts pour le lien de compatibilité réel entre les deux).
 on:
   workflow_dispatch:
     inputs:
@@ -49,22 +49,12 @@ jobs:
         run: |
           sed -i "s/string public constant VERSION = \"${{ steps.version.outputs.current }}\";/string public constant VERSION = \"${{ steps.version.outputs.new }}\";/" contracts/Meute.sol
 
-      - name: Bump front package.json
-        run: |
-          node -e "
-            const fs = require('fs');
-            const path = 'front/package.json';
-            const pkg = JSON.parse(fs.readFileSync(path, 'utf8'));
-            pkg.version = '${{ steps.version.outputs.new }}';
-            fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');
-          "
-
       - name: Commit and tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add contracts/Meute.sol front/package.json
-          git commit -m "Bump version to v${{ steps.version.outputs.new }}"
-          git tag -a "v${{ steps.version.outputs.new }}" -m "v${{ steps.version.outputs.new }}"
+          git add contracts/Meute.sol
+          git commit -m "Bump contract version to v${{ steps.version.outputs.new }}"
+          git tag -a "contract-v${{ steps.version.outputs.new }}" -m "contract-v${{ steps.version.outputs.new }}"
           git push origin main
-          git push origin "v${{ steps.version.outputs.new }}"
+          git push origin "contract-v${{ steps.version.outputs.new }}"

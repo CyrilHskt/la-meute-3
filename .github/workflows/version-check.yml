@@ -1,9 +1,12 @@
 name: Version check
 
+# Ne couvre que les tags contract-vX.Y.Z : le front (front-vA.B.C) a son
+# propre cycle de version, indépendant, et n'a pas de constante on-chain à
+# recouper (cf. .github/workflows/release-front.yml).
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "contract-v*.*.*"
 
 jobs:
   check:
@@ -13,7 +16,7 @@ jobs:
 
       - name: Compare tag to on-chain VERSION constant
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          TAG_VERSION="${GITHUB_REF_NAME#contract-v}"
           CONTRACT_VERSION=$(grep -oP 'string public constant VERSION = "\K[^"]+' contracts/Meute.sol)
 
           echo "Tag:      $GITHUB_REF_NAME (version $TAG_VERSION)"
