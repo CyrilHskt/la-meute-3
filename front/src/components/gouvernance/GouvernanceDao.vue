@@ -303,6 +303,25 @@ const maCandidatureOuverte = computed(() => {
   );
 });
 
+// L'exclusion n'est pas un statut distinct côté contrat (la carte est juste
+// brûlée, comme pour une démission) : pour l'afficher, il faut retrouver
+// une proposition d'Exclusion exécutée et approuvée ciblant cette adresse
+// dans l'historique déjà chargé. Rien n'empêche techniquement de
+// recandidater après — ce n'est qu'un rappel, pas un blocage qu'on ferait
+// semblant d'appliquer côté front sans qu'il existe on-chain.
+const monExclusion = computed(() => {
+  if (!address.value) return null;
+  return (
+    proposals.value.find(
+      (p) =>
+        p.typeProp === TypeProposition.Exclusion &&
+        p.executee &&
+        p.cible.toLowerCase() === address.value!.toLowerCase() &&
+        p.votesApprouver >= seuil(p),
+    ) ?? null
+  );
+});
+
 function eurTooltip(wei: bigint): string {
   if (eurPerEth.value === null) return "";
   const eur = Number(formatEther(wei)) * eurPerEth.value;
@@ -382,6 +401,11 @@ function startTour() {
           <p class="gv-error">Mauvais réseau — connecte-toi à Sepolia dans MetaMask.</p>
         </template>
         <template v-else-if="role === 'visiteur'">
+          <p v-if="monExclusion && !maCandidatureOuverte" class="gv-exclusion-note">
+            Tu as été exclu de la Meute par vote des Loups le
+            {{ new Date(Number(monExclusion.echeance) * 1000).toLocaleDateString("fr-FR") }}. Tu peux retenter ta
+            chance si tu le souhaites.
+          </p>
           <CandidatureChecklist
             :address="address!"
             :balance="monSolde"
@@ -625,6 +649,17 @@ function startTour() {
 .gv-error {
   color: $color-danger;
   font-size: $fs-caption;
+}
+
+.gv-exclusion-note {
+  font-size: $fs-caption;
+  color: $color-danger;
+  background: rgba(217, 83, 79, 0.08);
+  border: 1px solid rgba(217, 83, 79, 0.25);
+  border-radius: 4px;
+  padding: 0.7rem 0.9rem;
+  margin: 0 0 1rem;
+  line-height: 1.5;
 }
 
 .gv-stats-bar {
