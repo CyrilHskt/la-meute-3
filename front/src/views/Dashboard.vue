@@ -1,38 +1,78 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { useWallet } from "../composables/useWallet";
+import GouvernancePresentation from "../components/gouvernance/GouvernancePresentation.vue";
+import GouvernanceAssociation from "../components/gouvernance/GouvernanceAssociation.vue";
+import GouvernanceDao from "../components/gouvernance/GouvernanceDao.vue";
 
-const { address, wrongNetwork, connect, readOnlyContract } = useWallet();
-const loupsActifs = ref<bigint | null>(null);
-const error = ref<string | null>(null);
+type PageTab = "presentation" | "association" | "dao";
 
-async function onConnect() {
-  error.value = null;
-  try {
-    await connect();
-    loupsActifs.value = await readOnlyContract().read.loupsActifs();
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e);
-  }
-}
+const tabs: { id: PageTab; label: string }[] = [
+  { id: "presentation", label: "Présentation" },
+  { id: "association", label: "Association 1901" },
+  { id: "dao", label: "Gouvernance DAO" },
+];
+
+const activeTab = ref<PageTab>("presentation");
 </script>
 
 <template>
-  <section id="gouvernance">
-    <div class="container content-section text-center">
-      <h2>Gouvernance</h2>
+  <div class="gv-dashboard">
+  <nav class="gv-page-tabs">
+    <button
+      v-for="tab in tabs"
+      :key="tab.id"
+      class="gv-page-tab"
+      :class="{ 'gv-page-tab--active': activeTab === tab.id }"
+      @click="activeTab = tab.id"
+    >
+      {{ tab.label }}
+    </button>
+  </nav>
 
-      <button v-if="!address" class="btn btn-default" @click="onConnect">Connecter mon wallet</button>
-
-      <div v-else>
-        <p>Connecté : {{ address }}</p>
-        <p v-if="wrongNetwork" class="text-danger">
-          Mauvais réseau — connecte-toi à Sepolia dans MetaMask.
-        </p>
-        <p v-else-if="loupsActifs !== null">Loups actifs actuellement : {{ loupsActifs }}</p>
-      </div>
-
-      <p v-if="error" class="text-danger">Erreur : {{ error }}</p>
-    </div>
-  </section>
+  <GouvernancePresentation v-show="activeTab === 'presentation'" />
+  <GouvernanceAssociation v-show="activeTab === 'association'" />
+  <GouvernanceDao v-show="activeTab === 'dao'" />
+  </div>
 </template>
+
+<style lang="scss" scoped>
+/* La nav v2 est fixed-top et reste opaque sur cette page (cf NavBar.vue) :
+   il faut pousser tout le contenu sous elle, sinon elle capte les clics
+   sur les premiers ~80px et masque le début de la page. */
+.gv-dashboard {
+  padding-top: 80px;
+}
+
+.gv-page-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 2.2rem;
+  background: #111;
+  padding: 0 1.6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: sticky;
+  top: 80px;
+  z-index: 10;
+}
+
+.gv-page-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: $font-display;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-size: $fs-body;
+  padding: 1.1rem 0.2rem;
+  cursor: pointer;
+
+  &:hover { color: #fff; }
+}
+
+.gv-page-tab--active {
+  color: #fff;
+  border-bottom-color: $color-orange;
+}
+</style>

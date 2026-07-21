@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, onMounted, onUnmounted, computed } from "vue";
+import { useRoute } from "vue-router";
 
 // Réplique le comportement du v2 : la nav est transparente en haut de la
-// page d'accueil, et devient opaque (fond blanc) après un léger scroll.
-const scrolled = ref(false);
+// page d'accueil (au-dessus du hero), et devient opaque (fond blanc) après
+// un léger scroll. Le dashboard n'a pas de hero sous la nav, donc elle y
+// reste toujours opaque, sinon le fond transparent se superpose au contenu.
+const route = useRoute();
+const scrolledByUser = ref(false);
 const menuOpen = ref(false);
 
+const scrolled = computed(() => scrolledByUser.value || route.path === "/gouvernance");
+
 function onScroll() {
-  scrolled.value = window.scrollY > 50;
+  scrolledByUser.value = window.scrollY > 50;
 }
 
 onMounted(() => window.addEventListener("scroll", onScroll));
