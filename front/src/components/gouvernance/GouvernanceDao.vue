@@ -6,6 +6,7 @@ import "driver.js/dist/driver.css";
 import { useWallet } from "../../composables/useWallet";
 import { useMeute, TypeProposition, ChoixVote, type Proposal } from "../../composables/useMeute";
 import { useEthPrice } from "../../composables/useEthPrice";
+import { friendlyContractError } from "../../composables/contractErrors";
 import AddressChip from "./AddressChip.vue";
 
 const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient } = useWallet();
@@ -75,27 +76,38 @@ async function onConnect() {
     await connect();
     await refreshMembership();
   } catch (e) {
-    txError.value = e instanceof Error ? e.message : String(e);
+    txError.value = friendlyContractError(e);
   }
 }
 
-async function runTx(fn: () => Promise<`0x${string}`>) {
+// Simule l'appel avant de l'envoyer : ça récupère la vraie raison Solidity
+// du revert (ex: DejaVote) pour un message clair, au lieu de laisser
+// l'estimation de gas échouer en silence et remonter un message RPC
+// générique sans rapport (constaté en local : "gas limit exceeds cap").
+async function runTx(
+  simulateFn: () => Promise<unknown>,
+  writeFn: () => Promise<`0x${string}`>,
+) {
   txError.value = null;
   txPending.value = true;
   try {
-    const hash = await fn();
+    await simulateFn();
+    const hash = await writeFn();
     await publicClient.waitForTransactionReceipt({ hash });
     await Promise.all([loadAll(), refreshMembership()]);
     now.value = Number((await publicClient.getBlock()).timestamp);
   } catch (e) {
-    txError.value = e instanceof Error ? e.message : String(e);
+    txError.value = friendlyContractError(e);
   } finally {
     txPending.value = false;
   }
 }
 
 function candidater() {
-  return runTx(() => writableContract().write.candidater({ value: cotisation.value }));
+  return runTx(
+    () => readOnlyContract().simulate.candidater({ account: address.value!, value: cotisation.value }),
+    () => writableContract().write.candidater({ value: cotisation.value }),
+  );
 }
 
 const titulariserAddr = ref("");
@@ -105,25 +117,39 @@ const depenseMontant = ref("");
 const depenseMotif = ref("");
 
 function ouvrirTitularisation() {
-  return runTx(() => writableContract().write.ouvrirTitularisation([titulariserAddr.value as `0x${string}`]));
+  const args = [titulariserAddr.value as `0x${string}`] as const;
+  return runTx(
+    () => readOnlyContract().simulate.ouvrirTitularisation(args, { account: address.value! }),
+    () => writableContract().write.ouvrirTitularisation(args),
+  );
 }
 function proposerExclusion() {
-  return runTx(() => writableContract().write.proposerExclusion([exclureAddr.value as `0x${string}`]));
+  const args = [exclureAddr.value as `0x${string}`] as const;
+  return runTx(
+    () => readOnlyContract().simulate.proposerExclusion(args, { account: address.value! }),
+    () => writableContract().write.proposerExclusion(args),
+  );
 }
 function proposerDepense() {
-  return runTx(() =>
-    writableContract().write.proposerDepense([
-      depenseAddr.value as `0x${string}`,
-      parseEther(depenseMontant.value || "0"),
-      depenseMotif.value,
-    ]),
+  const args = [depenseAddr.value as `0x${string}`, parseEther(depenseMontant.value || "0"), depenseMotif.value] as const;
+  return runTx(
+    () => readOnlyContract().simulate.proposerDepense(args, { account: address.value! }),
+    () => writableContract().write.proposerDepense(args),
   );
 }
 function voter(id: bigint, choix: number) {
-  return runTx(() => writableContract().write.voter([id, choix]));
+  const args = [id, choix] as const;
+  return runTx(
+    () => readOnlyContract().simulate.voter(args, { account: address.value! }),
+    () => writableContract().write.voter(args),
+  );
 }
 function executer(id: bigint) {
-  return runTx(() => writableContract().write.executer([id]));
+  const args = [id] as const;
+  return runTx(
+    () => readOnlyContract().simulate.executer(args, { account: address.value! }),
+    () => writableContract().write.executer(args),
+  );
 }
 
 const propositionsEnCours = computed(() => proposals.value.filter((p) => !p.executee && Number(p.echeance) > now.value));
