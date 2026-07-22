@@ -136,11 +136,16 @@
         <div class="row">
           <div class="col-lg-12">
             <h2>Rejoignez-nous sur Discord</h2>
-            <!-- TODO: remettre le widget Discord embarqué (iframe) une fois l'ID de serveur confirmé -->
-            <div class="discord-placeholder">
-              <i class="fa fa-comments"></i>
-              <p>Widget Discord — à intégrer</p>
-            </div>
+            <iframe
+              class="discord-widget"
+              src="https://discord.com/widget?id=126035011441786880&theme=dark"
+              width="350"
+              height="500"
+              allowtransparency="true"
+              frameborder="0"
+              sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+              title="Widget Discord de La Meute"
+            ></iframe>
           </div>
         </div>
       </div>
@@ -157,21 +162,10 @@
 </template>
 
 <style scoped>
-.discord-placeholder {
-  width: 350px;
-  height: 200px;
+.discord-widget {
+  display: block;
   margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-  border: 1px dashed rgba(0, 0, 0, 0.25);
+  max-width: 100%;
   border-radius: 8px;
-  color: #888;
-}
-
-.discord-placeholder i {
-  font-size: 2rem;
 }
 </style>
