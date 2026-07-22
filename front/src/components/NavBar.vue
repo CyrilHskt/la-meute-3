@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from "vue";
+import { ref, onMounted, onUnmounted, computed, nextTick, watch } from "vue";
 import { useRoute } from "vue-router";
 
 // Réplique le comportement du v2 : la nav est transparente en haut de la
@@ -9,6 +9,7 @@ import { useRoute } from "vue-router";
 const route = useRoute();
 const scrolledByUser = ref(false);
 const menuOpen = ref(false);
+const navbarEl = ref<HTMLElement | null>(null);
 
 const scrolled = computed(() => scrolledByUser.value || route.path === "/gouvernance");
 
@@ -16,12 +17,33 @@ function onScroll() {
   scrolledByUser.value = window.scrollY > 50;
 }
 
-onMounted(() => window.addEventListener("scroll", onScroll));
-onUnmounted(() => window.removeEventListener("scroll", onScroll));
+// La hauteur réelle de la nav dépend du contenu Bootstrap (font-size du
+// brand, wrap du menu sur mobile, etc.) — pas une constante fiable. On la
+// mesure et on l'expose en variable CSS pour que tout composant qui doit se
+// positionner sous elle (ex. le sous-menu sticky du dashboard) reste
+// synchronisé au lieu de deviner un nombre de pixels en dur.
+function updateNavbarHeight() {
+  if (navbarEl.value) {
+    document.documentElement.style.setProperty("--navbar-height", `${navbarEl.value.offsetHeight}px`);
+  }
+}
+
+onMounted(() => {
+  window.addEventListener("scroll", onScroll);
+  window.addEventListener("resize", updateNavbarHeight);
+  updateNavbarHeight();
+});
+
+// Le menu mobile déplié change la hauteur totale de la nav.
+watch(menuOpen, () => nextTick(updateNavbarHeight));
+onUnmounted(() => {
+  window.removeEventListener("scroll", onScroll);
+  window.removeEventListener("resize", updateNavbarHeight);
+});
 </script>
 
 <template>
-  <nav class="navbar navbar-custom navbar-fixed-top" :class="{ 'top-nav-collapse': scrolled }">
+  <nav ref="navbarEl" class="navbar navbar-custom navbar-fixed-top" :class="{ 'top-nav-collapse': scrolled }">
     <div class="container">
       <div class="navbar-header">
         <button type="button" class="navbar-toggle" @click="menuOpen = !menuOpen">

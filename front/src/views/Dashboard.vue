@@ -38,9 +38,11 @@ const activeTab = ref<PageTab>("presentation");
 <style lang="scss" scoped>
 /* La nav v2 est fixed-top et reste opaque sur cette page (cf NavBar.vue) :
    il faut pousser tout le contenu sous elle, sinon elle capte les clics
-   sur les premiers ~80px et masque le début de la page. */
+   et masque le début de la page. Sa hauteur réelle varie (police du brand,
+   menu mobile déplié...), donc on suit --navbar-height (mesurée en JS dans
+   NavBar.vue) plutôt qu'un nombre en dur qui se désynchronise. */
 .gv-dashboard {
-  padding-top: 80px;
+  padding-top: var(--navbar-height, 80px);
 }
 
 .gv-page-tabs {
@@ -51,7 +53,7 @@ const activeTab = ref<PageTab>("presentation");
   padding: 0 1.6rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   position: sticky;
-  top: 80px;
+  top: var(--navbar-height, 80px);
   z-index: 10;
 }
 
