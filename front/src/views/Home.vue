@@ -1,7 +1,3 @@
-<script setup lang="ts">
-import VersionBadge from "../components/VersionBadge.vue";
-</script>
-
 <template>
   <div id="page-top">
     <!-- Intro -->
@@ -150,14 +146,6 @@ import VersionBadge from "../components/VersionBadge.vue";
       </div>
     </section>
 
-    <footer>
-      <div class="container text-center">
-        <p class="credits">
-          Copyright &copy; <b>La Meute 2.0</b> 2007-{{ new Date().getFullYear() }}
-        </p>
-        <VersionBadge />
-      </div>
-    </footer>
   </div>
 </template>
 
