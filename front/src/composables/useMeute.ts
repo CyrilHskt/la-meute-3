@@ -261,5 +261,25 @@ export function useMeute() {
     }
   }
 
-  return { stats, proposals, memberActivity, loading, error, loadAll };
+  // Lecture directe d'une seule proposition, à appeler juste après une
+  // transaction qui la modifie (vote, exécution) — le reste de la page
+  // (stats, autres propositions) vient de l'instantané JSON en prod,
+  // rafraîchi seulement toutes les 15 min, donc voter puis relire
+  // `loadAll()` ne montrerait pas encore le nouveau vote. Une lecture
+  // ciblée est négligeable (aucun scan d'historique), donc on peut se le
+  // permettre à chaque transaction sans revenir aux limites de RPC gratuit.
+  async function refreshProposal(id: bigint) {
+    const contract = readOnlyContract();
+    const p = (await contract.read.proposition([id])) as Omit<Proposal, "id" | "auteur">;
+    const index = proposals.value.findIndex((existing) => existing.id === id);
+    const existingAuteur = index >= 0 ? proposals.value[index].auteur : ("0x0000000000000000000000000000000000000000" as Address);
+    const updated: Proposal = { ...p, id, auteur: existingAuteur };
+    if (index >= 0) {
+      proposals.value = proposals.value.map((existing, i) => (i === index ? updated : existing));
+    } else {
+      proposals.value = [updated, ...proposals.value];
+    }
+  }
+
+  return { stats, proposals, memberActivity, loading, error, loadAll, refreshProposal };
 }
