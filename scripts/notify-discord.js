@@ -24,7 +24,14 @@ import { dirname, join } from "node:path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const STATE_PATH = join(__dirname, ".discord-notify-state.json");
 const CONTRACT_TS_PATH = join(__dirname, "..", "front", "src", "contract.ts");
-const BLOCK_RANGE = 900n; // même prudence que front/src/composables/useMeute.ts
+// Le plan gratuit Alchemy limite eth_getLogs à 10 blocs par requête (vécu
+// en prod : erreur -32600 dès qu'on dépasse), bien plus strict que les
+// RPC publics utilisés côté front (voir useMeute.ts, 900 là-bas). D'où
+// aussi le passage en séquentiel plus bas plutôt qu'en Promise.all : le
+// backfill initial (depuis le bloc de déploiement) représente des
+// centaines de requêtes, et les envoyer toutes en parallèle sur un compte
+// gratuit prend le risque d'un rate-limit en plus de la limite de plage.
+const BLOCK_RANGE = 9n; // fromBlock..fromBlock+9 = 10 blocs inclus
 
 function readContractConstant(name) {
   const source = readFileSync(CONTRACT_TS_PATH, "utf8");
@@ -62,13 +69,19 @@ function saveState(state) {
   writeFileSync(STATE_PATH, JSON.stringify(state, null, 2) + "\n");
 }
 
-async function getEventsChunked(contract, eventName, fromBlock, toBlock) {
-  const windows = [];
+// Une seule requête getLogs par fenêtre pour les deux events (filtre OR sur
+// les deux topic0), au lieu d'une requête par event — moitié moins d'appels
+// sur un RPC déjà très contraint en plage de blocs.
+async function getEventsChunked(provider, contract, eventNames, fromBlock, toBlock) {
+  const topic0s = eventNames.map((name) => contract.interface.getEvent(name).topicHash);
+  const address = await contract.getAddress();
+  const results = [];
   for (let from = fromBlock; from <= toBlock; from += BLOCK_RANGE + 1n) {
     const to = from + BLOCK_RANGE > toBlock ? toBlock : from + BLOCK_RANGE;
-    windows.push(contract.queryFilter(contract.filters[eventName](), from, to));
+    const logs = await provider.getLogs({ address, fromBlock: from, toBlock: to, topics: [topic0s] });
+    results.push(...logs.map((log) => contract.interface.parseLog(log)));
   }
-  return (await Promise.all(windows)).flat();
+  return results;
 }
 
 function seuil(snapshotActifs) {
@@ -94,6 +107,7 @@ async function postToDiscord(content) {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ content }),
+    signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) {
     throw new Error(`Discord a répondu ${res.status} : ${await res.text()}`);
@@ -101,43 +115,56 @@ async function postToDiscord(content) {
 }
 
 async function main() {
-  const provider = new ethers.JsonRpcProvider(RPC_URL);
+  // Un timeout explicite par requête RPC : sans lui, une clé invalide ou un
+  // RPC qui ne répond jamais laisse le job tourner indéfiniment sans le
+  // moindre message d'erreur (vécu au premier run réel).
+  const fetchRequest = new ethers.FetchRequest(RPC_URL);
+  fetchRequest.timeout = 15_000;
+  const provider = new ethers.JsonRpcProvider(fetchRequest);
   const abi = loadAbi();
   const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, provider);
 
+  console.log(`RPC configuré : ${RPC_URL ? "oui" : "NON — variable vide"}`);
+  console.log("Récupération du dernier bloc...");
   const state = loadState();
   const fromBlock = BigInt(state.lastBlock) + 1n;
-  const toBlock = await provider.getBlockNumber();
+  const toBlock = BigInt(await provider.getBlockNumber());
+  console.log(`Plage à traiter : blocs ${fromBlock} → ${toBlock} (${toBlock - fromBlock + 1n} blocs).`);
 
   if (fromBlock > toBlock) {
     console.log("Rien de nouveau (aucun bloc à traiter).");
     return;
   }
 
-  const [openedLogs, executedLogs] = await Promise.all([
-    getEventsChunked(contract, "PropositionOuverte", fromBlock, toBlock),
-    getEventsChunked(contract, "PropositionExecutee", fromBlock, toBlock),
-  ]);
+  console.log(`Récupération des events (par lots de ${BLOCK_RANGE + 1n} blocs)...`);
+  const logs = await getEventsChunked(
+    provider,
+    contract,
+    ["PropositionOuverte", "PropositionExecutee"],
+    fromBlock,
+    toBlock,
+  );
+  console.log(`${logs.length} event(s) trouvé(s).`);
 
-  for (const log of openedLogs) {
-    const { proposalId, cible, typeProp } = log.args;
-    const prop = await contract.proposition(proposalId);
-    console.log(`Ouverture #${proposalId} — ${TYPE_LABELS[Number(typeProp)]}`);
-    await postToDiscord(
-      `🗳️ **Nouvelle proposition ouverte** — ${propositionLabel(typeProp, cible, prop.montant, prop.motif)}\n` +
-        `Vote ouvert 7 jours, ${seuil(prop.snapshotActifs)} voix « pour » requises (sur ${prop.snapshotActifs} Loups actifs).`,
-    );
-  }
-
-  for (const log of executedLogs) {
-    const { proposalId } = log.args;
-    const prop = await contract.proposition(proposalId);
-    const approuvee = Number(prop.votesApprouver) >= seuil(prop.snapshotActifs);
-    console.log(`Exécution #${proposalId} — ${approuvee ? "approuvée" : "refusée"}`);
-    await postToDiscord(
-      `${approuvee ? "✅" : "❌"} **Vote clos** — ${propositionLabel(prop.typeProp, prop.cible, prop.montant, prop.motif)}\n` +
-        `${approuvee ? "Approuvée" : "Refusée"} (${prop.votesApprouver} pour / ${prop.votesRejeter} contre).`,
-    );
+  for (const log of logs) {
+    if (log.name === "PropositionOuverte") {
+      const { proposalId, cible, typeProp } = log.args;
+      const prop = await contract.proposition(proposalId);
+      console.log(`Ouverture #${proposalId} — ${TYPE_LABELS[Number(typeProp)]}`);
+      await postToDiscord(
+        `🗳️ **Nouvelle proposition ouverte** — ${propositionLabel(typeProp, cible, prop.montant, prop.motif)}\n` +
+          `Vote ouvert 7 jours, ${seuil(prop.snapshotActifs)} voix « pour » requises (sur ${prop.snapshotActifs} Loups actifs).`,
+      );
+    } else if (log.name === "PropositionExecutee") {
+      const { proposalId } = log.args;
+      const prop = await contract.proposition(proposalId);
+      const approuvee = Number(prop.votesApprouver) >= seuil(prop.snapshotActifs);
+      console.log(`Exécution #${proposalId} — ${approuvee ? "approuvée" : "refusée"}`);
+      await postToDiscord(
+        `${approuvee ? "✅" : "❌"} **Vote clos** — ${propositionLabel(prop.typeProp, prop.cible, prop.montant, prop.motif)}\n` +
+          `${approuvee ? "Approuvée" : "Refusée"} (${prop.votesApprouver} pour / ${prop.votesRejeter} contre).`,
+      );
+    }
   }
 
   saveState({ lastBlock: toBlock.toString() });

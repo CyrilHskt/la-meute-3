@@ -14,6 +14,12 @@ permissions:
 jobs:
   notify:
     runs-on: ubuntu-latest
+    # Généreux pour le tout premier run : le plan gratuit Alchemy limite
+    # eth_getLogs à 10 blocs/requête (voir notify-discord.js), donc le
+    # rattrapage complet depuis le déploiement représente des centaines de
+    # requêtes séquentielles. Les runs suivants ne traitent que ~75 blocs
+    # (l'intervalle du cron) et finissent en quelques secondes.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
