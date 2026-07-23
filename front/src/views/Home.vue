@@ -151,13 +151,6 @@
       </div>
     </section>
 
-    <footer>
-      <div class="container text-center">
-        <p class="credits">
-          Copyright &copy; <b>La Meute 2.0</b> 2007-{{ new Date().getFullYear() }}
-        </p>
-      </div>
-    </footer>
   </div>
 </template>
 
