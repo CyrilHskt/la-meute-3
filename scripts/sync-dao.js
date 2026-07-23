@@ -73,7 +73,14 @@ function loadAbi() {
 
 function loadState() {
   if (!existsSync(STATE_PATH)) {
-    return { lastBlock: DEPLOY_BLOCK.toString(), minted: [], burned: [], proposalIds: [], memberActivity: {} };
+    return {
+      lastBlock: DEPLOY_BLOCK.toString(),
+      minted: [],
+      burned: [],
+      proposalIds: [],
+      proposalAuthors: {},
+      memberActivity: {},
+    };
   }
   return JSON.parse(readFileSync(STATE_PATH, "utf8"));
 }
@@ -134,15 +141,23 @@ function propositionLabel(typeProp, cible, montant, motif) {
   }
 }
 
+// N'échoue jamais bruyamment : rater une notification Discord (webhook
+// supprimé, Discord en carafe...) ne doit pas empêcher l'instantané JSON
+// d'être mis à jour pour le front — ce sont deux usages indépendants d'un
+// même scan, l'un ne doit pas bloquer l'autre.
 async function postToDiscord(content) {
-  const res = await fetch(DISCORD_WEBHOOK_URL, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ content }),
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!res.ok) {
-    throw new Error(`Discord a répondu ${res.status} : ${await res.text()}`);
+  try {
+    const res = await fetch(DISCORD_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ content }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) {
+      console.error(`Discord a répondu ${res.status} : ${await res.text()}`);
+    }
+  } catch (err) {
+    console.error("Échec de l'envoi vers Discord :", err);
   }
 }
 
@@ -157,6 +172,10 @@ async function main() {
   const minted = new Set(state.minted);
   const burned = new Set(state.burned);
   const proposalIds = new Set(state.proposalIds);
+  // `auteur` n'est pas stocké dans la struct Proposition on-chain (seulement
+  // émis dans l'event PropositionOuverte) — il faut le garder à part pour
+  // pouvoir le remettre dans l'instantané à chaque rafraîchissement.
+  const proposalAuthors = state.proposalAuthors ?? {};
   const memberActivity = state.memberActivity ?? {};
   const bump = (addr, key) => {
     const k = addr.toLowerCase();
@@ -191,6 +210,7 @@ async function main() {
       } else if (log.name === "PropositionOuverte") {
         const { proposalId, cible, auteur, typeProp } = log.args;
         proposalIds.add(proposalId.toString());
+        proposalAuthors[proposalId.toString()] = auteur;
         bump(auteur, "propositionsOuvertes");
         const prop = await contract.proposition(proposalId);
         console.log(`Ouverture #${proposalId} — ${TYPE_LABELS[Number(typeProp)]}`);
@@ -241,7 +261,7 @@ async function main() {
         id,
         typeProp: Number(p.typeProp),
         cible: p.cible,
-        auteur: p.auteur,
+        auteur: proposalAuthors[id],
         echeance: p.echeance.toString(),
         snapshotActifs: Number(p.snapshotActifs),
         snapshotFige: p.snapshotFige,
@@ -277,6 +297,7 @@ async function main() {
     minted: [...minted],
     burned: [...burned],
     proposalIds: [...proposalIds],
+    proposalAuthors,
     memberActivity,
   });
   console.log(`État et instantané à jour : dernier bloc traité ${toBlock}.`);
