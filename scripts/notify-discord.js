@@ -69,17 +69,41 @@ function saveState(state) {
   writeFileSync(STATE_PATH, JSON.stringify(state, null, 2) + "\n");
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Le plan gratuit Alchemy a aussi un plafond de débit (compute units par
+// seconde), distinct de la limite de plage — vécu en prod : erreur 429
+// même en séquentiel, sans délai entre les requêtes. Un backoff
+// exponentiel sur les 429 spécifiquement (pas sur les autres erreurs, qui
+// doivent remonter normalement) absorbe ces pics sans configuration fine
+// du débit exact autorisé.
+async function getLogsWithRetry(provider, params, attempt = 1) {
+  try {
+    return await provider.getLogs(params);
+  } catch (err) {
+    const is429 = err?.error?.code === 429 || err?.info?.error?.code === 429;
+    if (!is429 || attempt >= 5) throw err;
+    const delay = 1000 * 2 ** (attempt - 1);
+    console.log(`Rate-limit (429), nouvelle tentative dans ${delay}ms (essai ${attempt}/5)...`);
+    await sleep(delay);
+    return getLogsWithRetry(provider, params, attempt + 1);
+  }
+}
+
 // Une seule requête getLogs par fenêtre pour les deux events (filtre OR sur
 // les deux topic0), au lieu d'une requête par event — moitié moins d'appels
-// sur un RPC déjà très contraint en plage de blocs.
+// sur un RPC déjà très contraint en plage de blocs. Un petit délai fixe
+// entre chaque fenêtre lisse aussi le débit pour éviter de déclencher le
+// 429 plutôt que de compter uniquement sur les tentatives de secours.
 async function getEventsChunked(provider, contract, eventNames, fromBlock, toBlock) {
   const topic0s = eventNames.map((name) => contract.interface.getEvent(name).topicHash);
   const address = await contract.getAddress();
   const results = [];
   for (let from = fromBlock; from <= toBlock; from += BLOCK_RANGE + 1n) {
     const to = from + BLOCK_RANGE > toBlock ? toBlock : from + BLOCK_RANGE;
-    const logs = await provider.getLogs({ address, fromBlock: from, toBlock: to, topics: [topic0s] });
+    const logs = await getLogsWithRetry(provider, { address, fromBlock: from, toBlock: to, topics: [topic0s] });
     results.push(...logs.map((log) => contract.interface.parseLog(log)));
+    await sleep(250);
   }
   return results;
 }
