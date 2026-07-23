@@ -1,0 +1,14 @@
+{
+  "updatedAt": null,
+  "lastBlock": "0",
+  "stats": {
+    "treasuryWei": "0",
+    "loupsActifs": 0,
+    "loupsDormants": 0,
+    "louveteaux": 0,
+    "votesExprimes": 0,
+    "propositionsOuvertes": 0
+  },
+  "proposals": [],
+  "memberActivity": {}
+}

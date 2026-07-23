@@ -1,10 +1,10 @@
-name: Discord notify
+name: Sync DAO
 
 on:
   schedule:
     # Toutes les 15 minutes — la fréquence réelle de GitHub Actions peut
     # varier un peu selon la charge, mais l'état persisté (dernier bloc
-    # traité) garantit qu'aucun event n'est raté ni renvoyé en double.
+    # traité) garantit qu'aucun event n'est raté ni traité deux fois.
     - cron: "*/15 * * * *"
   workflow_dispatch:
 
@@ -12,15 +12,17 @@ permissions:
   contents: write
 
 jobs:
-  notify:
+  sync:
     runs-on: ubuntu-latest
     # Généreux pour le tout premier run : le plan gratuit Alchemy limite
     # eth_getLogs à 10 blocs/requête et à un débit de compute units par
-    # seconde assez bas (voir notify-discord.js — délai fixe + retries avec
-    # backoff sur les 429), donc le rattrapage complet depuis le déploiement
-    # représente des centaines de requêtes séquentielles, chacune espacée.
-    # Les runs suivants ne traitent que ~75 blocs (l'intervalle du cron) et
-    # finissent en quelques secondes.
+    # seconde assez bas (voir scripts/sync-dao.js — délai fixe + retries
+    # avec backoff sur les 429), donc le rattrapage complet depuis le
+    # déploiement représente des centaines de requêtes séquentielles,
+    # chacune espacée. Les runs suivants ne traitent que ~75 blocs
+    # (l'intervalle du cron) et finissent en quelques secondes — l'état
+    # cumulatif (scripts/.dao-sync-state.json) évite de tout rescanner à
+    # chaque fois.
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -33,15 +35,15 @@ jobs:
 
       - run: npx hardhat compile
 
-      - run: node scripts/notify-discord.js
+      - run: node scripts/sync-dao.js
         env:
           RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 
-      - name: Committer l'état mis à jour
+      - name: Committer l'état et l'instantané mis à jour
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add scripts/.discord-notify-state.json
-          git diff --cached --quiet || git commit -m "chore: mise à jour de l'état discord-notify [skip ci]"
+          git add scripts/.dao-sync-state.json front/public/dao-index.json
+          git diff --cached --quiet || git commit -m "chore: mise à jour de l'instantané DAO [skip ci]"
           git push
