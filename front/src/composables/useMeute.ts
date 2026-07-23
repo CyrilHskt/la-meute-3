@@ -3,14 +3,38 @@ import type { Address } from "viem";
 import { useWallet } from "./useWallet";
 import { CONTRACT_ABI } from "../contract";
 
-// Les RPC publics plafonnent la plage `eth_getLogs` par requête — mais pas
-// tous à la même limite. Constaté en prod (Netlify, RPC public thirdweb
-// utilisé par défaut par viem sur Sepolia) : plafond réel de 1000 blocs,
-// pas les 10 000 supposés au départ (qui passaient en local avec un RPC
-// Alchemy plus permissif). 900 reste sous la limite la plus stricte vue
-// jusqu'ici, avec une marge ; sans effet notable sur un nœud local (peu de
-// blocs), juste des fenêtres inutiles mais inoffensives.
-const BLOCK_RANGE = 900n;
+// Les RPC plafonnent la plage `eth_getLogs` par requête — mais pas tous à
+// la même limite. Le plan gratuit Alchemy (utilisé en prod depuis qu'on a
+// remplacé le RPC public thirdweb, trop capricieux sous charge) est le
+// plus strict vu jusqu'ici : seulement 10 blocs par requête, confirmé par
+// l'erreur RPC elle-même en prod. En local, cette plage minuscule est sans
+// conséquence (peu de blocs), juste plus de fenêtres.
+const BLOCK_RANGE = 9n;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Même plan gratuit : au-delà de la plage de blocs, un plafond de débit
+// (compute units/seconde) rejette aussi les rafales avec un 429 — vécu en
+// prod sur le job Discord (scripts/notify-discord.js), même logique de
+// retry ici. Sans ce backoff, charger la page envoie d'un coup des
+// centaines de fenêtres en parallèle et se fait rate-limiter.
+async function fetchWindowWithRetry<T>(
+  fetchWindow: (fromBlock: bigint, toBlock: bigint) => Promise<T[]>,
+  fromBlock: bigint,
+  toBlock: bigint,
+  attempt = 1,
+): Promise<T[]> {
+  try {
+    return await fetchWindow(fromBlock, toBlock);
+  } catch (err) {
+    const status = (err as { status?: number; details?: string })?.status;
+    const details = (err as { details?: string })?.details ?? "";
+    const is429 = status === 429 || details.includes("429") || details.toLowerCase().includes("rate limit");
+    if (!is429 || attempt >= 5) throw err;
+    await sleep(500 * 2 ** (attempt - 1));
+    return fetchWindowWithRetry(fetchWindow, fromBlock, toBlock, attempt + 1);
+  }
+}
 
 async function getEventsChunked<T>(
   publicClient: { getBlockNumber: () => Promise<bigint> },
@@ -18,12 +42,15 @@ async function getEventsChunked<T>(
   fetchWindow: (fromBlock: bigint, toBlock: bigint) => Promise<T[]>,
 ): Promise<T[]> {
   const latest = await publicClient.getBlockNumber();
-  const windows: Promise<T[]>[] = [];
+  const results: T[] = [];
+  // Séquentiel plutôt que Promise.all : avec une plage de 10 blocs sur un
+  // historique de plusieurs milliers de blocs, envoyer toutes les fenêtres
+  // en parallèle déclenche immédiatement le rate-limit du plan gratuit.
   for (let from = deployBlock; from <= latest; from += BLOCK_RANGE + 1n) {
     const to = from + BLOCK_RANGE > latest ? latest : from + BLOCK_RANGE;
-    windows.push(fetchWindow(from, to));
+    results.push(...(await fetchWindowWithRetry(fetchWindow, from, to)));
   }
-  return (await Promise.all(windows)).flat();
+  return results;
 }
 
 export const Rang = { Louveteau: 0, Loup: 1 } as const;
