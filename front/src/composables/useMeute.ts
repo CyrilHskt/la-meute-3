@@ -1,6 +1,7 @@
 import { ref } from "vue";
 import type { Address } from "viem";
 import { useWallet } from "./useWallet";
+import { CONTRACT_ABI } from "../contract";
 
 // Les RPC publics plafonnent la plage `eth_getLogs` par requête — mais pas
 // tous à la même limite. Constaté en prod (Netlify, RPC public thirdweb
@@ -104,9 +105,32 @@ export function useMeute() {
       const burned = new Set(burnLogs.map((l) => (l.args as { from: Address }).from.toLowerCase()));
       const currentMembers = [...minted].filter((a) => !burned.has(a)) as Address[];
 
-      const cartes = await Promise.all(
-        currentMembers.map((addr) => contract.read.carte([addr]) as Promise<Carte>),
-      );
+      // Un multicall (un seul appel RPC) plutôt qu'un Promise.all de N
+      // lectures individuelles : le RPC public gratuit utilisé par défaut en
+      // prod (aucune clé configurée exprès, cf. useWallet.ts) commençait à
+      // rejeter par intermittence les rafales de eth_call simultanés dès
+      // que le nombre de membres grandissait. Repli sur Promise.all si le
+      // multicall échoue (ex. réseau local Hardhat, où Multicall3 n'est pas
+      // déployé par défaut — viem/chains ne le configure que pour les
+      // vrais réseaux comme Sepolia).
+      let cartes: Carte[];
+      if (currentMembers.length === 0) {
+        cartes = [];
+      } else {
+        try {
+          cartes = (await publicClient.multicall({
+            contracts: currentMembers.map((addr) => ({
+              address: contractAddress,
+              abi: CONTRACT_ABI,
+              functionName: "carte",
+              args: [addr],
+            })),
+            allowFailure: false,
+          })) as unknown as Carte[];
+        } catch {
+          cartes = await Promise.all(currentMembers.map((addr) => contract.read.carte([addr]) as Promise<Carte>));
+        }
+      }
 
       let louveteaux = 0;
       let loupsDormants = 0;
