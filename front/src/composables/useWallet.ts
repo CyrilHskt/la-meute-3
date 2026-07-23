@@ -22,12 +22,18 @@ const wrongNetwork = ref(false);
 const noWalletDetected = ref(false);
 
 // Lecture seule : ne nécessite aucun wallet, fonctionne même pour un
-// visiteur sans MetaMask installé — RPC public de la chaîne, pas de clé
-// nécessaire pour lire. Ne pas utiliser `custom(window.ethereum)` ici :
-// ça exigerait un wallet juste pour afficher des stats publiques.
+// visiteur sans MetaMask installé. Ne pas utiliser `custom(window.ethereum)`
+// ici : ça exigerait un wallet juste pour afficher des stats publiques.
+//
+// VITE_RPC_URL (Alchemy) plutôt que le RPC public par défaut de viem :
+// ce dernier (thirdweb pour Sepolia) s'est montré capricieux en prod avec
+// la croissance du trafic (échecs réseau intermittents constatés
+// directement dans le navigateur, invisibles en local/CLI) — pas de clé
+// secrète à protéger ici, une clé RPC en lecture n'autorise aucune
+// transaction, seulement à restreindre par domaine dans Alchemy si besoin.
 const publicClient = createPublicClient({
   chain,
-  transport: http(),
+  transport: http(import.meta.env.VITE_RPC_URL as string | undefined),
 });
 
 function getInjected() {
