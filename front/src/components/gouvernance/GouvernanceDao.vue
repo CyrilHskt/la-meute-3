@@ -12,7 +12,7 @@ import CandidatureChecklist from "./CandidatureChecklist.vue";
 import WalletInstallModal from "./WalletInstallModal.vue";
 
 const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient } = useWallet();
-const { stats, proposals, memberActivity, loading, error, loadAll } = useMeute();
+const { stats, proposals, memberActivity, loading, error, loadAll, refreshProposal } = useMeute();
 const { eurPerEth } = useEthPrice();
 
 const txError = ref<string | null>(null);
@@ -137,6 +137,13 @@ async function onConnect() {
 async function runTx(
   simulateFn: () => Promise<unknown>,
   writeFn: () => Promise<`0x${string}`>,
+  // En prod, `loadAll()` vient d'un instantané JSON rafraîchi toutes les 15
+  // min (voir useMeute.ts) — voter puis relire cet instantané ne montrerait
+  // pas encore le vote qu'on vient de soumettre. Passer un id relit cette
+  // proposition précise en direct (lecture unique, négligeable) au lieu de
+  // recharger tout l'instantané ; sans id (nouvelle candidature, etc.), on
+  // recharge tout comme avant.
+  proposalId?: bigint,
 ) {
   txError.value = null;
   txPending.value = true;
@@ -144,7 +151,12 @@ async function runTx(
     await simulateFn();
     const hash = await writeFn();
     await publicClient.waitForTransactionReceipt({ hash });
-    await Promise.all([loadAll(), refreshMembership(), loadPseudo(), loadSolde()]);
+    await Promise.all([
+      proposalId !== undefined ? refreshProposal(proposalId) : loadAll(),
+      refreshMembership(),
+      loadPseudo(),
+      loadSolde(),
+    ]);
     now.value = Number((await publicClient.getBlock()).timestamp);
   } catch (e) {
     txError.value = friendlyContractError(e);
@@ -192,6 +204,7 @@ function voter(id: bigint, choix: number) {
   return runTx(
     () => readOnlyContract().simulate.voter(args, { account: address.value! }),
     () => writableContract().write.voter(args),
+    id,
   );
 }
 function executer(id: bigint) {
@@ -199,6 +212,7 @@ function executer(id: bigint) {
   return runTx(
     () => readOnlyContract().simulate.executer(args, { account: address.value! }),
     () => writableContract().write.executer(args),
+    id,
   );
 }
 
