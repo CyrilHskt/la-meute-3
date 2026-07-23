@@ -2,6 +2,12 @@ name: CI
 
 on:
   push:
+    # Sans "[skip ci]" (voir sync-dao.yml — Netlify le traite aussi comme un
+    # ordre de sauter le déploiement), les commits automatiques du job Sync
+    # DAO (toutes les 15 min) déclencheraient sinon ce workflow pour rien.
+    paths-ignore:
+      - "scripts/.dao-sync-state.json"
+      - "front/public/dao-index.json"
   pull_request:
 
 jobs:
