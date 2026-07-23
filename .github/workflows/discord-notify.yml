@@ -1,0 +1,39 @@
+name: Discord notify
+
+on:
+  schedule:
+    # Toutes les 15 minutes — la fréquence réelle de GitHub Actions peut
+    # varier un peu selon la charge, mais l'état persisté (dernier bloc
+    # traité) garantit qu'aucun event n'est raté ni renvoyé en double.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+
+      - run: npx hardhat compile
+
+      - run: node scripts/notify-discord.js
+        env:
+          RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+      - name: Committer l'état mis à jour
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add scripts/.discord-notify-state.json
+          git diff --cached --quiet || git commit -m "chore: mise à jour de l'état discord-notify [skip ci]"
+          git push

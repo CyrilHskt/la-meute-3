@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
+import { useGuidedTour } from "../../composables/useGuidedTour";
 import { formatEther, parseEther } from "viem";
 import { driver } from "driver.js";
-import "driver.js/dist/driver.css";
 import { useWallet } from "../../composables/useWallet";
 import { useMeute, TypeProposition, ChoixVote, type Proposal } from "../../composables/useMeute";
 import { useEthPrice } from "../../composables/useEthPrice";
@@ -59,13 +59,18 @@ function startEditPseudo() {
 function cancelEditPseudo() {
   editingPseudo.value = false;
 }
-function savePseudo() {
+async function savePseudo() {
   const nouveau = pseudoInput.value.trim();
-  editingPseudo.value = false;
-  return runTx(
+  // On garde le formulaire ouvert (juste désactivé via txPending) tant que
+  // la transaction n'est pas confirmée — le fermer tout de suite faisait
+  // réapparaître l'ancien pseudo ("Pas encore de pseudo") pendant les
+  // quelques secondes d'attente sur Sepolia, avant que loadPseudo() ne
+  // rattrape la vraie valeur.
+  await runTx(
     () => readOnlyContract().simulate.definirPseudo([nouveau], { account: address.value! }),
     () => writableContract().write.definirPseudo([nouveau]),
   );
+  editingPseudo.value = false;
 }
 
 onMounted(async () => {
@@ -328,26 +333,44 @@ function eurTooltip(wei: bigint): string {
   return `≈ ${eur.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} €`;
 }
 
+// La mise en avant du tour (un unique step driver.js pointant sur le
+// bouton "Visite guidée") vit dans Dashboard.vue, qui possède l'onglet actif
+// et le bouton lui-même. Ce composant n'a besoin que de réagir à une
+// demande de lancement, via l'état partagé de useGuidedTour.
+const { tourRequestId } = useGuidedTour();
+
+watch(tourRequestId, (id) => {
+  if (id > 0) startTour();
+});
+
 // Visite guidée : jamais lancée automatiquement, un tour court par rôle,
 // rejouable à volonté depuis le bouton dédié. Reprend le style et le
 // contenu déjà validés dans la maquette (Artifact), driver.js remplace
 // juste le moteur de positionnement fait main.
 function startTour() {
+  const effectifsStep = {
+    element: ".gv-stats-effectifs",
+    popover: { title: "Les effectifs de la meute", description: "Ici tu retrouves les effectifs de la meute : Loups actifs, Loups dormants et Louveteaux." },
+  };
+
   const steps =
     role.value === "loup"
       ? [
           { element: ".gv-card-panel", popover: { title: "Ta carte de Loup", description: "Ton statut, ton ancienneté et ton activité (votes, propositions ouvertes) sont visibles ici." } },
           { element: ".gv-new-prop-panel", popover: { title: "Ouvrir une proposition", description: "Titularisation, exclusion ou dépense : chaque type de décision a son propre formulaire, ici." } },
           { element: ".gv-prop-actions", popover: { title: "Voter", description: "Un vote reste ouvert 7 jours. Le seuil affiché s'ajuste automatiquement au nombre de Loups réellement actifs." } },
+          effectifsStep,
         ]
       : role.value === "louveteau"
         ? [
             { element: ".gv-card-panel", popover: { title: "Ta carte de Louveteau", description: "Ton statut et ta contribution sont à jour en direct — c'est la même carte qui deviendra Loup après titularisation." } },
             { element: ".gv-stat-row", popover: { title: "En période de probation", description: "Tu peux suivre les propositions en cours, mais le droit de vote arrive avec ta titularisation." } },
+            effectifsStep,
           ]
         : [
             { element: ".gv-card-panel", popover: { title: "Ton wallet, c'est ta carte", description: "Pas de compte à créer : ton wallet est ton identité ici, du candidat au Loup." } },
             { element: ".gv-stat-tile:first-child", popover: { title: "Le trésor, en direct", description: "Ce montant vient du solde réel du contrat sur la blockchain — personne ne peut l'afficher faux." } },
+            effectifsStep,
           ];
 
   driver({ showProgress: true, nextBtnText: "Suivant", prevBtnText: "Précédent", doneBtnText: "Terminer", steps }).drive();
@@ -357,26 +380,25 @@ function startTour() {
 <template>
   <section id="gouvernance-dao" class="gv-dao">
     <WalletInstallModal />
-    <div class="gv-tour-bar">
-      <button class="gv-tour-trigger" type="button" @click="startTour">Visite guidée</button>
-    </div>
 
     <div v-if="stats" class="gv-stats-bar">
       <div class="gv-stat-tile" :title="eurTooltip(stats.treasuryWei)">
         <div class="value">{{ formatEther(stats.treasuryWei) }} <span class="unit">ETH</span></div>
         <div class="caption">Trésor</div>
       </div>
-      <div class="gv-stat-tile">
-        <div class="value">{{ stats.loupsActifs }}</div>
-        <div class="caption">Loups actifs</div>
-      </div>
-      <div class="gv-stat-tile">
-        <div class="value">{{ stats.loupsDormants }}</div>
-        <div class="caption">Loups dormants</div>
-      </div>
-      <div class="gv-stat-tile">
-        <div class="value">{{ stats.louveteaux }}</div>
-        <div class="caption">Louveteaux</div>
+      <div class="gv-stats-effectifs">
+        <div class="gv-stat-tile">
+          <div class="value">{{ stats.loupsActifs }}</div>
+          <div class="caption">Loups actifs</div>
+        </div>
+        <div class="gv-stat-tile">
+          <div class="value">{{ stats.loupsDormants }}</div>
+          <div class="caption">Loups dormants</div>
+        </div>
+        <div class="gv-stat-tile">
+          <div class="value">{{ stats.louveteaux }}</div>
+          <div class="caption">Louveteaux</div>
+        </div>
       </div>
       <div class="gv-stat-tile">
         <div class="value">{{ stats.votesExprimes }}</div>
@@ -432,13 +454,19 @@ function startTour() {
             </button>
           </p>
           <form v-else class="gv-pseudo-edit" @submit.prevent="savePseudo">
-            <input v-model="pseudoInput" maxlength="32" placeholder="Ton pseudo (32 car. max)" autofocus />
-            <button class="icon-btn" type="submit" title="Enregistrer" :disabled="txPending">
-              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5 6.5 12 13 4.5" /></svg>
-            </button>
-            <button class="icon-btn" type="button" title="Annuler" @click="cancelEditPseudo">
-              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4l8 8M12 4l-8 8" /></svg>
-            </button>
+            <template v-if="txPending">
+              <span class="gv-pseudo-spinner" aria-hidden="true"></span>
+              <span class="gv-pseudo-pending">Enregistrement…</span>
+            </template>
+            <template v-else>
+              <input v-model="pseudoInput" maxlength="32" placeholder="Ton pseudo (32 car. max)" autofocus />
+              <button class="icon-btn" type="submit" title="Enregistrer">
+                <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5 6.5 12 13 4.5" /></svg>
+              </button>
+              <button class="icon-btn" type="button" title="Annuler" @click="cancelEditPseudo">
+                <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+              </button>
+            </template>
           </form>
 
           <p class="gv-card-note" style="text-align: center"><AddressChip v-if="address" :address="address" short /></p>
@@ -621,25 +649,6 @@ function startTour() {
   font-family: $font-mono;
 }
 
-.gv-tour-bar {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0.7rem 1.6rem;
-  background: #111;
-}
-
-.gv-tour-trigger {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: rgba(255, 255, 255, 0.85);
-  border-radius: 999px;
-  padding: 0.4rem 0.9rem;
-  font-size: $fs-caption;
-  cursor: pointer;
-
-  &:hover { border-color: $color-orange; color: $color-orange; }
-}
-
 .gv-loading,
 .gv-card-note {
   color: $color-text-dim;
@@ -662,12 +671,31 @@ function startTour() {
   line-height: 1.5;
 }
 
+// Flex plutôt que grid : .gv-stats-effectifs doit avoir une vraie boîte
+// (sa propre taille/position) pour que driver.js puisse la cibler comme
+// une seule zone dans la visite guidée — un wrapper en `display: contents`
+// n'a pas de rect propre (mesuré à 0×0), ce qui cassait le positionnement
+// du popover.
 .gv-stats-bar {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 1px;
   background: $color-border;
   border-bottom: 1px solid $color-border;
+
+  > .gv-stat-tile {
+    flex: 1 1 120px;
+  }
+}
+
+.gv-stats-effectifs {
+  display: flex;
+  flex: 3 1 360px;
+  gap: 1px;
+
+  .gv-stat-tile {
+    flex: 1 1 120px;
+  }
 }
 
 .gv-stat-tile {
@@ -750,6 +778,22 @@ function startTour() {
     font: inherit;
     font-size: $fs-caption;
   }
+}
+
+.gv-pseudo-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid $color-border;
+  border-top-color: $color-orange;
+  border-radius: 50%;
+  animation: gv-spin 0.7s linear infinite;
+}
+.gv-pseudo-pending {
+  font-size: $fs-caption;
+  color: $color-text-dim;
+}
+@keyframes gv-spin {
+  to { transform: rotate(360deg); }
 }
 
 .icon-btn {

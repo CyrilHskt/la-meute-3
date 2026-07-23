@@ -1,0 +1,11 @@
+/* driver.js rend son popover en dehors de l'arbre Vue (append direct au
+   body), donc un style scoped d'un composant ne peut pas l'atteindre. La
+   vraie source du gros espace blanc : le `<footer>` du popover
+   (.driver-popover-footer) est littéralement une balise <footer>, et
+   theme.css définit `footer { padding: 40px 0; ... }` pour le footer du
+   site — un sélecteur d'élément générique qui s'applique à n'importe quel
+   <footer>, y compris celui-ci. */
+.driver-popover-footer {
+  padding: 0 !important;
+  margin-top: 10px !important;
+}

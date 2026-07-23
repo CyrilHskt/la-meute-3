@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "advance-time": "node scripts/advance-time.js",
-    "seed:local": "node scripts/seed-local.js"
+    "seed:local": "node scripts/seed-local.js",
+    "notify:discord": "node scripts/notify-discord.js"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^4.0.14",
