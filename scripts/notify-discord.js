@@ -94,6 +94,7 @@ async function postToDiscord(content) {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ content }),
+    signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) {
     throw new Error(`Discord a répondu ${res.status} : ${await res.text()}`);
@@ -101,13 +102,21 @@ async function postToDiscord(content) {
 }
 
 async function main() {
-  const provider = new ethers.JsonRpcProvider(RPC_URL);
+  // Un timeout explicite par requête RPC : sans lui, une clé invalide ou un
+  // RPC qui ne répond jamais laisse le job tourner indéfiniment sans le
+  // moindre message d'erreur (vécu au premier run réel).
+  const fetchRequest = new ethers.FetchRequest(RPC_URL);
+  fetchRequest.timeout = 15_000;
+  const provider = new ethers.JsonRpcProvider(fetchRequest);
   const abi = loadAbi();
   const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, provider);
 
+  console.log(`RPC configuré : ${RPC_URL ? "oui" : "NON — variable vide"}`);
+  console.log("Récupération du dernier bloc...");
   const state = loadState();
   const fromBlock = BigInt(state.lastBlock) + 1n;
   const toBlock = await provider.getBlockNumber();
+  console.log(`Plage à traiter : blocs ${fromBlock} → ${toBlock} (${toBlock - fromBlock + 1n} blocs).`);
 
   if (fromBlock > toBlock) {
     console.log("Rien de nouveau (aucun bloc à traiter).");
