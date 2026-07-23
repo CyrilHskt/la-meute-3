@@ -1,12 +1,12 @@
 {
-  "updatedAt": "2026-07-23T21:19:38.005Z",
-  "lastBlock": "11336262",
+  "updatedAt": "2026-07-23T22:28:45.134Z",
+  "lastBlock": "11336598",
   "stats": {
     "treasuryWei": "0",
     "loupsActifs": 1,
     "loupsDormants": 0,
     "louveteaux": 0,
-    "votesExprimes": 0,
+    "votesExprimes": 1,
     "propositionsOuvertes": 1
   },
   "proposals": [
@@ -19,7 +19,7 @@
       "snapshotActifs": 1,
       "snapshotFige": true,
       "executee": false,
-      "votesApprouver": 0,
+      "votesApprouver": 1,
       "votesRejeter": 0,
       "votesAjourner": 0,
       "montant": "10000000000000000",
@@ -28,7 +28,7 @@
   ],
   "memberActivity": {
     "0x95b5d450178c9f13dc977655a9a70a17aac6c8d3": {
-      "votesSoumis": 0,
+      "votesSoumis": 1,
       "propositionsOuvertes": 1
     }
   }

@@ -1,5 +1,5 @@
 {
-  "lastBlock": "11336262",
+  "lastBlock": "11336598",
   "minted": [
     "0x95b5d450178c9f13dc977655a9a70a17aac6c8d3"
   ],
@@ -12,7 +12,7 @@
   },
   "memberActivity": {
     "0x95b5d450178c9f13dc977655a9a70a17aac6c8d3": {
-      "votesSoumis": 0,
+      "votesSoumis": 1,
       "propositionsOuvertes": 1
     }
   }
