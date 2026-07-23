@@ -1,13 +1,13 @@
 {
-  "updatedAt": "2026-07-23T22:28:45.134Z",
-  "lastBlock": "11336598",
+  "updatedAt": "2026-07-23T23:27:08.565Z",
+  "lastBlock": "11336886",
   "stats": {
     "treasuryWei": "0",
     "loupsActifs": 1,
     "loupsDormants": 0,
     "louveteaux": 0,
     "votesExprimes": 1,
-    "propositionsOuvertes": 1
+    "propositionsOuvertes": 2
   },
   "proposals": [
     {
@@ -24,12 +24,27 @@
       "votesAjourner": 0,
       "montant": "10000000000000000",
       "motif": "TEst"
+    },
+    {
+      "id": "1",
+      "typeProp": 3,
+      "cible": "0x95B5d450178C9f13dc977655a9A70a17Aac6c8d3",
+      "auteur": "0x95B5d450178C9f13dc977655a9A70a17Aac6c8d3",
+      "echeance": "1785451440",
+      "snapshotActifs": 1,
+      "snapshotFige": true,
+      "executee": false,
+      "votesApprouver": 0,
+      "votesRejeter": 0,
+      "votesAjourner": 0,
+      "montant": "1000000000000000",
+      "motif": "Encore un test"
     }
   ],
   "memberActivity": {
     "0x95b5d450178c9f13dc977655a9a70a17aac6c8d3": {
       "votesSoumis": 1,
-      "propositionsOuvertes": 1
+      "propositionsOuvertes": 2
     }
   }
 }
