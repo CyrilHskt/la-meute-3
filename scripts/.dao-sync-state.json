@@ -1,0 +1,19 @@
+{
+  "lastBlock": "11334791",
+  "minted": [
+    "0x95b5d450178c9f13dc977655a9a70a17aac6c8d3"
+  ],
+  "burned": [],
+  "proposalIds": [
+    "0"
+  ],
+  "proposalAuthors": {
+    "0": "0x95B5d450178C9f13dc977655a9A70a17Aac6c8d3"
+  },
+  "memberActivity": {
+    "0x95b5d450178c9f13dc977655a9a70a17aac6c8d3": {
+      "votesSoumis": 0,
+      "propositionsOuvertes": 1
+    }
+  }
+}
