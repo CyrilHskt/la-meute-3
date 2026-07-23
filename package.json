@@ -6,7 +6,7 @@
   "scripts": {
     "advance-time": "node scripts/advance-time.js",
     "seed:local": "node scripts/seed-local.js",
-    "notify:discord": "node scripts/notify-discord.js"
+    "sync:dao": "node scripts/sync-dao.js"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^4.0.14",
