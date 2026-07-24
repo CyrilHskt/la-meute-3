@@ -13,8 +13,9 @@ import { useWallet } from "./useWallet";
 // publier un rafraîchissement ne doit jamais déclencher un rebuild du
 // site, ces deux choses n'ont aucun rapport.
 //
-// En local : lancer `netlify dev` (pas juste `vite dev`) pour servir la
-// fonction en plus du front, et exécuter `scripts/sync-dao.js` pointé sur
+// En local : lancer `npm run dev:netlify` (pas juste `npm run dev`) pour
+// servir la fonction en plus du front, et exécuter `scripts/sync-dao.js`
+// pointé sur
 // le nœud Hardhat local (RPC_URL=http://127.0.0.1:8545,
 // SYNC_ENDPOINT=http://localhost:8888/.netlify/functions/dao-sync) après
 // chaque action de test (seed-local.js, vote...) pour rafraîchir
