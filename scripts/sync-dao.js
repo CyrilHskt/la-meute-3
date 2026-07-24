@@ -1,20 +1,18 @@
 // Un seul scan des events du contrat par run, partagé par deux usages :
 //  1. Poster sur Discord les nouvelles propositions ouvertes/clôturées.
-//  2. Maintenir un instantané JSON statique (front/public/dao-index.json)
-//     que le front télécharge au lieu de scanner la chaîne lui-même.
+//  2. Maintenir un instantané que le front télécharge au lieu de scanner
+//     la chaîne lui-même.
 //
-// Remplace l'ancien scripts/notify-discord.js — celui-ci ne couvrait que
-// les deux events utiles à Discord, mais le front avait besoin de scanner
-// séparément (et en double) VoteExprime + Transfer×2 pour ses propres
-// stats. Un seul scan complet (tous les events, sans filtre de topic)
-// sert maintenant les deux besoins sans dupliquer le travail RPC.
-//
-// Pensé pour tourner en cron via GitHub Actions plutôt qu'un serveur
-// dédié — voir .github/workflows/sync-dao.yml.
+// L'état ET l'instantané vivent dans Netlify Blobs (via la fonction
+// netlify/functions/dao-sync.mts), pas dans le dépôt git — publier une
+// donnée fraîche ne doit jamais déclencher un rebuild du site, ces deux
+// choses n'ont aucun rapport. Avant : le job committait un fichier JSON
+// dans front/public/, ce qui forçait Netlify à reconstruire tout le site
+// à chaque rafraîchissement (et avait déjà causé un bug distinct via
+// "[skip ci]", que Netlify interprète aussi comme "ne pas déployer").
 //
 // L'état est *cumulatif*, jamais recalculé depuis le déploiement : chaque
-// run ne traite que les blocs nouveaux depuis le dernier passage (persisté
-// dans scripts/.dao-sync-state.json, committé par le workflow), et met à
+// run ne traite que les blocs nouveaux depuis le dernier passage, et met à
 // jour la liste des membres / propositions / activité en conséquence.
 // Sans ça, le job redeviendrait de plus en plus lent avec le temps — voir
 // la discussion dans docs/local/soutenance-prep.md.
@@ -22,19 +20,20 @@
 // Variables d'env requises :
 //   RPC_URL              — endpoint Sepolia (Alchemy)
 //   DISCORD_WEBHOOK_URL   — URL du webhook Discord à poster
+//   SYNC_ENDPOINT         — URL de la fonction Netlify (ex:
+//                           https://la-meute-3.netlify.app/.netlify/functions/dao-sync)
+//   SYNC_SECRET           — secret partagé avec cette fonction
 // Optionnelle :
 //   CONTRACT_ADDRESS      — écrase l'adresse lue dans front/src/contract.ts
 //                           (source unique par défaut, pour ne jamais
 //                           désynchroniser ce script d'un redéploiement)
 
 import { ethers } from "ethers";
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const STATE_PATH = join(__dirname, ".dao-sync-state.json");
-const INDEX_PATH = join(__dirname, "..", "front", "public", "dao-index.json");
 const CONTRACT_TS_PATH = join(__dirname, "..", "front", "src", "contract.ts");
 // Le plan gratuit Alchemy limite eth_getLogs à 10 blocs par requête (vécu
 // en prod : erreur -32600 dès qu'on dépasse), et à un débit de compute
@@ -54,9 +53,11 @@ const RPC_URL = process.env.RPC_URL;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS ?? readContractConstant("CONTRACT_ADDRESS");
 const DEPLOY_BLOCK = BigInt(readContractConstant("CONTRACT_DEPLOY_BLOCK").replace(/n$/, ""));
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
+const SYNC_ENDPOINT = process.env.SYNC_ENDPOINT;
+const SYNC_SECRET = process.env.SYNC_SECRET;
 
-if (!RPC_URL || !DISCORD_WEBHOOK_URL) {
-  throw new Error("RPC_URL et DISCORD_WEBHOOK_URL sont requis.");
+if (!RPC_URL || !DISCORD_WEBHOOK_URL || !SYNC_ENDPOINT || !SYNC_SECRET) {
+  throw new Error("RPC_URL, DISCORD_WEBHOOK_URL, SYNC_ENDPOINT et SYNC_SECRET sont requis.");
 }
 
 const TYPE_LABELS = ["Admission", "Titularisation", "Exclusion", "Dépense"];
@@ -71,26 +72,26 @@ function loadAbi() {
   }
 }
 
-function loadState() {
-  if (!existsSync(STATE_PATH)) {
-    return {
-      lastBlock: DEPLOY_BLOCK.toString(),
-      minted: [],
-      burned: [],
-      proposalIds: [],
-      proposalAuthors: {},
-      memberActivity: {},
-    };
-  }
-  return JSON.parse(readFileSync(STATE_PATH, "utf8"));
+async function loadState() {
+  const res = await fetch(`${SYNC_ENDPOINT}?key=state`, {
+    headers: { "x-sync-secret": SYNC_SECRET },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) throw new Error(`Lecture de l'état échouée (HTTP ${res.status})`);
+  const state = await res.json();
+  // `lastBlock: null` = jamais lancé (valeur par défaut de la fonction) —
+  // on démarre alors du bloc de déploiement, pas de tenter `BigInt(null)`.
+  return state.lastBlock == null ? { ...state, lastBlock: DEPLOY_BLOCK.toString() } : state;
 }
 
-function saveState(state) {
-  writeFileSync(STATE_PATH, JSON.stringify(state, null, 2) + "\n");
-}
-
-function saveIndex(index) {
-  writeFileSync(INDEX_PATH, JSON.stringify(index, null, 2) + "\n");
+async function saveJson(key, value) {
+  const res = await fetch(`${SYNC_ENDPOINT}?key=${key}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-sync-secret": SYNC_SECRET },
+    body: JSON.stringify(value),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) throw new Error(`Écriture de "${key}" échouée (HTTP ${res.status})`);
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -168,7 +169,7 @@ async function main() {
   const abi = loadAbi();
   const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, provider);
 
-  const state = loadState();
+  const state = await loadState();
   const minted = new Set(state.minted);
   const burned = new Set(state.burned);
   const proposalIds = new Set(state.proposalIds);
@@ -277,7 +278,7 @@ async function main() {
   const votesExprimes = Object.values(memberActivity).reduce((sum, a) => sum + a.votesSoumis, 0);
   const propositionsOuvertes = proposals.filter((p) => !p.executee).length;
 
-  saveIndex({
+  await saveJson("index", {
     updatedAt: new Date().toISOString(),
     lastBlock: toBlock.toString(),
     stats: {
@@ -292,7 +293,7 @@ async function main() {
     memberActivity,
   });
 
-  saveState({
+  await saveJson("state", {
     lastBlock: toBlock.toString(),
     minted: [...minted],
     burned: [...burned],
@@ -300,7 +301,7 @@ async function main() {
     proposalAuthors,
     memberActivity,
   });
-  console.log(`État et instantané à jour : dernier bloc traité ${toBlock}.`);
+  console.log(`État et instantané à jour (Netlify Blobs) : dernier bloc traité ${toBlock}.`);
 }
 
 main().catch((err) => {
