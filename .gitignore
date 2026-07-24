@@ -45,3 +45,6 @@ CLAUDE.md
 # Documents de travail à ne jamais committer (versions intermédiaires,
 # matériel tiers Alyra) — voir docs/local/recap-conception.md §7
 /docs/local
+
+# Local Netlify folder
+.netlify

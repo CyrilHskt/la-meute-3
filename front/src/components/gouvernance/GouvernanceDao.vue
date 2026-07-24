@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useGuidedTour } from "../../composables/useGuidedTour";
-import { formatEther, parseEther } from "viem";
+import { decodeEventLog, formatEther, parseEther, type Log } from "viem";
 import { driver } from "driver.js";
 import { useWallet } from "../../composables/useWallet";
 import { useMeute, TypeProposition, ChoixVote, type Proposal } from "../../composables/useMeute";
 import { useEthPrice } from "../../composables/useEthPrice";
 import { friendlyContractError } from "../../composables/contractErrors";
+import { CONTRACT_ABI } from "../../contract";
 import AddressChip from "./AddressChip.vue";
 import CandidatureChecklist from "./CandidatureChecklist.vue";
 import WalletInstallModal from "./WalletInstallModal.vue";
@@ -134,15 +135,39 @@ async function onConnect() {
 // du revert (ex: DejaVote) pour un message clair, au lieu de laisser
 // l'estimation de gas échouer en silence et remonter un message RPC
 // générique sans rapport (constaté en local : "gas limit exceeds cap").
+// Une transaction qui *crée* une proposition (candidature, titularisation,
+// exclusion, dépense) ne donne son id qu'une fois minée — impossible de le
+// connaître à l'avance comme pour voter/exécuter. Il est cependant déjà
+// là, dans les events du reçu : on décode le reçu à la recherche d'un
+// PropositionOuverte pour en extraire l'id, et réutiliser le même
+// mécanisme de relecture ciblée plutôt que d'attendre le prochain passage
+// du job d'indexation (jusqu'à 15 min).
+async function refreshCreatedProposal(logs: readonly Log[]) {
+  for (const log of logs) {
+    try {
+      const decoded = decodeEventLog({ abi: CONTRACT_ABI, data: log.data, topics: log.topics });
+      if (decoded.eventName === "PropositionOuverte") {
+        await refreshProposal((decoded.args as { proposalId: bigint }).proposalId);
+        return;
+      }
+    } catch {
+      // Log d'un autre event (ex: Transfer du mint de carte pour une
+      // admission) — pas celui qu'on cherche, on continue.
+    }
+  }
+  // Filet de sécurité : aucun PropositionOuverte trouvé (ne devrait pas
+  // arriver pour ces actions) — on retombe sur l'instantané plutôt que de
+  // laisser l'affichage sans rien.
+  await loadAll();
+}
+
 async function runTx(
   simulateFn: () => Promise<unknown>,
   writeFn: () => Promise<`0x${string}`>,
-  // En prod, `loadAll()` vient d'un instantané JSON rafraîchi toutes les 15
-  // min (voir useMeute.ts) — voter puis relire cet instantané ne montrerait
-  // pas encore le vote qu'on vient de soumettre. Passer un id relit cette
-  // proposition précise en direct (lecture unique, négligeable) au lieu de
-  // recharger tout l'instantané ; sans id (nouvelle candidature, etc.), on
-  // recharge tout comme avant.
+  // Connu à l'avance pour voter/exécuter (l'id existe déjà) — relit cette
+  // proposition précise en direct au lieu de recharger tout l'instantané
+  // (voir useMeute.ts). Sans id, la transaction vient de *créer* une
+  // proposition : son id est extrait du reçu, voir refreshCreatedProposal.
   proposalId?: bigint,
 ) {
   txError.value = null;
@@ -150,9 +175,9 @@ async function runTx(
   try {
     await simulateFn();
     const hash = await writeFn();
-    await publicClient.waitForTransactionReceipt({ hash });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
     await Promise.all([
-      proposalId !== undefined ? refreshProposal(proposalId) : loadAll(),
+      proposalId !== undefined ? refreshProposal(proposalId) : refreshCreatedProposal(receipt.logs),
       refreshMembership(),
       loadPseudo(),
       loadSolde(),

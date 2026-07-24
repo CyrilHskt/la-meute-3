@@ -8,9 +8,6 @@ on:
     - cron: "*/15 * * * *"
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -21,8 +18,8 @@ jobs:
     # déploiement représente des centaines de requêtes séquentielles,
     # chacune espacée. Les runs suivants ne traitent que ~75 blocs
     # (l'intervalle du cron) et finissent en quelques secondes — l'état
-    # cumulatif (scripts/.dao-sync-state.json) évite de tout rescanner à
-    # chaque fois.
+    # cumulatif (Netlify Blobs, via netlify/functions/dao-sync.mts) évite
+    # de tout rescanner à chaque fois.
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -35,18 +32,13 @@ jobs:
 
       - run: npx hardhat compile
 
+      # Aucune étape de commit ensuite : l'état et l'instantané sont écrits
+      # directement dans Netlify Blobs par le script lui-même (HTTP), pas
+      # dans le dépôt — publier une donnée fraîche ne doit jamais déclencher
+      # un rebuild du site.
       - run: node scripts/sync-dao.js
         env:
           RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-
-      - name: Committer l'état et l'instantané mis à jour
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add scripts/.dao-sync-state.json front/public/dao-index.json
-          # Pas de "[skip ci]" ici : Netlify traite cette même mention comme
-          # un ordre de sauter le déploiement, donc le site continuait de
-          # servir l'ancien dao-index.json vide malgré un dépôt à jour.
-          git diff --cached --quiet || git commit -m "chore: mise à jour de l'instantané DAO"
-          git push
+          SYNC_ENDPOINT: ${{ secrets.SYNC_ENDPOINT }}
+          SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
