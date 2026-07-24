@@ -3,14 +3,17 @@ import { decodeEventLog, type Address, type Log } from "viem";
 import { useWallet } from "./useWallet";
 import { CONTRACT_ABI } from "../contract";
 
-// En prod, les stats/propositions viennent d'un instantané JSON statique
-// (front/public/dao-index.json) maintenu par un job GitHub Actions
-// (scripts/sync-dao.js) plutôt que scannées en direct par chaque visiteur.
-// Scanner soi-même tout l'historique du contrat à chaque chargement de
-// page se heurtait aux limites d'un RPC gratuit (plage de blocs, débit) et
-// n'aurait fait qu'empirer avec le temps — voir la discussion dans
-// docs/local/soutenance-prep.md. En local, pas de job qui tourne : on
-// scanne en direct comme avant, utile pour tester scripts/seed-local.js.
+// En prod, les stats/propositions viennent d'un instantané maintenu par un
+// job GitHub Actions (scripts/sync-dao.js), lu via une fonction Netlify
+// (netlify/functions/dao-sync.mts) plutôt que scannées en direct par
+// chaque visiteur. Scanner soi-même tout l'historique du contrat à chaque
+// chargement de page se heurtait aux limites d'un RPC gratuit (plage de
+// blocs, débit) et n'aurait fait qu'empirer avec le temps — voir la
+// discussion dans docs/local/soutenance-prep.md. La donnée elle-même vit
+// dans Netlify Blobs, pas committée dans le dépôt : publier un
+// rafraîchissement ne doit jamais déclencher un rebuild du site, ces deux
+// choses n'ont aucun rapport. En local, pas de job qui tourne : on scanne
+// en direct comme avant, utile pour tester scripts/seed-local.js.
 const isLocal = import.meta.env.VITE_CHAIN === "local";
 
 const BLOCK_RANGE = 9n;
@@ -141,7 +144,7 @@ export function useMeute() {
   const { readOnlyContract, publicClient, contractAddress, deployBlock } = useWallet();
 
   async function loadFromIndex() {
-    const res = await fetch("/dao-index.json", { cache: "no-store" });
+    const res = await fetch("/.netlify/functions/dao-sync?key=index", { cache: "no-store" });
     if (!res.ok) throw new Error(`Impossible de charger l'instantané DAO (HTTP ${res.status})`);
     const index = (await res.json()) as DaoIndex;
 
