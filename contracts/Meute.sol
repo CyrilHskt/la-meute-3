@@ -173,6 +173,15 @@ contract Meute is ERC721, ReentrancyGuard {
     ///      philosophie "pas de serveur, le wallet est l'identité").
     mapping(address compte => string) public pseudo;
 
+    /// @notice Total cumulé donné par une adresse, membre ou non — un don
+    ///         est ouvert à quiconque, contrairement à la cotisation. Lecture
+    ///         O(1) par adresse volontairement : le classement des
+    ///         meilleurs contributeurs (potentiellement non bornés,
+    ///         contrairement à la meute) se construit hors-chaîne à partir
+    ///         de {DonRecu}, jamais par une boucle on-chain sur les
+    ///         donateurs (§10, "DoS par boucle non bornée").
+    mapping(address donateur => uint256) public donsCumules;
+
     // ---------------------------------------------------------------------
     // Erreurs
     // ---------------------------------------------------------------------
@@ -221,6 +230,7 @@ contract Meute is ERC721, ReentrancyGuard {
     event PropositionExecutee(uint256 indexed proposalId);
     event MembreReveille(address indexed membre);
     event PseudoModifie(address indexed compte, string pseudo);
+    event DonRecu(address indexed donateur, uint256 montant, uint256 totalCumule);
 
     // ---------------------------------------------------------------------
     // Construction
@@ -293,6 +303,17 @@ contract Meute is ERC721, ReentrancyGuard {
         if (montant == 0) revert MontantInvalide();
 
         _ouvrirProposition(TypeProposition.Depense, beneficiaire, montant, motif);
+    }
+
+    /// @notice Fait un don libre à la trésorerie — ouvert à n'importe quelle
+    ///         adresse, membre ou non (§7.6bis) : contrairement à la
+    ///         cotisation, ce n'est ni un acte de candidature ni séquestré,
+    ///         l'ETH rejoint directement le solde du contrat, immédiatement
+    ///         disponible pour une future `proposerDepense`.
+    function donner() external payable {
+        if (msg.value == 0) revert MontantInvalide();
+        donsCumules[msg.sender] += msg.value;
+        emit DonRecu(msg.sender, msg.value, donsCumules[msg.sender]);
     }
 
     // ---------------------------------------------------------------------

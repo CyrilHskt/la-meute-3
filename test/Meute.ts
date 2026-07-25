@@ -388,6 +388,57 @@ describe("Meute", function () {
     });
   });
 
+  describe("donner (§7.6bis)", function () {
+    it("revert si le montant est nul", async function () {
+      const { meute, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(meute.connect(etranger).donner()).to.be.revertedWithCustomError(meute, "MontantInvalide");
+    });
+
+    it("ouvert à une adresse non-membre, accumule et émet DonRecu", async function () {
+      const { meute, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      const montant = ethers.parseEther("0.05");
+
+      await expect(meute.connect(etranger).donner({ value: montant }))
+        .to.emit(meute, "DonRecu")
+        .withArgs(etranger.address, montant, montant);
+
+      assert.equal(await meute.donsCumules(etranger.address), montant);
+    });
+
+    it("cumule plusieurs dons de la même adresse", async function () {
+      const { meute, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await meute.connect(etranger).donner({ value: ethers.parseEther("0.01") });
+
+      await expect(meute.connect(etranger).donner({ value: ethers.parseEther("0.02") }))
+        .to.emit(meute, "DonRecu")
+        .withArgs(etranger.address, ethers.parseEther("0.02"), ethers.parseEther("0.03"));
+
+      assert.equal(await meute.donsCumules(etranger.address), ethers.parseEther("0.03"));
+    });
+
+    it("un don n'ouvre aucune candidature ni carte", async function () {
+      const { meute, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await meute.connect(etranger).donner({ value: ethers.parseEther("0.01") });
+
+      const c = await meute.carte(etranger.address);
+      assert.equal(c.derniereActivite, 0n); // toujours non-membre
+    });
+
+    it("le don alimente immédiatement la trésorerie, disponible pour une dépense votée", async function () {
+      const { meute, fondateurs, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      const montant = ethers.parseEther("0.05");
+      await meute.connect(etranger).donner({ value: montant });
+
+      await meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "remboursement test");
+      await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[1]).voter(0n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[2]).voter(0n, ChoixVote.Approuver);
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await expect(meute.executer(0n)).to.changeEtherBalance(ethers, etranger, montant);
+    });
+  });
+
   describe("proposerDepense (§7.6)", function () {
     // Une candidature, même non résolue, verse déjà la cotisation au
     // contrat : suffit à alimenter la trésorerie pour ces tests.
