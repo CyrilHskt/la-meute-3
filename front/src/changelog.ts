@@ -13,8 +13,8 @@ export interface ChangelogEntry {
 }
 
 export const SITE_VERSION = "3.1.0";
-export const DASHBOARD_VERSION = "1.3.0";
-export const CONTRACT_DISPLAY_VERSION = "1.1.0";
+export const DASHBOARD_VERSION = "1.4.0";
+export const CONTRACT_DISPLAY_VERSION = "1.2.0";
 
 export const SITE_CHANGELOG: ChangelogEntry[] = [
   {
@@ -48,6 +48,10 @@ export const SITE_CHANGELOG: ChangelogEntry[] = [
 ];
 
 export const DASHBOARD_CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "26 juillet 2026",
+    title: "Nouvel onglet « Dons », ouvert à tous — avec classement des contributeurs",
+  },
   {
     date: "25 juillet 2026",
     title: "Le wallet reste connecté après un rafraîchissement de la page",
@@ -91,6 +95,10 @@ export const DASHBOARD_CHANGELOG: ChangelogEntry[] = [
 ];
 
 export const CONTRACT_CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "26 juillet 2026",
+    title: "Ajout des dons — ouverts à tous, sans rapport avec la cotisation d'adhésion",
+  },
   {
     date: "25 juillet 2026",
     title: "Renforcement de la règle de vote : un quorum de participation est désormais requis en plus de la majorité",

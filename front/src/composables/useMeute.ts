@@ -56,6 +56,11 @@ export interface Stats {
   propositionsOuvertes: number;
 }
 
+export interface Donateur {
+  adresse: Address;
+  total: bigint;
+}
+
 interface DaoIndex {
   stats: {
     treasuryWei: string;
@@ -81,11 +86,17 @@ interface DaoIndex {
     motif: string;
   }[];
   memberActivity: Record<string, { votesSoumis: number; propositionsOuvertes: number }>;
+  topDonateurs: { adresse: Address; total: string }[];
 }
 
 const stats = ref<Stats | null>(null);
 const proposals = ref<Proposal[]>([]);
 const memberActivity = ref<Map<string, { votesSoumis: number; propositionsOuvertes: number }>>(new Map());
+const topDonateurs = ref<Donateur[]>([]);
+// Don individuel : donnée "à moi", lue en direct (pas via l'instantané
+// partagé, même principe que le solde ou le pseudo) — partagée entre la
+// carte de membre (ligne stat) et l'onglet Dons (formulaire + rappel).
+const mesDons = ref<bigint>(0n);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
@@ -123,6 +134,8 @@ export function useMeute() {
         .sort((a, b) => (a.id > b.id ? -1 : 1));
 
       memberActivity.value = new Map(Object.entries(index.memberActivity));
+
+      topDonateurs.value = (index.topDonateurs ?? []).map((d) => ({ adresse: d.adresse, total: BigInt(d.total) }));
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e);
     } finally {
@@ -154,5 +167,13 @@ export function useMeute() {
     }
   }
 
-  return { stats, proposals, memberActivity, loading, error, loadAll, refreshProposal };
+  async function loadMesDons(address: Address | null) {
+    if (!address) {
+      mesDons.value = 0n;
+      return;
+    }
+    mesDons.value = (await readOnlyContract().read.donsCumules([address])) as bigint;
+  }
+
+  return { stats, proposals, memberActivity, topDonateurs, mesDons, loading, error, loadAll, refreshProposal, loadMesDons };
 }

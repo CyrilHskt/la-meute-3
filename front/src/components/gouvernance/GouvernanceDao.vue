@@ -14,7 +14,7 @@ import CandidatureChecklist from "./CandidatureChecklist.vue";
 import WalletInstallModal from "./WalletInstallModal.vue";
 
 const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient } = useWallet();
-const { stats, proposals, memberActivity, loading, error, loadAll, refreshProposal } = useMeute();
+const { stats, proposals, memberActivity, mesDons, loading, error, loadAll, refreshProposal, loadMesDons } = useMeute();
 const { eurPerEth } = useEthPrice();
 const { showToast } = useToast();
 
@@ -81,6 +81,7 @@ onMounted(async () => {
   await loadAll();
   cotisation.value = (await readOnlyContract().read.cotisation()) as bigint;
   now.value = Number((await publicClient.getBlock()).timestamp);
+  loadMesDons(address.value);
 });
 
 // Se resynchronise tout seul si l'adresse change depuis MetaMask (switch de
@@ -90,6 +91,7 @@ watch(address, () => {
   refreshMembership();
   loadPseudo();
   loadSolde();
+  loadMesDons(address.value);
 });
 
 // L'image de la carte n'est jamais recréée côté front : on lit tokenURI()
@@ -205,6 +207,7 @@ async function runTx(
       refreshMembership(),
       loadPseudo(),
       loadSolde(),
+      loadMesDons(address.value),
     ]);
     if (affectedId !== undefined) await patchProposalRemote(affectedId);
     now.value = Number((await publicClient.getBlock()).timestamp);
@@ -614,6 +617,10 @@ function startTour() {
           <div class="gv-stat-row gv-stat-row--sub">
             <span>↳ Propositions ouvertes</span>
             <span>{{ monActivite.propositionsOuvertes }}</span>
+          </div>
+          <div class="gv-stat-row gv-stat-row--sub">
+            <span>↳ Dons cumulés</span>
+            <span>{{ formatEther(mesDons) }} ETH</span>
           </div>
         </template>
       </aside>
