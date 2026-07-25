@@ -33,10 +33,7 @@ export function useGuidedTour() {
   // bouton qui le déclenche — une seule fois, avec l'outil du tour
   // lui-même (un unique step driver.js) plutôt qu'un bandeau custom.
   function highlightTourButton(selector: string) {
-    // TEMPORAIRE (test) : le garde-fou "une seule fois" est désactivé pour
-    // pouvoir revoir le popover à chaque ouverture d'onglet. À remettre
-    // avant de merger.
-    // if (tourHighlighted.value) return;
+    if (tourHighlighted.value) return;
     tourHighlighted.value = true;
     localStorage.setItem(TOUR_HIGHLIGHTED_KEY, "1");
 

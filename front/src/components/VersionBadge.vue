@@ -14,7 +14,7 @@ const open = ref(false);
 
 <template>
   <button class="version-badge" type="button" @click="open = true">
-    <span class="dot"></span> v3.0
+    <span class="dot"></span> v{{ SITE_VERSION }}
   </button>
 
   <div v-if="open" class="vm-overlay" @click.self="open = false">

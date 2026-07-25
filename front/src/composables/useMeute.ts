@@ -89,14 +89,25 @@ const memberActivity = ref<Map<string, { votesSoumis: number; propositionsOuvert
 const loading = ref(false);
 const error = ref<string | null>(null);
 
+// En local (VITE_CHAIN=local), la vue d'ensemble vient du panneau de démo
+// (demo/server.mjs) plutôt que de dao-sync/Sepolia — même format JSON des
+// deux côtés, donc une seule ligne change, pas une deuxième implémentation.
+// DEV, pas seulement VITE_CHAIN : DEV est figé à `false` par Vite pour
+// tout `vite build` (production), même si un .env.local avec
+// VITE_CHAIN=local traînait par erreur — élimination garantie à la
+// compilation, cette branche n'existe même pas dans le code livré.
+const isLocal = import.meta.env.DEV && import.meta.env.VITE_CHAIN === "local";
+const INDEX_URL = isLocal ? "http://127.0.0.1:4100/api/index" : "/.netlify/functions/dao-sync?key=index";
+
 export function useMeute() {
-  const { readOnlyContract } = useWallet();
+  const { readOnlyContract, syncLocalContractAddress } = useWallet();
 
   async function loadAll() {
     loading.value = true;
     error.value = null;
     try {
-      const res = await fetch("/.netlify/functions/dao-sync?key=index", { cache: "no-store" });
+      if (isLocal) await syncLocalContractAddress();
+      const res = await fetch(INDEX_URL, { cache: "no-store" });
       if (!res.ok) throw new Error(`Impossible de charger l'instantané DAO (HTTP ${res.status})`);
       const index = (await res.json()) as DaoIndex;
 
@@ -125,11 +136,16 @@ export function useMeute() {
   // voter puis relire `loadAll()` ne montrerait pas encore le nouveau
   // vote. Une lecture ciblée est négligeable (aucun scan d'historique),
   // donc on peut se le permettre à chaque transaction.
-  async function refreshProposal(id: bigint) {
+  // `connuAuteur` : pour une proposition qu'on vient tout juste de créer,
+  // l'appelant l'a déjà extrait de l'event PropositionOuverte du reçu (la
+  // struct on-chain relue ci-dessous ne contient pas ce champ) — sans ça,
+  // une proposition neuve retomberait sur l'adresse zéro le temps que le
+  // prochain passage de l'indexeur la corrige.
+  async function refreshProposal(id: bigint, connuAuteur?: Address) {
     const contract = readOnlyContract();
     const p = (await contract.read.proposition([id])) as Omit<Proposal, "id" | "auteur">;
     const index = proposals.value.findIndex((existing) => existing.id === id);
-    const existingAuteur = index >= 0 ? proposals.value[index].auteur : ("0x0000000000000000000000000000000000000000" as Address);
+    const existingAuteur = connuAuteur ?? (index >= 0 ? proposals.value[index].auteur : ("0x0000000000000000000000000000000000000000" as Address));
     const updated: Proposal = { ...p, id, auteur: existingAuteur };
     if (index >= 0) {
       proposals.value = proposals.value.map((existing, i) => (i === index ? updated : existing));
