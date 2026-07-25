@@ -157,10 +157,10 @@ describe("Meute", function () {
   });
 
   describe("dormance et snapshot (§7.5)", function () {
-    it("un Loup silencieux depuis un an devient dormant sans aucune transaction", async function () {
+    it("un Loup silencieux depuis 6 mois devient dormant sans aucune transaction", async function () {
       const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await networkHelpers.time.increase(365 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(180 * 24 * 60 * 60 + 1);
 
       // Pure lecture, aucune transaction envoyée entre-temps : la dormance
       // est bien passive, constatée à la lecture (§7.5).
@@ -277,7 +277,9 @@ describe("Meute", function () {
     });
 
     it("2 voix pour sur 3 : mint une carte Louveteau et émet PropositionExecutee", async function () {
-      const { meute, candidat, proposalId } = await ouvrirCandidatureEtVoter(2, 0);
+      // Quorum à 75% sur 3 actifs : il faut que les 3 se soient exprimés
+      // (2 pour, 1 contre) — 2 > 1 l'emporte quand même.
+      const { meute, candidat, proposalId } = await ouvrirCandidatureEtVoter(2, 1);
       await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
 
       await expect(meute.executer(proposalId)).to.emit(meute, "PropositionExecutee").withArgs(proposalId);
@@ -340,6 +342,10 @@ describe("Meute", function () {
       const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
 
       await meute.connect(fondateurs[0]).proposerExclusion(fondateurs[1].address);
+      // La cible (fondateurs[1]) ne peut pas voter sur sa propre exclusion
+      // (ConflitInteret) — le dénominateur l'exclut donc aussi : quorum à
+      // 75% sur 2 actifs (pas 3), atteint par les deux seuls votants
+      // éligibles.
       await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
       await meute.connect(fondateurs[2]).voter(0n, ChoixVote.Approuver);
 
@@ -362,6 +368,23 @@ describe("Meute", function () {
 
       assert.equal(await meute.ownerOf(BigInt(fondateurs[1].address)), fondateurs[1].address);
       assert.equal(await meute.loupsActifs(), 3n);
+    });
+
+    it("revert si la cible tente de voter sur sa propre exclusion (conflit d'intérêt)", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await meute.connect(fondateurs[0]).proposerExclusion(fondateurs[1].address);
+      await expect(
+        meute.connect(fondateurs[1]).voter(0n, ChoixVote.Rejeter),
+      ).to.be.revertedWithCustomError(meute, "ConflitInteret");
+    });
+
+    it("le dénominateur exclut la cible active : 2 votes sur 2 (pas 3) suffisent au quorum", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await meute.connect(fondateurs[0]).proposerExclusion(fondateurs[1].address);
+      const prop = await meute.proposition(0n);
+      assert.equal(prop.snapshotActifs, 2n); // 3 actifs - la cible elle-même
     });
   });
 
@@ -408,6 +431,7 @@ describe("Meute", function () {
 
       await meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "serveur de jeu");
       await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[1]).voter(1n, ChoixVote.Approuver);
       await meute.connect(fondateurs[2]).voter(1n, ChoixVote.Approuver);
 
       await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
@@ -432,10 +456,77 @@ describe("Meute", function () {
 
       await meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "trop cher");
       await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[1]).voter(0n, ChoixVote.Approuver);
       await meute.connect(fondateurs[2]).voter(0n, ChoixVote.Approuver);
 
       await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
       await expect(meute.executer(0n)).to.be.revertedWithCustomError(meute, "FondsInsuffisants");
+    });
+
+    it("quorum non atteint (1 voix sur 3 actifs) : un seul votant ne peut plus emporter une dépense seul", async function () {
+      // Reproduit le scénario "un seul Loup actif drainerait la trésorerie
+      // seul" (identifié en revue de sécurité) : avant le quorum de 75%,
+      // 1 voix pour sur un snapshot figé à 1 suffisait à elle seule à
+      // valider une dépense, sans qu'aucun retour de vote "contre" ne
+      // puisse jamais l'arrêter. Ici, 3 Loups sont actifs au moment du
+      // snapshot : 1 seule voix (même "pour") n'atteint plus le quorum
+      // (il en faut au moins 3 des 3, floor(3*3/4)+1 = 3), donc la dépense
+      // échoue même si personne n'a voté contre.
+      const { meute, fondateurs, etranger } = await financerTresorerie();
+      const montant = COTISATION;
+
+      await meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "test quorum");
+      await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Approuver);
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await expect(meute.executer(1n)).to.changeEtherBalance(ethers, etranger, 0n);
+    });
+
+    it("quorum atteint mais égalité oui/non : la dépense échoue (majorité stricte requise)", async function () {
+      // 3 votants ne peuvent jamais faire un match nul (3 est impair) — il
+      // faut un 4e Loup actif pour obtenir une vraie égalité 2 contre 2.
+      const { meute, fondateurs, candidat, etranger } = await financerTresorerie();
+      await meute.connect(candidat).candidater({ value: COTISATION });
+      await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[1]).voter(1n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[2]).voter(1n, ChoixVote.Approuver);
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await meute.executer(1n); // candidat devient Louveteau
+
+      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+      await meute.connect(fondateurs[0]).ouvrirTitularisation(candidat.address);
+      await meute.connect(fondateurs[0]).voter(2n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[1]).voter(2n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[2]).voter(2n, ChoixVote.Approuver);
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await meute.executer(2n); // candidat devient Loup — 4 actifs désormais
+
+      const montant = ethers.parseEther("0.02");
+      await meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "test égalité");
+      await meute.connect(fondateurs[0]).voter(3n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[1]).voter(3n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[2]).voter(3n, ChoixVote.Rejeter);
+      await meute.connect(candidat).voter(3n, ChoixVote.Rejeter);
+      // Quorum : 4/4 exprimés (>= floor(4*3/4)+1 = 4) — atteint.
+      // Majorité : 2 pour / 2 contre — égalité, donc rejetée.
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await expect(meute.executer(3n)).to.changeEtherBalance(ethers, etranger, 0n);
+    });
+
+    it("revert si le bénéficiaire (un Loup) tente de voter sur sa propre dépense (conflit d'intérêt)", async function () {
+      const { meute, fondateurs } = await financerTresorerie();
+      await meute.connect(fondateurs[0]).proposerDepense(fondateurs[1].address, 1n, "vers un Loup");
+      await expect(
+        meute.connect(fondateurs[1]).voter(1n, ChoixVote.Approuver),
+      ).to.be.revertedWithCustomError(meute, "ConflitInteret");
+    });
+
+    it("dépense vers un non-membre : aucun conflit d'intérêt, dénominateur inchangé", async function () {
+      const { meute, fondateurs, etranger } = await financerTresorerie();
+      await meute.connect(fondateurs[0]).proposerDepense(etranger.address, 1n, "vers un tiers");
+      const prop = await meute.proposition(1n);
+      assert.equal(prop.snapshotActifs, 3n); // etranger n'est pas Loup, rien à exclure
     });
   });
 
@@ -443,8 +534,10 @@ describe("Meute", function () {
     async function admettreLouveteau() {
       const fixture = await networkHelpers.loadFixture(deployMeuteFixture);
       await fixture.meute.connect(fixture.candidat).candidater({ value: COTISATION });
+      // Quorum à 75% sur 3 actifs : il faut que les 3 se soient exprimés.
       await fixture.meute.connect(fixture.fondateurs[0]).voter(0n, ChoixVote.Approuver);
       await fixture.meute.connect(fixture.fondateurs[1]).voter(0n, ChoixVote.Approuver);
+      await fixture.meute.connect(fixture.fondateurs[2]).voter(0n, ChoixVote.Approuver);
       await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
       await fixture.meute.executer(0n);
       return { ...fixture, louveteau: fixture.candidat };
@@ -491,6 +584,7 @@ describe("Meute", function () {
       await meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address);
       await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Approuver);
       await meute.connect(fondateurs[1]).voter(1n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[2]).voter(1n, ChoixVote.Approuver);
 
       await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
       await meute.executer(1n);
@@ -512,6 +606,7 @@ describe("Meute", function () {
       await meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address);
       await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Rejeter);
       await meute.connect(fondateurs[1]).voter(1n, ChoixVote.Rejeter);
+      await meute.connect(fondateurs[2]).voter(1n, ChoixVote.Rejeter);
 
       await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
       await meute.executer(1n);
@@ -639,6 +734,7 @@ describe("Meute", function () {
       await meute.connect(candidat).candidater({ value: COTISATION });
       await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
       await meute.connect(fondateurs[1]).voter(0n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[2]).voter(0n, ChoixVote.Approuver);
       await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
       await meute.executer(0n);
 
@@ -728,6 +824,7 @@ describe("Meute", function () {
       await meute.connect(candidat).candidater({ value: COTISATION });
       await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
       await meute.connect(fondateurs[1]).voter(0n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[2]).voter(0n, ChoixVote.Approuver);
       await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
       await meute.executer(0n); // mint
 
@@ -776,6 +873,7 @@ describe("Meute", function () {
       await meute.connect(candidat).candidater({ value: COTISATION });
       await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
       await meute.connect(fondateurs[1]).voter(0n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[2]).voter(0n, ChoixVote.Approuver);
       await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
       await meute.executer(0n);
 
