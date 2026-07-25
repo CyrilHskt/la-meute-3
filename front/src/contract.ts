@@ -52,6 +52,11 @@ export const CONTRACT_ABI = [
   },
   {
     "inputs": [],
+    "name": "ConflitInteret",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "CotisationIncorrecte",
     "type": "error"
   },
@@ -320,6 +325,31 @@ export const CONTRACT_ABI = [
       {
         "indexed": true,
         "internalType": "address",
+        "name": "donateur",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "montant",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "totalCumule",
+        "type": "uint256"
+      }
+    ],
+    "name": "DonRecu",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
         "name": "membre",
         "type": "address"
       }
@@ -488,6 +518,32 @@ export const CONTRACT_ABI = [
   },
   {
     "inputs": [],
+    "name": "QUORUM_DEN",
+    "outputs": [
+      {
+        "internalType": "uint8",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "QUORUM_NUM",
+    "outputs": [
+      {
+        "internalType": "uint8",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "VERSION",
     "outputs": [
       {
@@ -610,6 +666,32 @@ export const CONTRACT_ABI = [
     "name": "demissionner",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "donner",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "donateur",
+        "type": "address"
+      }
+    ],
+    "name": "donsCumules",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {

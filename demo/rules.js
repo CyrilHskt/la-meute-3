@@ -31,6 +31,10 @@ export const RULES = {
     title: "Durée d'un vote",
     body: "7 jours pleins, quel que soit le moment où le seuil est atteint — executer() attend toujours l'échéance.",
   },
+  dons: {
+    title: "Dons",
+    body: "Ouverts à n'importe quelle adresse, membre ou non — sans rapport avec la cotisation. Cumulés par adresse (donsCumules), le classement des contributeurs se construit hors-chaîne, jamais par une boucle on-chain.",
+  },
 };
 
 export function rulesFor(ruleIds) {

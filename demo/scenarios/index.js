@@ -10,6 +10,7 @@ import { steps as testExclusion, ruleIds as ruleIdsExclusion } from "./test-excl
 import { steps as testAjournement, ruleIds as ruleIdsAjournement } from "./test-ajournement.js";
 import { steps as testDormance, ruleIds as ruleIdsDormance } from "./test-dormance.js";
 import { steps as testDepense, ruleIds as ruleIdsDepense } from "./test-depense.js";
+import { steps as testDonation, ruleIds as ruleIdsDonation } from "./test-donation.js";
 
 const RULE_IDS_CERTIFICATION = ["quorum", "majorite", "conflit", "dormance", "reveil", "ajournement", "duree-vote"];
 
@@ -19,6 +20,7 @@ export const scenarios = [
   { id: "test-ajournement", label: "Ajournement (plafond)", group: "test", steps: testAjournement, ruleIds: ruleIdsAjournement },
   { id: "test-dormance", label: "Dormance et réveil", group: "test", steps: testDormance, ruleIds: ruleIdsDormance },
   { id: "test-depense", label: "Dépense", group: "test", steps: testDepense, ruleIds: ruleIdsDepense },
+  { id: "test-donation", label: "Dons", group: "test", steps: testDonation, ruleIds: ruleIdsDonation },
 ];
 
 export function findScenario(id) {

@@ -4,14 +4,16 @@ import { useRoute, useRouter } from "vue-router";
 import GouvernancePresentation from "../components/gouvernance/GouvernancePresentation.vue";
 import GouvernanceAssociation from "../components/gouvernance/GouvernanceAssociation.vue";
 import GouvernanceDao from "../components/gouvernance/GouvernanceDao.vue";
+import GouvernanceDons from "../components/gouvernance/GouvernanceDons.vue";
 import { useGuidedTour } from "../composables/useGuidedTour";
 
-type PageTab = "presentation" | "association" | "dao";
+type PageTab = "presentation" | "association" | "dao" | "dons";
 
 const tabs: { id: PageTab; label: string }[] = [
   { id: "presentation", label: "Présentation" },
   { id: "association", label: "Association 1901" },
   { id: "dao", label: "Gouvernance DAO" },
+  { id: "dons", label: "Dons" },
 ];
 
 // L'onglet actif vit dans l'URL (?onglet=dao), pas seulement en mémoire —
@@ -74,6 +76,7 @@ watch(
   <GouvernancePresentation v-show="activeTab === 'presentation'" @go-to-dao="activeTab = 'dao'" />
   <GouvernanceAssociation v-show="activeTab === 'association'" />
   <GouvernanceDao v-show="activeTab === 'dao'" />
+  <GouvernanceDons v-show="activeTab === 'dons'" />
   </div>
 </template>
 
