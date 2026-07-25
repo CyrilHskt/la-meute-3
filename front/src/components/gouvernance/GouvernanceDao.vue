@@ -139,26 +139,39 @@ async function onConnect() {
 // exclusion, dépense) ne donne son id qu'une fois minée — impossible de le
 // connaître à l'avance comme pour voter/exécuter. Il est cependant déjà
 // là, dans les events du reçu : on décode le reçu à la recherche d'un
-// PropositionOuverte pour en extraire l'id, et réutiliser le même
-// mécanisme de relecture ciblée plutôt que d'attendre le prochain passage
-// du job d'indexation (jusqu'à 15 min).
-async function refreshCreatedProposal(logs: readonly Log[]) {
+// PropositionOuverte pour en extraire l'id.
+function extractCreatedProposalId(logs: readonly Log[]): bigint | undefined {
   for (const log of logs) {
     try {
       const decoded = decodeEventLog({ abi: CONTRACT_ABI, data: log.data, topics: log.topics });
       if (decoded.eventName === "PropositionOuverte") {
-        await refreshProposal((decoded.args as { proposalId: bigint }).proposalId);
-        return;
+        return (decoded.args as { proposalId: bigint }).proposalId;
       }
     } catch {
       // Log d'un autre event (ex: Transfer du mint de carte pour une
       // admission) — pas celui qu'on cherche, on continue.
     }
   }
-  // Filet de sécurité : aucun PropositionOuverte trouvé (ne devrait pas
-  // arriver pour ces actions) — on retombe sur l'instantané plutôt que de
-  // laisser l'affichage sans rien.
-  await loadAll();
+  return undefined;
+}
+
+// Répercute l'action sur l'instantané *partagé* (Netlify Blobs) tout de
+// suite, pour que les autres membres la voient sans attendre le prochain
+// passage du job (jusqu'à 5 min). Ne bloque jamais l'affichage local ni ne
+// fait échouer la transaction si cet appel rate — le job de secours finira
+// par rattraper de toute façon. Voir netlify/functions/dao-sync.mts.
+async function patchProposalRemote(id: bigint) {
+  const p = proposals.value.find((existing) => existing.id === id);
+  if (!p) return;
+  try {
+    await fetch("/.netlify/functions/dao-sync?key=patch-proposal", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ proposalId: id.toString(), auteur: p.auteur }),
+    });
+  } catch {
+    // Best-effort — voir commentaire ci-dessus.
+  }
 }
 
 async function runTx(
@@ -167,8 +180,8 @@ async function runTx(
   // Connu à l'avance pour voter/exécuter (l'id existe déjà) — relit cette
   // proposition précise en direct au lieu de recharger tout l'instantané
   // (voir useMeute.ts). Sans id, la transaction vient de *créer* une
-  // proposition : son id est extrait du reçu, voir refreshCreatedProposal.
-  proposalId?: bigint,
+  // proposition : son id est extrait du reçu, voir extractCreatedProposalId.
+  knownProposalId?: bigint,
 ) {
   txError.value = null;
   txPending.value = true;
@@ -176,12 +189,14 @@ async function runTx(
     await simulateFn();
     const hash = await writeFn();
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    const affectedId = knownProposalId ?? extractCreatedProposalId(receipt.logs);
     await Promise.all([
-      proposalId !== undefined ? refreshProposal(proposalId) : refreshCreatedProposal(receipt.logs),
+      affectedId !== undefined ? refreshProposal(affectedId) : loadAll(),
       refreshMembership(),
       loadPseudo(),
       loadSolde(),
     ]);
+    if (affectedId !== undefined) await patchProposalRemote(affectedId);
     now.value = Number((await publicClient.getBlock()).timestamp);
   } catch (e) {
     txError.value = friendlyContractError(e);
