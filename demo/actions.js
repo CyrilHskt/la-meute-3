@@ -509,6 +509,22 @@ export async function buildIndex(ctx) {
   const treasuryWei = await ctx.provider.getBalance(ctx.contractAddress);
   const loupsActifs = Number(await founder.loupsActifs());
 
+  // Classement construit hors-chaîne à partir des vrais events DonRecu —
+  // pas seulement des dons déclenchés par le panneau : un don fait
+  // directement via MetaMask sur le vrai front (mode local) doit
+  // apparaître aussi. Même principe que le vrai indexeur
+  // (scripts/sync-dao.js) : donsCumules() reste une lecture O(1) par
+  // adresse côté contrat, jamais une boucle non bornée — seule la
+  // recherche de "qui a déjà donné" scanne les events, bornée par la durée
+  // de vie (courte) d'un contrat local.
+  const donLogs = await founder.queryFilter(founder.filters.DonRecu());
+  const donateurs = [...new Set(donLogs.map((log) => log.args.donateur))];
+  const topDonateurs = (
+    await Promise.all(donateurs.map(async (adresse) => ({ adresse, total: (await founder.donsCumules(adresse)).toString() })))
+  )
+    .sort((a, b) => (BigInt(a.total) < BigInt(b.total) ? 1 : -1))
+    .slice(0, 20);
+
   let loupsDormants = 0;
   let louveteaux = 0;
   for (const addr of ctx.knownAddresses) {
@@ -552,6 +568,7 @@ export async function buildIndex(ctx) {
     stats: { treasuryWei: treasuryWei.toString(), loupsActifs, loupsDormants, louveteaux, votesExprimes, propositionsOuvertes },
     proposals,
     memberActivity: {},
+    topDonateurs,
   };
 }
 
@@ -600,4 +617,31 @@ export async function executionDepenseTest(ctx) {
   await (await ctx.contracts.get(ctx.founder).executer(ctx.ids.depenseTest)).wait();
   const solde = await ctx.provider.getBalance(ctx.contractAddress);
   return `Dépense exécutée : les fonds partent de la trésorerie vers le bénéficiaire. Trésor restant : ${ethers.formatEther(solde)} ETH.`;
+}
+
+// ---------------------------------------------------------------------
+// Scénario de test : Dons
+// ---------------------------------------------------------------------
+
+/** Un don, ouvert à n'importe qui — même une adresse qui n'a jamais
+ *  candidaté ni voté. buildIndex retrouve les donateurs via les events
+ *  DonRecu, pas besoin de les suivre ici. */
+async function faireDon(ctx, addr, montantEth) {
+  await (await ctx.contracts.get(addr).donner({ value: ethers.parseEther(montantEth) })).wait();
+}
+
+export async function premierDon(ctx) {
+  await faireDon(ctx, ctx.candidat, "0.01");
+  return `${ctx.candidat.slice(0, 8)}… (jamais candidaté ni voté) fait un don de 0.01 ETH.`;
+}
+
+export async function deuxiemeDon(ctx) {
+  await faireDon(ctx, ctx.roles.loup2, "0.05");
+  return `${ctx.roles.loup2.slice(0, 8)}… fait un don plus généreux de 0.05 ETH.`;
+}
+
+export async function redonDuPremier(ctx) {
+  await faireDon(ctx, ctx.candidat, "0.02");
+  const total = await ctx.contracts.get(ctx.founder).donsCumules(ctx.candidat);
+  return `${ctx.candidat.slice(0, 8)}… redonne 0.02 ETH — total cumulé : ${ethers.formatEther(total)} ETH.`;
 }
