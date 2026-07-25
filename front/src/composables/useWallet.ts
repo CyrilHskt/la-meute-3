@@ -9,9 +9,34 @@ import { CONTRACT_ADDRESS, CONTRACT_ABI, CONTRACT_DEPLOY_BLOCK } from "../contra
 // configure via front/.env.local (jamais committé, cf. *.local dans
 // .gitignore) — ne touche jamais contract.ts, qui reste la source de
 // vérité du déploiement Sepolia.
-const isLocal = import.meta.env.VITE_CHAIN === "local";
+// import.meta.env.DEV en plus de VITE_CHAIN : DEV est figé à `false` par
+// Vite pour tout `vite build` (production), quel que soit le contenu d'un
+// éventuel .env.local présent par erreur — élimination garantie à la
+// compilation, pas seulement "ce fichier ne devrait jamais être commité".
+const isLocal = import.meta.env.DEV && import.meta.env.VITE_CHAIN === "local";
 const chain: Chain = isLocal ? hardhat : sepolia;
-const contractAddress = (import.meta.env.VITE_CONTRACT_ADDRESS as Address | undefined) ?? CONTRACT_ADDRESS;
+// En local, l'adresse n'est pas figée : le panneau de démo (demo/server.mjs)
+// redéploie un contrat tout neuf à chaque réinitialisation, donc une
+// nouvelle adresse à chaque fois. `let` plutôt que `const` pour pouvoir la
+// rafraîchir sans redémarrer le serveur de dev — voir syncLocalContractAddress.
+let contractAddress = (import.meta.env.VITE_CONTRACT_ADDRESS as Address | undefined) ?? CONTRACT_ADDRESS;
+
+const DEMO_SERVER_URL = "http://127.0.0.1:4100";
+
+/** Va chercher l'adresse actuelle auprès du panneau de démo. Sans effet en
+ *  dehors du mode local — jamais appelé (ni même atteignable) en prod. */
+async function syncLocalContractAddress() {
+  if (!isLocal) return;
+  try {
+    const res = await fetch(`${DEMO_SERVER_URL}/api/state`);
+    if (!res.ok) return;
+    const data = (await res.json()) as { contractAddress?: Address | null };
+    if (data.contractAddress) contractAddress = data.contractAddress;
+  } catch {
+    // Le panneau de démo n'est peut-être pas lancé — pas bloquant, on garde
+    // la dernière adresse connue.
+  }
+}
 // Un nœud Hardhat local repart toujours du bloc 0 : le bloc de déploiement
 // Sepolia (~11M) n'a aucun sens là-dessus et ferait chercher des
 // événements depuis un bloc qui n'existe pas encore sur cette chaîne.
@@ -84,6 +109,31 @@ function attachWalletListeners() {
 }
 attachWalletListeners();
 
+// Sans ça, un rafraîchissement de page affiche "connecter mon wallet" même
+// si MetaMask a déjà autorisé ce site — l'autorisation survit au
+// rechargement côté wallet, mais `address` (un simple ref en mémoire) est
+// remis à zéro à chaque chargement du module. `getAddresses()` (eth_accounts)
+// est silencieux, contrairement à `requestAddresses()` (eth_requestAccounts) :
+// il ne redemande jamais l'autorisation, juste ce qui a déjà été donné.
+async function tryRestoreConnection() {
+  const injected = getInjected();
+  if (!injected) return;
+  try {
+    const walletClient = createWalletClient({
+      chain,
+      transport: custom(injected as Parameters<typeof custom>[0]),
+    });
+    const [account] = await walletClient.getAddresses();
+    if (!account) return;
+    address.value = account;
+    wrongNetwork.value = (await walletClient.getChainId()) !== chain.id;
+  } catch {
+    // Wallet verrouillé ou autre souci silencieux — l'utilisateur peut
+    // toujours cliquer "Connecter mon wallet" manuellement.
+  }
+}
+tryRestoreConnection();
+
 /** Contrat en lecture seule (view) : fonctionne sans wallet connecté. */
 function readOnlyContract() {
   return getContract({ address: contractAddress, abi: CONTRACT_ABI, client: publicClient });
@@ -112,5 +162,6 @@ export function useWallet() {
     publicClient,
     contractAddress,
     deployBlock,
+    syncLocalContractAddress,
   };
 }

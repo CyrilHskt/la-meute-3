@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>La Meute — Panneau de démo</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar">
+    <h1>🐺 La Meute</h1>
+    <p class="sidebar-eyebrow">Certification</p>
+    <ul id="menu-certification" class="menu"></ul>
+    <p class="sidebar-eyebrow">Scénarios de test</p>
+    <ul id="menu-test" class="menu"></ul>
+  </nav>
+
+  <main class="content">
+    <header>
+      <h2 id="scenario-title">—</h2>
+      <div class="reset-group">
+        <button id="reset" class="reset">Réinitialiser</button>
+        <button id="reset-info" class="info-toggle" type="button" title="Voir ce qui se passe derrière">ⓘ</button>
+      </div>
+    </header>
+
+    <div id="reset-command" class="command hidden"></div>
+
+    <p id="message" class="message"></p>
+
+    <ol id="steps" class="steps"></ol>
+  </main>
+
+  <aside class="rules">
+    <h3>Règles du contrat — pour info</h3>
+    <p class="rules-hint">Seulement celles pertinentes pour ce scénario.</p>
+    <div id="rules-list"></div>
+  </aside>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

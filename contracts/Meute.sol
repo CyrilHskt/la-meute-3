@@ -109,10 +109,25 @@ contract Meute is ERC721, ReentrancyGuard {
     uint8 public constant AJOURNEMENTS_MAX = 2;
 
     /// @notice Délai d'inactivité au-delà duquel un Loup devient dormant.
-    uint256 public constant DELAI_DORMANCE = 365 days;
+    /// @dev 6 mois plutôt que 1 an : le quorum de participation
+    ///      ({QUORUM_NUM}/{QUORUM_DEN}) se calcule sur les Loups actifs, un
+    ///      groupe trop large (1 an) rendrait un quorum à 75% en 7 jours
+    ///      irréaliste pour une association qui ne vote pas chaque semaine.
+    uint256 public constant DELAI_DORMANCE = 180 days;
 
     /// @notice Durée pendant laquelle une proposition reste ouverte au vote.
     uint256 public constant DUREE_VOTE = 7 days;
+
+    /// @notice Numérateur/dénominateur du quorum de participation requis
+    ///         (Loups actifs au moment du snapshot qui doivent s'être
+    ///         exprimés, oui ou non, pour qu'un vote soit valide) — 75%.
+    /// @dev Fraction plutôt qu'un pourcentage direct pour rester en
+    ///      arithmétique entière exacte (Solidity ne fait que de la
+    ///      division tronquée) : `exprimes * QUORUM_DEN > actifs *
+    ///      QUORUM_NUM` équivaut à `exprimes / actifs > 75%` sans jamais
+    ///      arrondir.
+    uint8 public constant QUORUM_NUM = 3;
+    uint8 public constant QUORUM_DEN = 4;
 
     /// @dev Carte de chaque membre, indexée directement par adresse. Une carte
     ///      n'existe (au sens ERC-721) que si {_estMembre} est vrai — voir
@@ -158,6 +173,15 @@ contract Meute is ERC721, ReentrancyGuard {
     ///      philosophie "pas de serveur, le wallet est l'identité").
     mapping(address compte => string) public pseudo;
 
+    /// @notice Total cumulé donné par une adresse, membre ou non — un don
+    ///         est ouvert à quiconque, contrairement à la cotisation. Lecture
+    ///         O(1) par adresse volontairement : le classement des
+    ///         meilleurs contributeurs (potentiellement non bornés,
+    ///         contrairement à la meute) se construit hors-chaîne à partir
+    ///         de {DonRecu}, jamais par une boucle on-chain sur les
+    ///         donateurs (§10, "DoS par boucle non bornée").
+    mapping(address donateur => uint256) public donsCumules;
+
     // ---------------------------------------------------------------------
     // Erreurs
     // ---------------------------------------------------------------------
@@ -183,6 +207,7 @@ contract Meute is ERC721, ReentrancyGuard {
     error PasMembre();
     error TitularisationDejaOuverte();
     error PseudoTropLong();
+    error ConflitInteret();
 
     // ---------------------------------------------------------------------
     // Événements
@@ -205,6 +230,7 @@ contract Meute is ERC721, ReentrancyGuard {
     event PropositionExecutee(uint256 indexed proposalId);
     event MembreReveille(address indexed membre);
     event PseudoModifie(address indexed compte, string pseudo);
+    event DonRecu(address indexed donateur, uint256 montant, uint256 totalCumule);
 
     // ---------------------------------------------------------------------
     // Construction
@@ -279,6 +305,17 @@ contract Meute is ERC721, ReentrancyGuard {
         _ouvrirProposition(TypeProposition.Depense, beneficiaire, montant, motif);
     }
 
+    /// @notice Fait un don libre à la trésorerie — ouvert à n'importe quelle
+    ///         adresse, membre ou non (§7.6bis) : contrairement à la
+    ///         cotisation, ce n'est ni un acte de candidature ni séquestré,
+    ///         l'ETH rejoint directement le solde du contrat, immédiatement
+    ///         disponible pour une future `proposerDepense`.
+    function donner() external payable {
+        if (msg.value == 0) revert MontantInvalide();
+        donsCumules[msg.sender] += msg.value;
+        emit DonRecu(msg.sender, msg.value, donsCumules[msg.sender]);
+    }
+
     // ---------------------------------------------------------------------
     // Cycle de vie d'une proposition — vote et exécution (§7.0)
     // ---------------------------------------------------------------------
@@ -298,6 +335,14 @@ contract Meute is ERC721, ReentrancyGuard {
         if (block.timestamp >= prop.echeance) revert VoteFerme();
         if (_cartes[msg.sender].rang != Rang.Loup) revert PasLoup();
         if (_aVote[proposalId][msg.sender]) revert DejaVote();
+        // Conflit d'intérêt : la cible d'une exclusion ou d'une dépense ne
+        // vote pas sur son propre cas (§7.4/§7.6). Sans objet pour
+        // Admission (le candidat n'est pas encore Loup) et Titularisation
+        // (le Louveteau visé ne vote jamais, quel que soit le contexte).
+        if (
+            msg.sender == prop.cible &&
+            (prop.typeProp == TypeProposition.Exclusion || prop.typeProp == TypeProposition.Depense)
+        ) revert ConflitInteret();
         if (choix == ChoixVote.Ajourner) {
             if (prop.typeProp != TypeProposition.Titularisation) revert ChoixInvalide();
             if (_cartes[prop.cible].ajournements >= AJOURNEMENTS_MAX) revert ChoixInvalide();
@@ -316,7 +361,7 @@ contract Meute is ERC721, ReentrancyGuard {
             // de reconstituer, et non un simple numérateur en plus d'un
             // dénominateur qui l'ignorerait.
             _reveiller(msg.sender);
-            prop.snapshotActifs = uint32(loupsActifs());
+            prop.snapshotActifs = uint32(_actifsPourQuorum(prop.typeProp, prop.cible));
             prop.snapshotFige = true;
         }
 
@@ -425,6 +470,20 @@ contract Meute is ERC721, ReentrancyGuard {
         }
     }
 
+    /// @dev Dénominateur de quorum à retenir pour une proposition donnée :
+    ///      {loupsActifs} moins la cible elle-même si elle y est comptée
+    ///      (Loup actif) et que ce type de proposition lui interdit de voter
+    ///      ({voter} — conflit d'intérêt sur Exclusion/Dépense). Une cible
+    ///      déjà dormante ne comptait de toute façon pas dans {loupsActifs} :
+    ///      rien à retirer dans ce cas, pas de double correction.
+    function _actifsPourQuorum(TypeProposition typeProp, address cible) private view returns (uint256) {
+        uint256 actifs = loupsActifs();
+        bool cibleExclueDuVote = (typeProp == TypeProposition.Exclusion || typeProp == TypeProposition.Depense) &&
+            _cartes[cible].rang == Rang.Loup &&
+            !estDormant(cible);
+        return cibleExclueDuVote ? actifs - 1 : actifs;
+    }
+
     // ---------------------------------------------------------------------
     // ERC-721 — non-transférabilité et métadonnées on-chain (§6)
     // ---------------------------------------------------------------------
@@ -497,7 +556,13 @@ contract Meute is ERC721, ReentrancyGuard {
     ) private returns (uint256 proposalId) {
         proposalId = _prochainProposalId++;
 
-        uint256 actifs = loupsActifs();
+        // Exclut la cible elle-même du dénominateur si elle ne peut pas
+        // voter sur son propre cas (voir {_actifsPourQuorum}). Si elle
+        // était la seule active, ça retombe sur 0 : le snapshot est alors
+        // différé au premier vote éligible, exactement comme le cas "meute
+        // totalement dormante" ci-dessous (voir {voter}) — même mécanisme,
+        // pas un cas particulier de plus à maintenir.
+        uint256 actifs = _actifsPourQuorum(typeProp, cible);
         bool snapshotFige = actifs != 0;
 
         _propositions[proposalId] = Proposition({
@@ -521,13 +586,21 @@ contract Meute is ERC721, ReentrancyGuard {
         emit PropositionOuverte(proposalId, cible, msg.sender, typeProp);
     }
 
-    /// @dev Majorité simple sur le dénominateur figé : strictement plus de la
-    ///      moitié, jamais une simple égalité (§7.5 : "un seuil > moitié du
-    ///      snapshot"). Vaut aussi pour une proposition jamais votée
-    ///      (snapshotActifs et votesApprouver tous deux nuls : 0 > 0 est faux,
-    ///      donc rejetée par défaut sans cas particulier à coder).
+    /// @dev Deux conditions, pas une seule : (1) un quorum de participation
+    ///      — au moins {QUORUM_NUM}/{QUORUM_DEN} des Loups actifs au moment
+    ///      du snapshot doivent s'être exprimés (oui ou non), sinon le vote
+    ///      n'est pas valide, quel qu'en soit le résultat ; (2) parmi les
+    ///      votes exprimés, "oui" doit strictement dépasser "non" (une
+    ///      égalité échoue). Avant, seul "oui" face au snapshot comptait —
+    ///      un unique votant pouvait emporter une dépense ou une exclusion
+    ///      sans qu'aucun retour de vote "non" ne puisse jamais l'arrêter,
+    ///      même si le reste de la meute se réveillait avant la clôture.
+    ///      Vaut aussi pour une proposition jamais votée (0 exprimé : le
+    ///      quorum échoue déjà, pas de cas particulier à coder).
     function _approuvee(Proposition storage prop) private view returns (bool) {
-        return prop.votesApprouver * 2 > prop.snapshotActifs;
+        uint32 exprimes = prop.votesApprouver + prop.votesRejeter;
+        bool quorumAtteint = uint256(exprimes) * QUORUM_DEN > uint256(prop.snapshotActifs) * QUORUM_NUM;
+        return quorumAtteint && prop.votesApprouver > prop.votesRejeter;
     }
 
     /// @dev Admission : mint une carte Louveteau si approuvée, sinon
@@ -564,7 +637,8 @@ contract Meute is ERC721, ReentrancyGuard {
 
     /// @dev Titularisation : vote ternaire à majorité relative, mais
     ///      l'ajournement est l'issue par défaut si le quorum (participation
-    ///      > moitié du snapshot) n'est pas atteint — la seule issue qui ne
+    ///      >= {QUORUM_NUM}/{QUORUM_DEN} du snapshot) n'est pas atteint — la
+    ///      seule issue qui ne
     ///      lèse personne quand la meute est restée silencieuse (§7.3). Ce
     ///      défaut passif reste possible même une fois AJOURNEMENTS_MAX
     ///      atteint (seul le choix *actif* Ajourner est barré par {voter}) :
@@ -581,7 +655,7 @@ contract Meute is ERC721, ReentrancyGuard {
         if (!_estMembre(prop.cible)) return;
 
         uint32 total = prop.votesApprouver + prop.votesRejeter + prop.votesAjourner;
-        bool quorumAtteint = total * 2 > prop.snapshotActifs;
+        bool quorumAtteint = uint256(total) * QUORUM_DEN > uint256(prop.snapshotActifs) * QUORUM_NUM;
 
         ChoixVote issue = ChoixVote.Ajourner;
         if (quorumAtteint) {

@@ -48,3 +48,8 @@ CLAUDE.md
 
 # Local Netlify folder
 .netlify
+
+# Journal de déploiement Ignition sur le nœud Hardhat local (chain-31337) —
+# recréé à chaque `npm run demo` (reset), contrairement à chain-11155111
+# (Sepolia) qui, lui, doit rester versionné.
+/ignition/deployments/chain-31337

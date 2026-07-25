@@ -57,6 +57,7 @@ const DEFAULT_INDEX = {
   },
   proposals: [] as Record<string, unknown>[],
   memberActivity: {},
+  topDonateurs: [] as { adresse: string; total: string }[],
 };
 
 const DEFAULT_STATE = {
@@ -66,6 +67,7 @@ const DEFAULT_STATE = {
   proposalIds: [],
   proposalAuthors: {},
   memberActivity: {},
+  dons: {} as Record<string, string>,
 };
 
 async function handlePatchProposal(req: Request): Promise<Response> {

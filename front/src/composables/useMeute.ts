@@ -56,6 +56,11 @@ export interface Stats {
   propositionsOuvertes: number;
 }
 
+export interface Donateur {
+  adresse: Address;
+  total: bigint;
+}
+
 interface DaoIndex {
   stats: {
     treasuryWei: string;
@@ -81,22 +86,39 @@ interface DaoIndex {
     motif: string;
   }[];
   memberActivity: Record<string, { votesSoumis: number; propositionsOuvertes: number }>;
+  topDonateurs: { adresse: Address; total: string }[];
 }
 
 const stats = ref<Stats | null>(null);
 const proposals = ref<Proposal[]>([]);
 const memberActivity = ref<Map<string, { votesSoumis: number; propositionsOuvertes: number }>>(new Map());
+const topDonateurs = ref<Donateur[]>([]);
+// Don individuel : donnée "à moi", lue en direct (pas via l'instantané
+// partagé, même principe que le solde ou le pseudo) — partagée entre la
+// carte de membre (ligne stat) et l'onglet Dons (formulaire + rappel).
+const mesDons = ref<bigint>(0n);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
+// En local (VITE_CHAIN=local), la vue d'ensemble vient du panneau de démo
+// (demo/server.mjs) plutôt que de dao-sync/Sepolia — même format JSON des
+// deux côtés, donc une seule ligne change, pas une deuxième implémentation.
+// DEV, pas seulement VITE_CHAIN : DEV est figé à `false` par Vite pour
+// tout `vite build` (production), même si un .env.local avec
+// VITE_CHAIN=local traînait par erreur — élimination garantie à la
+// compilation, cette branche n'existe même pas dans le code livré.
+const isLocal = import.meta.env.DEV && import.meta.env.VITE_CHAIN === "local";
+const INDEX_URL = isLocal ? "http://127.0.0.1:4100/api/index" : "/.netlify/functions/dao-sync?key=index";
+
 export function useMeute() {
-  const { readOnlyContract } = useWallet();
+  const { readOnlyContract, syncLocalContractAddress } = useWallet();
 
   async function loadAll() {
     loading.value = true;
     error.value = null;
     try {
-      const res = await fetch("/.netlify/functions/dao-sync?key=index", { cache: "no-store" });
+      if (isLocal) await syncLocalContractAddress();
+      const res = await fetch(INDEX_URL, { cache: "no-store" });
       if (!res.ok) throw new Error(`Impossible de charger l'instantané DAO (HTTP ${res.status})`);
       const index = (await res.json()) as DaoIndex;
 
@@ -112,6 +134,8 @@ export function useMeute() {
         .sort((a, b) => (a.id > b.id ? -1 : 1));
 
       memberActivity.value = new Map(Object.entries(index.memberActivity));
+
+      topDonateurs.value = (index.topDonateurs ?? []).map((d) => ({ adresse: d.adresse, total: BigInt(d.total) }));
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e);
     } finally {
@@ -125,11 +149,16 @@ export function useMeute() {
   // voter puis relire `loadAll()` ne montrerait pas encore le nouveau
   // vote. Une lecture ciblée est négligeable (aucun scan d'historique),
   // donc on peut se le permettre à chaque transaction.
-  async function refreshProposal(id: bigint) {
+  // `connuAuteur` : pour une proposition qu'on vient tout juste de créer,
+  // l'appelant l'a déjà extrait de l'event PropositionOuverte du reçu (la
+  // struct on-chain relue ci-dessous ne contient pas ce champ) — sans ça,
+  // une proposition neuve retomberait sur l'adresse zéro le temps que le
+  // prochain passage de l'indexeur la corrige.
+  async function refreshProposal(id: bigint, connuAuteur?: Address) {
     const contract = readOnlyContract();
     const p = (await contract.read.proposition([id])) as Omit<Proposal, "id" | "auteur">;
     const index = proposals.value.findIndex((existing) => existing.id === id);
-    const existingAuteur = index >= 0 ? proposals.value[index].auteur : ("0x0000000000000000000000000000000000000000" as Address);
+    const existingAuteur = connuAuteur ?? (index >= 0 ? proposals.value[index].auteur : ("0x0000000000000000000000000000000000000000" as Address));
     const updated: Proposal = { ...p, id, auteur: existingAuteur };
     if (index >= 0) {
       proposals.value = proposals.value.map((existing, i) => (i === index ? updated : existing));
@@ -138,5 +167,13 @@ export function useMeute() {
     }
   }
 
-  return { stats, proposals, memberActivity, loading, error, loadAll, refreshProposal };
+  async function loadMesDons(address: Address | null) {
+    if (!address) {
+      mesDons.value = 0n;
+      return;
+    }
+    mesDons.value = (await readOnlyContract().read.donsCumules([address])) as bigint;
+  }
+
+  return { stats, proposals, memberActivity, topDonateurs, mesDons, loading, error, loadAll, refreshProposal, loadMesDons };
 }
