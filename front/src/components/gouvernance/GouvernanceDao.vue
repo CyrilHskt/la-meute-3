@@ -7,6 +7,7 @@ import { useWallet } from "../../composables/useWallet";
 import { useMeute, TypeProposition, ChoixVote, type Proposal } from "../../composables/useMeute";
 import { useEthPrice } from "../../composables/useEthPrice";
 import { friendlyContractError } from "../../composables/contractErrors";
+import { useToast } from "../../composables/useToast";
 import { CONTRACT_ABI } from "../../contract";
 import AddressChip from "./AddressChip.vue";
 import CandidatureChecklist from "./CandidatureChecklist.vue";
@@ -15,6 +16,7 @@ import WalletInstallModal from "./WalletInstallModal.vue";
 const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient } = useWallet();
 const { stats, proposals, memberActivity, loading, error, loadAll, refreshProposal } = useMeute();
 const { eurPerEth } = useEthPrice();
+const { showToast } = useToast();
 
 const txError = ref<string | null>(null);
 const txPending = ref(false);
@@ -70,6 +72,7 @@ async function savePseudo() {
   await runTx(
     () => readOnlyContract().simulate.definirPseudo([nouveau], { account: address.value! }),
     () => writableContract().write.definirPseudo([nouveau]),
+    "Pseudo mis à jour",
   );
   editingPseudo.value = false;
 }
@@ -177,6 +180,9 @@ async function patchProposalRemote(id: bigint) {
 async function runTx(
   simulateFn: () => Promise<unknown>,
   writeFn: () => Promise<`0x${string}`>,
+  // Message affiché en toast une fois la transaction confirmée — chaque
+  // appelant précise le sien pour rester spécifique à l'action.
+  successMessage: string,
   // Connu à l'avance pour voter/exécuter (l'id existe déjà) — relit cette
   // proposition précise en direct au lieu de recharger tout l'instantané
   // (voir useMeute.ts). Sans id, la transaction vient de *créer* une
@@ -198,6 +204,7 @@ async function runTx(
     ]);
     if (affectedId !== undefined) await patchProposalRemote(affectedId);
     now.value = Number((await publicClient.getBlock()).timestamp);
+    showToast(successMessage);
   } catch (e) {
     txError.value = friendlyContractError(e);
   } finally {
@@ -209,6 +216,7 @@ function candidater() {
   return runTx(
     () => readOnlyContract().simulate.candidater({ account: address.value!, value: cotisation.value }),
     () => writableContract().write.candidater({ value: cotisation.value }),
+    "Candidature enregistrée — synchronisation blockchain en cours",
   );
 }
 
@@ -223,6 +231,7 @@ function ouvrirTitularisation() {
   return runTx(
     () => readOnlyContract().simulate.ouvrirTitularisation(args, { account: address.value! }),
     () => writableContract().write.ouvrirTitularisation(args),
+    "Proposition de titularisation enregistrée — synchronisation blockchain en cours",
   );
 }
 function proposerExclusion() {
@@ -230,6 +239,7 @@ function proposerExclusion() {
   return runTx(
     () => readOnlyContract().simulate.proposerExclusion(args, { account: address.value! }),
     () => writableContract().write.proposerExclusion(args),
+    "Proposition d'exclusion enregistrée — synchronisation blockchain en cours",
   );
 }
 function proposerDepense() {
@@ -237,6 +247,7 @@ function proposerDepense() {
   return runTx(
     () => readOnlyContract().simulate.proposerDepense(args, { account: address.value! }),
     () => writableContract().write.proposerDepense(args),
+    "Proposition de dépense enregistrée — synchronisation blockchain en cours",
   );
 }
 function voter(id: bigint, choix: number) {
@@ -244,6 +255,7 @@ function voter(id: bigint, choix: number) {
   return runTx(
     () => readOnlyContract().simulate.voter(args, { account: address.value! }),
     () => writableContract().write.voter(args),
+    "Vote enregistré — synchronisation blockchain en cours",
     id,
   );
 }
@@ -252,6 +264,7 @@ function executer(id: bigint) {
   return runTx(
     () => readOnlyContract().simulate.executer(args, { account: address.value! }),
     () => writableContract().write.executer(args),
+    "Exécution enregistrée — synchronisation blockchain en cours",
     id,
   );
 }
@@ -273,6 +286,7 @@ function seReveiller() {
   return runTx(
     () => readOnlyContract().simulate.jeSuisLa({ account: address.value! }),
     () => writableContract().write.jeSuisLa(),
+    "Réveil enregistré — synchronisation blockchain en cours",
   );
 }
 

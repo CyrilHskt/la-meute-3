@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import NavBar from "./components/NavBar.vue";
 import VersionBadge from "./components/VersionBadge.vue";
+import ToastContainer from "./components/ToastContainer.vue";
 </script>
 
 <template>
@@ -14,4 +15,5 @@ import VersionBadge from "./components/VersionBadge.vue";
       <VersionBadge />
     </div>
   </footer>
+  <ToastContainer />
 </template>
