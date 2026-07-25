@@ -12,11 +12,19 @@ export interface ChangelogEntry {
   title: string;
 }
 
-export const SITE_VERSION = "3.0.0";
-export const DASHBOARD_VERSION = "1.0.0";
+export const SITE_VERSION = "3.1.0";
+export const DASHBOARD_VERSION = "1.1.0";
 export const CONTRACT_DISPLAY_VERSION = "1.0.0";
 
 export const SITE_CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "25 juillet 2026",
+    title: "Widget Discord intégré directement sur la page d'accueil",
+  },
+  {
+    date: "24 juillet 2026",
+    title: "Correction d'un bug d'accès direct aux pages via un lien partagé",
+  },
   {
     date: "18 juillet 2026",
     title: "Fusion du site vitrine et du dashboard en un seul site",
@@ -40,6 +48,18 @@ export const SITE_CHANGELOG: ChangelogEntry[] = [
 ];
 
 export const DASHBOARD_CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "25 juillet 2026",
+    title: "Les propositions et votes s'affichent désormais instantanément, sans attendre",
+  },
+  {
+    date: "24 juillet 2026",
+    title: "Fiabilité largement améliorée de l'affichage des données de la DAO",
+  },
+  {
+    date: "23 juillet 2026",
+    title: "Nouvelle présentation de l'évolution de La Meute (V1 → V2 → V3) avec repères historiques",
+  },
   {
     date: "21 juillet 2026",
     title: "Nouveau tableau de bord de gouvernance : carte de membre, vote en direct, historique des propositions",
