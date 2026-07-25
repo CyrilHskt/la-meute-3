@@ -2,10 +2,14 @@ name: Sync DAO
 
 on:
   schedule:
-    # Toutes les 15 minutes — la fréquence réelle de GitHub Actions peut
-    # varier un peu selon la charge, mais l'état persisté (dernier bloc
-    # traité) garantit qu'aucun event n'est raté ni traité deux fois.
-    - cron: "*/15 * * * *"
+    # Toutes les 5 minutes (le minimum permis par GitHub Actions) — sert de
+    # filet de secours : la plupart des actions sont déjà répercutées tout
+    # de suite via ?key=patch-proposal (netlify/functions/dao-sync.mts),
+    # ce cron rattrape juste le reste (stats globales, cas où le patch
+    # immédiat aurait échoué). La fréquence réelle peut varier un peu selon
+    # la charge GitHub, mais l'état persisté (dernier bloc traité) garantit
+    # qu'aucun event n'est raté ni traité deux fois.
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:
