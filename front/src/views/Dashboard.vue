@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import GouvernancePresentation from "../components/gouvernance/GouvernancePresentation.vue";
 import GouvernanceAssociation from "../components/gouvernance/GouvernanceAssociation.vue";
 import GouvernanceDao from "../components/gouvernance/GouvernanceDao.vue";
@@ -13,7 +14,26 @@ const tabs: { id: PageTab; label: string }[] = [
   { id: "dao", label: "Gouvernance DAO" },
 ];
 
-const activeTab = ref<PageTab>("presentation");
+// L'onglet actif vit dans l'URL (?onglet=dao), pas seulement en mémoire —
+// sinon un rafraîchissement (ou un lien partagé) ramène toujours sur
+// "Présentation", même quand on était sur la DAO.
+const route = useRoute();
+const router = useRouter();
+const tabIds = tabs.map((t) => t.id);
+
+function tabFromQuery(): PageTab {
+  const q = route.query.onglet;
+  return typeof q === "string" && (tabIds as string[]).includes(q) ? (q as PageTab) : "presentation";
+}
+
+const activeTab = ref<PageTab>(tabFromQuery());
+
+// `replace` plutôt que `push` : changer d'onglet ne doit pas empiler
+// d'entrées dans l'historique de navigation (le bouton "retour" ne doit
+// pas avoir à défiler tous les onglets visités un par un).
+watch(activeTab, (tab) => {
+  router.replace({ query: { ...route.query, onglet: tab } });
+});
 
 const { showTourPulse, requestTour, highlightTourButton } = useGuidedTour();
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useGuidedTour } from "../../composables/useGuidedTour";
-import { decodeEventLog, formatEther, parseEther, type Log } from "viem";
+import { decodeEventLog, formatEther, parseEther, type Address, type Log } from "viem";
 import { driver } from "driver.js";
 import { useWallet } from "../../composables/useWallet";
 import { useMeute, TypeProposition, ChoixVote, type Proposal } from "../../composables/useMeute";
@@ -143,12 +143,13 @@ async function onConnect() {
 // connaître à l'avance comme pour voter/exécuter. Il est cependant déjà
 // là, dans les events du reçu : on décode le reçu à la recherche d'un
 // PropositionOuverte pour en extraire l'id.
-function extractCreatedProposalId(logs: readonly Log[]): bigint | undefined {
+function extractCreatedProposal(logs: readonly Log[]): { id: bigint; auteur: Address } | undefined {
   for (const log of logs) {
     try {
       const decoded = decodeEventLog({ abi: CONTRACT_ABI, data: log.data, topics: log.topics });
       if (decoded.eventName === "PropositionOuverte") {
-        return (decoded.args as { proposalId: bigint }).proposalId;
+        const args = decoded.args as { proposalId: bigint; auteur: Address };
+        return { id: args.proposalId, auteur: args.auteur };
       }
     } catch {
       // Log d'un autre event (ex: Transfer du mint de carte pour une
@@ -186,7 +187,9 @@ async function runTx(
   // Connu à l'avance pour voter/exécuter (l'id existe déjà) — relit cette
   // proposition précise en direct au lieu de recharger tout l'instantané
   // (voir useMeute.ts). Sans id, la transaction vient de *créer* une
-  // proposition : son id est extrait du reçu, voir extractCreatedProposalId.
+  // proposition : son id et son auteur sont extraits du reçu, voir
+  // extractCreatedProposal — l'auteur n'existe que dans l'event, jamais
+  // dans la struct on-chain relue par refreshProposal.
   knownProposalId?: bigint,
 ) {
   txError.value = null;
@@ -195,9 +198,10 @@ async function runTx(
     await simulateFn();
     const hash = await writeFn();
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
-    const affectedId = knownProposalId ?? extractCreatedProposalId(receipt.logs);
+    const created = knownProposalId === undefined ? extractCreatedProposal(receipt.logs) : undefined;
+    const affectedId = knownProposalId ?? created?.id;
     await Promise.all([
-      affectedId !== undefined ? refreshProposal(affectedId) : loadAll(),
+      affectedId !== undefined ? refreshProposal(affectedId, created?.auteur) : loadAll(),
       refreshMembership(),
       loadPseudo(),
       loadSolde(),
@@ -323,6 +327,16 @@ const activeTab = ref<"encours" | "passees">("encours");
 
 const typeLabels = ["Admission", "Titularisation", "Exclusion", "Dépense"];
 
+const ADRESSE_ZERO = "0x0000000000000000000000000000000000000000";
+
+// L'auteur n'est pas dans la struct on-chain (seulement dans l'event
+// PropositionOuverte) — une entrée dont l'auteur n'a jamais été capturé
+// (ex: refreshProposal sans historique local) retombe sur l'adresse zéro,
+// pas la peine d'afficher "ouverte par 0x000...000".
+function auteurConnu(p: Proposal): boolean {
+  return p.auteur.toLowerCase() !== ADRESSE_ZERO;
+}
+
 function propositionPrefixe(p: Proposal): string {
   switch (p.typeProp) {
     case TypeProposition.Admission:
@@ -340,8 +354,43 @@ function propositionSuffixe(p: Proposal): string {
   return p.typeProp === TypeProposition.Depense ? `— ${formatEther(p.montant)} ETH (${p.motif})` : "";
 }
 
-function seuil(p: Proposal): number {
-  return Math.floor(p.snapshotActifs / 2) + 1;
+// Deux conditions, comme dans le contrat (Meute.sol, _approuvee) : un
+// quorum de participation (75% des Loups actifs au moment du snapshot
+// doivent s'être exprimés, oui ou non), puis "oui" doit dépasser "non"
+// parmi les votes exprimés — pas un simple seuil de "oui" face aux actifs.
+const QUORUM_NUM = 3;
+const QUORUM_DEN = 4;
+
+function quorumRequis(p: Proposal): number {
+  return Math.floor((p.snapshotActifs * QUORUM_NUM) / QUORUM_DEN) + 1;
+}
+
+function quorumAtteint(p: Proposal): boolean {
+  const exprimes = p.votesApprouver + p.votesRejeter;
+  return exprimes * QUORUM_DEN > p.snapshotActifs * QUORUM_NUM;
+}
+
+function estApprouvee(p: Proposal): boolean {
+  return quorumAtteint(p) && p.votesApprouver > p.votesRejeter;
+}
+
+// Conflit d'intérêt (Meute.sol, voter() -> ConflitInteret) : la cible d'une
+// exclusion ou d'une dépense ne peut pas voter sur son propre cas.
+function estTypeAvecConflit(p: Proposal): boolean {
+  return p.typeProp === TypeProposition.Exclusion || p.typeProp === TypeProposition.Depense;
+}
+
+function estCibleEnConflit(p: Proposal): boolean {
+  if (!address.value) return false;
+  return estTypeAvecConflit(p) && p.cible.toLowerCase() === address.value.toLowerCase();
+}
+
+const QUORUM_TOOLTIP =
+  "Quorum : au moins 75% des Loups actifs au moment de l'ouverture doivent voter (oui ou non). Une fois le quorum atteint, le nombre de oui doit dépasser le nombre de non.";
+const CONFLICT_TOOLTIP = "La personne visée ne peut pas voter sur cette proposition (conflit d'intérêt).";
+
+function quorumTooltip(p: Proposal): string {
+  return estTypeAvecConflit(p) ? `${QUORUM_TOOLTIP}\n\n${CONFLICT_TOOLTIP}` : QUORUM_TOOLTIP;
 }
 
 function dateExacte(p: Proposal): string {
@@ -390,7 +439,7 @@ const monExclusion = computed(() => {
         p.typeProp === TypeProposition.Exclusion &&
         p.executee &&
         p.cible.toLowerCase() === address.value!.toLowerCase() &&
-        p.votesApprouver >= seuil(p),
+        estApprouvee(p),
     ) ?? null
   );
 });
@@ -625,7 +674,12 @@ function startTour() {
         <div v-if="activeTab === 'encours'" class="gv-prop-list">
           <article v-for="p in propositionsEnCoursPage" :key="p.id.toString()" class="gv-prop-card">
             <div class="gv-prop-head">
-              <span class="gv-prop-type">{{ typeLabels[p.typeProp] }}</span>
+              <span class="gv-prop-head-left">
+                <span class="gv-prop-type">{{ typeLabels[p.typeProp] }}</span>
+                <span v-if="auteurConnu(p)" class="gv-prop-author">
+                  par <AddressChip :address="p.auteur" short />
+                </span>
+              </span>
               <span class="gv-prop-deadline mono" :title="dateExacte(p)">{{ compteARebours(p) }}</span>
             </div>
             <p class="gv-prop-title">
@@ -640,15 +694,20 @@ function startTour() {
                 <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8" /></svg>
                 {{ p.votesRejeter }} contre
               </span>
-              <span v-if="p.typeProp === TypeProposition.Titularisation">{{ p.votesAjourner }} ajourner</span>
+              <span v-if="p.typeProp === TypeProposition.Titularisation" class="gv-vote-count gv-vote-count--ajourner">
+                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6">
+                  <path d="M4 2h8M4 14h8M5 2c0 3 2.5 3.6 3 4.5.5-.9 3-1.5 3-4.5M5 14c0-3 2.5-3.6 3-4.5.5.9 3 1.5 3 4.5" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                {{ p.votesAjourner }} ajourner
+              </span>
             </div>
             <div class="gv-quorum-line">
-              <span title="Majorité absolue des Loups actifs au moment de l'ouverture du vote">
-                {{ seuil(p) }} votes « pour » requis (sur {{ p.snapshotActifs }} Loups actifs)
+              <span :title="quorumTooltip(p)">
+                Quorum : {{ p.votesApprouver + p.votesRejeter }}/{{ quorumRequis(p) }} votes exprimés (sur {{ p.snapshotActifs }} Loups actifs)
               </span>
             </div>
             <div class="gv-prop-actions">
-              <template v-if="role === 'loup' && Number(p.echeance) > now">
+              <template v-if="role === 'loup' && Number(p.echeance) > now && !estCibleEnConflit(p)">
                 <button class="btn btn-primary" :disabled="txPending" @click="voter(p.id, ChoixVote.Approuver)">Approuver</button>
                 <button class="btn btn-outline-danger" :disabled="txPending" @click="voter(p.id, ChoixVote.Rejeter)">Rejeter</button>
                 <button
@@ -660,6 +719,9 @@ function startTour() {
                   Ajourner
                 </button>
               </template>
+              <p v-else-if="role === 'loup' && Number(p.echeance) > now && estCibleEnConflit(p)" class="gv-card-note">
+                Tu es directement concerné par cette proposition, tu ne peux pas voter dessus.
+              </p>
               <button v-else-if="Number(p.echeance) <= now" class="btn btn-outline" :disabled="txPending" @click="executer(p.id)">
                 Exécuter
               </button>
@@ -678,7 +740,12 @@ function startTour() {
         <div v-else class="gv-prop-list">
           <article v-for="p in propositionsPasseesPage" :key="p.id.toString()" class="gv-prop-card">
             <div class="gv-prop-head">
-              <span class="gv-prop-type">{{ typeLabels[p.typeProp] }}</span>
+              <span class="gv-prop-head-left">
+                <span class="gv-prop-type">{{ typeLabels[p.typeProp] }}</span>
+                <span v-if="auteurConnu(p)" class="gv-prop-author">
+                  par <AddressChip :address="p.auteur" short />
+                </span>
+              </span>
               <span class="gv-prop-deadline mono" :title="dateExacte(p)">clôturé</span>
             </div>
             <p class="gv-prop-title">
@@ -695,8 +762,8 @@ function startTour() {
               </span>
             </div>
             <div class="gv-quorum-line">
-              <span title="Majorité absolue des Loups actifs au moment de l'ouverture du vote">
-                {{ seuil(p) }} votes « pour » requis (sur {{ p.snapshotActifs }} Loups actifs)
+              <span :title="quorumTooltip(p)">
+                Quorum : {{ p.votesApprouver + p.votesRejeter }}/{{ quorumRequis(p) }} votes exprimés (sur {{ p.snapshotActifs }} Loups actifs)
               </span>
             </div>
           </article>
@@ -963,10 +1030,12 @@ function startTour() {
 }
 
 .gv-prop-list { display: flex; flex-direction: column; gap: 1rem; }
-.gv-prop-head { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
+.gv-prop-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem; }
+.gv-prop-head-left { display: flex; align-items: baseline; gap: 0.4rem; }
 .gv-prop-type { font-size: $fs-caption; font-weight: 700; color: $color-orange-dark; text-transform: uppercase; }
 .gv-prop-deadline { font-size: $fs-caption; color: $color-text-dim; }
 .gv-prop-title { font-size: $fs-h4; color: $color-black; margin: 0 0 0.8rem; }
+.gv-prop-author { font-size: $fs-caption; color: $color-text-dim; text-transform: none; font-weight: 400; }
 .gv-vote-line {
   display: flex;
   justify-content: center;
@@ -984,6 +1053,7 @@ function startTour() {
 
   &--pour svg { color: #2e9e5b; }
   &--contre svg { color: $color-danger; }
+  &--ajourner svg { color: $color-text-dim; }
 }
 .gv-quorum-line {
   text-align: center;
