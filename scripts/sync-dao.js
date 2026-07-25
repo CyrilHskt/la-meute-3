@@ -40,7 +40,6 @@ const CONTRACT_TS_PATH = join(__dirname, "..", "front", "src", "contract.ts");
 // units/seconde assez bas (erreur 429 même en séquentiel sans délai).
 const BLOCK_RANGE = 9n; // fromBlock..fromBlock+9 = 10 blocs inclus
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-const DELAI_DORMANCE = 365 * 24 * 60 * 60;
 
 function readContractConstant(name) {
   const source = readFileSync(CONTRACT_TS_PATH, "utf8");
@@ -124,8 +123,19 @@ async function getAllLogsChunked(provider, address, fromBlock, toBlock) {
   return results;
 }
 
-function seuil(snapshotActifs) {
-  return Math.floor(Number(snapshotActifs) / 2) + 1;
+// Quorum 75% + majorité stricte parmi les votes exprimés — même règle que
+// Meute.sol (_approuvee / _executerTitularisation), à tenir synchronisée
+// si elle change encore. La titularisation est un vote à 3 issues :
+// `votesAjourner` compte dans le quorum, et l'issue "Approuver" doit
+// dépasser les deux autres, pas seulement "Rejeter".
+function quorumRequis(snapshotActifs) {
+  return Math.floor((Number(snapshotActifs) * 3) / 4) + 1;
+}
+
+function estApprouvee(votesApprouver, votesRejeter, votesAjourner, snapshotActifs) {
+  const exprimes = Number(votesApprouver) + Number(votesRejeter) + Number(votesAjourner);
+  const quorumAtteint = exprimes * 4 > Number(snapshotActifs) * 3;
+  return quorumAtteint && Number(votesApprouver) > Number(votesRejeter) && Number(votesApprouver) > Number(votesAjourner);
 }
 
 function propositionLabel(typeProp, cible, montant, motif) {
@@ -178,6 +188,10 @@ async function main() {
   // pouvoir le remettre dans l'instantané à chaque rafraîchissement.
   const proposalAuthors = state.proposalAuthors ?? {};
   const memberActivity = state.memberActivity ?? {};
+  // Le contrat ne fait que cumuler dons[adresse] (lecture O(1), voir
+  // Meute.sol) — c'est ici, hors-chaîne, que se construit le classement,
+  // jamais par une boucle on-chain sur un nombre de donateurs non borné.
+  const dons = state.dons ?? {};
   const bump = (addr, key) => {
     const k = addr.toLowerCase();
     memberActivity[k] ??= { votesSoumis: 0, propositionsOuvertes: 0 };
@@ -208,6 +222,14 @@ async function main() {
         if (to === ZERO_ADDRESS) burned.add(from.toLowerCase());
       } else if (log.name === "VoteExprime") {
         bump(log.args.votant, "votesSoumis");
+      } else if (log.name === "DonRecu") {
+        const { donateur, montant, totalCumule } = log.args;
+        // totalCumule vient directement du contrat (donsCumules) : source
+        // de vérité, pas de recalcul à partir de montant pour éviter toute
+        // dérive si un run était rejoué ou un event manqué.
+        dons[donateur.toLowerCase()] = totalCumule.toString();
+        console.log(`Don reçu de ${donateur} : ${ethers.formatEther(montant)} ETH (total ${ethers.formatEther(totalCumule)} ETH).`);
+        await postToDiscord(`💝 **Don reçu** — ${ethers.formatEther(montant)} ETH de \`${donateur.slice(0, 6)}…${donateur.slice(-4)}\`. Merci !`);
       } else if (log.name === "PropositionOuverte") {
         const { proposalId, cible, auteur, typeProp } = log.args;
         proposalIds.add(proposalId.toString());
@@ -217,12 +239,12 @@ async function main() {
         console.log(`Ouverture #${proposalId} — ${TYPE_LABELS[Number(typeProp)]}`);
         await postToDiscord(
           `🗳️ **Nouvelle proposition ouverte** — ${propositionLabel(typeProp, cible, prop.montant, prop.motif)}\n` +
-            `Vote ouvert 7 jours, ${seuil(prop.snapshotActifs)} voix « pour » requises (sur ${prop.snapshotActifs} Loups actifs).`,
+            `Vote ouvert 7 jours — quorum : ${quorumRequis(prop.snapshotActifs)}/${prop.snapshotActifs} Loups actifs doivent voter, puis oui doit dépasser non.`,
         );
       } else if (log.name === "PropositionExecutee") {
         const { proposalId } = log.args;
         const prop = await contract.proposition(proposalId);
-        const approuvee = Number(prop.votesApprouver) >= seuil(prop.snapshotActifs);
+        const approuvee = estApprouvee(prop.votesApprouver, prop.votesRejeter, prop.votesAjourner, prop.snapshotActifs);
         console.log(`Exécution #${proposalId} — ${approuvee ? "approuvée" : "refusée"}`);
         await postToDiscord(
           `${approuvee ? "✅" : "❌"} **Vote clos** — ${propositionLabel(prop.typeProp, prop.cible, prop.montant, prop.motif)}\n` +
@@ -239,14 +261,17 @@ async function main() {
   // changer sans event associé (aucun dans ce contrat, mais par prudence).
   const currentMembers = [...minted].filter((a) => !burned.has(a));
   console.log(`Rafraîchissement de ${currentMembers.length} carte(s) membre...`);
-  const cartes = await Promise.all(currentMembers.map((addr) => contract.carte(addr)));
+  const [cartes, delaiDormance] = await Promise.all([
+    Promise.all(currentMembers.map((addr) => contract.carte(addr))),
+    contract.DELAI_DORMANCE(), // lu sur la chaîne — jamais dupliqué en dur ici
+  ]);
   const now = Number((await provider.getBlock(Number(toBlock))).timestamp);
 
   let louveteaux = 0;
   let loupsDormants = 0;
   cartes.forEach((c) => {
     if (Number(c.rang) === Rang.Louveteau) louveteaux++;
-    else if (now - Number(c.derniereActivite) > DELAI_DORMANCE) loupsDormants++;
+    else if (now - Number(c.derniereActivite) > Number(delaiDormance)) loupsDormants++;
   });
 
   const [treasuryWei, loupsActifsCount] = await Promise.all([
@@ -278,6 +303,14 @@ async function main() {
   const votesExprimes = Object.values(memberActivity).reduce((sum, a) => sum + a.votesSoumis, 0);
   const propositionsOuvertes = proposals.filter((p) => !p.executee).length;
 
+  // Classement hors-chaîne (voir Meute.sol, donsCumules) — trié une fois
+  // ici, jamais recalculé côté front. Limité à 20 : un "top contributeurs"
+  // n'a pas besoin d'être une liste illimitée.
+  const topDonateurs = Object.entries(dons)
+    .map(([adresse, total]) => ({ adresse, total }))
+    .sort((a, b) => (BigInt(a.total) < BigInt(b.total) ? 1 : -1))
+    .slice(0, 20);
+
   await saveJson("index", {
     updatedAt: new Date().toISOString(),
     lastBlock: toBlock.toString(),
@@ -291,6 +324,7 @@ async function main() {
     },
     proposals,
     memberActivity,
+    topDonateurs,
   });
 
   await saveJson("state", {
@@ -300,6 +334,7 @@ async function main() {
     proposalIds: [...proposalIds],
     proposalAuthors,
     memberActivity,
+    dons,
   });
   console.log(`État et instantané à jour (Netlify Blobs) : dernier bloc traité ${toBlock}.`);
 }
