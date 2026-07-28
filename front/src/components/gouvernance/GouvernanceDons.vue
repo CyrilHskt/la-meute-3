@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, ref, watch } from "vue";
 import { formatEther, parseEther } from "viem";
 import { useWallet } from "../../composables/useWallet";
 import { useMeute } from "../../composables/useMeute";
 import { friendlyContractError } from "../../composables/contractErrors";
 import { useToast } from "../../composables/useToast";
+import { useLocalAutoRefresh } from "../../composables/useLocalAutoRefresh";
 import AddressChip from "./AddressChip.vue";
 import WalletInstallModal from "./WalletInstallModal.vue";
 
 const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient } = useWallet();
-const { topDonateurs, loadAll, loadMesDons } = useMeute();
+const { topDonateurs, loading, error, estAutorise, loadAll, loadMesDons } = useMeute();
 const { showToast } = useToast();
 
 const txPending = ref(false);
@@ -17,6 +18,19 @@ const txError = ref<string | null>(null);
 const donInput = ref("");
 
 onMounted(() => {
+  loadAll();
+  loadMesDons(address.value);
+});
+
+// Voir GouvernanceDao.vue : sans remettre le scroll à 0 quand le classement
+// disparaît (déconnexion), la position de scroll reste celle d'avant sur
+// une page plus courte.
+watch(estAutorise, (autorise) => {
+  if (!autorise) window.scrollTo({ top: 0 });
+});
+
+// Mode démo locale uniquement — voir GouvernanceDao.vue pour le contexte.
+useLocalAutoRefresh(() => {
   loadAll();
   loadMesDons(address.value);
 });
@@ -71,7 +85,15 @@ async function donner() {
       </template>
       <template v-else>
         <div class="gv-form-row">
-          <input v-model="donInput" placeholder="Montant en ETH" :disabled="txPending" />
+          <input
+            v-model="donInput"
+            type="number"
+            min="0"
+            step="any"
+            inputmode="decimal"
+            placeholder="Montant en ETH"
+            :disabled="txPending"
+          />
           <button class="btn btn-primary" :disabled="txPending || !donInput" @click="donner">Donner</button>
         </div>
         <p v-if="txError" class="gv-error">{{ txError }}</p>
@@ -80,14 +102,21 @@ async function donner() {
 
     <div class="gv-dons-panel">
       <h3 class="gv-card-title">Merci aux donateurs</h3>
-      <div v-if="topDonateurs.length" class="gv-donors-list">
-        <div v-for="(d, i) in topDonateurs" :key="d.adresse" class="gv-donor-row">
-          <span class="gv-donor-rank">#{{ i + 1 }}</span>
-          <AddressChip class="gv-donor-address" :address="d.adresse" short />
-          <span class="gv-donor-amount">{{ formatEther(d.total) }} ETH</span>
+      <p v-if="!estAutorise" class="gv-card-note">
+        Classement réservé aux membres de la Meute — connecte le wallet avec lequel tu votes pour le consulter.
+      </p>
+      <template v-else>
+        <p v-if="loading" class="gv-card-note">Chargement des données on-chain…</p>
+        <p v-else-if="error" class="gv-error">Erreur de lecture : {{ error }} — le classement peut être incomplet.</p>
+        <div v-else-if="topDonateurs.length" class="gv-donors-list">
+          <div v-for="(d, i) in topDonateurs" :key="d.adresse" class="gv-donor-row">
+            <span class="gv-donor-rank">#{{ i + 1 }}</span>
+            <AddressChip class="gv-donor-address" :address="d.adresse" short />
+            <span class="gv-donor-amount">{{ formatEther(d.total) }} ETH</span>
+          </div>
         </div>
-      </div>
-      <p v-else class="gv-card-note">Aucun don pour l'instant — sois le premier !</p>
+        <p v-else class="gv-card-note">Aucun don pour l'instant — sois le premier !</p>
+      </template>
     </div>
   </div>
 </template>
@@ -137,6 +166,7 @@ async function donner() {
 
   input {
     flex: 1;
+    box-sizing: border-box;
     padding: 0.6rem 0.8rem;
     border: 1px solid $color-border;
     border-radius: 6px;
@@ -146,6 +176,16 @@ async function donner() {
     // qui donne l'impression que la saisie ne fonctionne pas du tout.
     color: $color-text;
     background: #fff;
+
+    // Cache les flèches natives (+/-) de type="number" — voir GouvernanceDao.vue.
+    &::-webkit-inner-spin-button,
+    &::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    &[type="number"] {
+      -moz-appearance: textfield;
+    }
   }
 }
 

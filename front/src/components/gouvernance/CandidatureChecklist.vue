@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import { formatEther } from "viem";
 import AddressChip from "./AddressChip.vue";
+import { useDiscordLink } from "../../composables/useDiscordLink";
 import type { Proposal } from "../../composables/useMeute";
 
 const props = defineProps<{
@@ -17,13 +18,25 @@ const props = defineProps<{
 
 const emit = defineEmits<{ candidater: []; "refresh-solde": [] }>();
 
+const { discordLinkFor, requestDiscordLink } = useDiscordLink();
+
 const aAssezDeFonds = computed(() => props.balance >= props.cotisation);
+// Un candidat qui contourne le front et candidate directement sur le
+// contrat sans avoir lié son Discord reste acceptable techniquement (pas
+// de vérification on-chain, volontairement — voir CLAUDE.md sur l'absence
+// de rôle privilégié) : ce cas est signalé aux Loups via aDiscordManquant
+// sur la carte de proposition, pas bloqué ici.
+const monDiscord = computed(() => discordLinkFor(props.address));
 
 type EtatEtape = "done" | "current" | "todo";
 const etapeFonds = computed<EtatEtape>(() => (aAssezDeFonds.value ? "done" : "current"));
+const etapeDiscord = computed<EtatEtape>(() => {
+  if (monDiscord.value) return "done";
+  return aAssezDeFonds.value ? "current" : "todo";
+});
 const etapeCandidater = computed<EtatEtape>(() => {
   if (props.candidature) return "done";
-  return aAssezDeFonds.value ? "current" : "todo";
+  return aAssezDeFonds.value && monDiscord.value ? "current" : "todo";
 });
 const etapeVote = computed<EtatEtape>(() => (props.candidature ? "current" : "todo"));
 </script>
@@ -60,8 +73,22 @@ const etapeVote = computed<EtatEtape>(() => (props.candidature ? "current" : "to
       </div>
     </div>
 
+    <div class="ccl-step" :class="`ccl-step--${etapeDiscord}`">
+      <div class="ccl-marker">{{ etapeDiscord === "done" ? "✓" : 3 }}</div>
+      <div class="ccl-body">
+        <div class="ccl-step-title">Lier ton compte Discord</div>
+        <div class="ccl-note">
+          <template v-if="monDiscord">Lié en tant que {{ monDiscord.pseudo }}</template>
+          <template v-else>Nécessite d'avoir rejoint le serveur Discord de la Meute</template>
+        </div>
+        <div v-if="etapeDiscord === 'current'" class="ccl-action">
+          <button class="btn btn-primary" type="button" @click="requestDiscordLink(address)">Lier mon compte Discord</button>
+        </div>
+      </div>
+    </div>
+
     <div class="ccl-step" :class="`ccl-step--${etapeCandidater}`">
-      <div class="ccl-marker">{{ etapeCandidater === "done" ? "✓" : 3 }}</div>
+      <div class="ccl-marker">{{ etapeCandidater === "done" ? "✓" : 4 }}</div>
       <div class="ccl-body">
         <div class="ccl-step-title">Candidater</div>
         <div class="ccl-note">Cotisation : {{ formatEther(cotisation) }} ETH, remboursée si refusée</div>
@@ -72,7 +99,7 @@ const etapeVote = computed<EtatEtape>(() => (props.candidature ? "current" : "to
     </div>
 
     <div class="ccl-step" :class="`ccl-step--${etapeVote}`">
-      <div class="ccl-marker">4</div>
+      <div class="ccl-marker">5</div>
       <div class="ccl-body">
         <div class="ccl-step-title">
           {{ etapeVote === "current" ? "Vote en cours" : "Attendre le vote des Loups" }}

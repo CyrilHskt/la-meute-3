@@ -1,7 +1,7 @@
 import { ref } from "vue";
 import { createPublicClient, createWalletClient, custom, http, getContract, type Address, type Chain } from "viem";
 import { sepolia, hardhat } from "viem/chains";
-import { CONTRACT_ADDRESS, CONTRACT_ABI, CONTRACT_DEPLOY_BLOCK } from "../contract";
+import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../contract";
 
 // Réseau ciblé : Sepolia par défaut (le déploiement réel et committé), ou
 // le nœud Hardhat local pour tester tout le cycle en quelques secondes
@@ -37,11 +37,6 @@ async function syncLocalContractAddress() {
     // la dernière adresse connue.
   }
 }
-// Un nœud Hardhat local repart toujours du bloc 0 : le bloc de déploiement
-// Sepolia (~11M) n'a aucun sens là-dessus et ferait chercher des
-// événements depuis un bloc qui n'existe pas encore sur cette chaîne.
-const deployBlock = isLocal ? 0n : CONTRACT_DEPLOY_BLOCK;
-
 const address = ref<Address | null>(null);
 const wrongNetwork = ref(false);
 const noWalletDetected = ref(false);
@@ -84,6 +79,16 @@ async function connect() {
 
   address.value = account;
   wrongNetwork.value = chainId !== chain.id;
+
+  // Import dynamique pour casser la dépendance circulaire (useMeute importe
+  // useWallet pour readOnlyContract/signMessage). Uniquement ici, jamais
+  // dans tryRestoreConnection() : la vérification d'appartenance demande
+  // une signature, elle ne doit jamais surgir silencieusement à la
+  // reconnexion automatique au chargement de la page, seulement sur un
+  // clic explicite sur "Connecter mon wallet". C'est aussi ce qui débloque
+  // toute la page gouvernance (réservée aux membres) — voir useMeute.ts.
+  const { verifierAppartenanceEtCharger } = await import("./useMeute").then((m) => m.useMeute());
+  void verifierAppartenanceEtCharger(account);
 }
 
 // Sans ça, changer de compte ou de réseau *après* le clic sur "Connecter"
@@ -99,7 +104,25 @@ function attachWalletListeners() {
 
   injected.on("accountsChanged", (...args: unknown[]) => {
     const accounts = args[0] as string[];
-    address.value = accounts.length > 0 ? (accounts[0] as Address) : null;
+    const nouveauCompte = accounts.length > 0 ? (accounts[0] as Address) : null;
+    address.value = nouveauCompte;
+
+    // La session/l'index vérifiés (useMeute) concernaient l'ancien compte —
+    // à effacer systématiquement, qu'on se déconnecte ou qu'on bascule sur
+    // un autre compte, sans quoi la page restait affichée comme si le
+    // nouveau (ou aucun) compte était toujours un membre authentifié
+    // (constaté : déconnexion sans effet visible sur la page gouvernance).
+    // Import dynamique : même raison qu'en connect() (dépendance
+    // circulaire useMeute <-> useWallet).
+    void import("./useMeute").then((m) => {
+      const { reinitialiserSession, verifierAppartenanceEtCharger } = m.useMeute();
+      reinitialiserSession();
+      // Un changement de compte explicite dans MetaMask (pas une
+      // reconnexion silencieuse au chargement) — redemander une preuve
+      // d'appartenance ici est cohérent avec "une signature par session",
+      // la session change avec le compte.
+      if (nouveauCompte) void verifierAppartenanceEtCharger(nouveauCompte);
+    });
   });
 
   injected.on("chainChanged", (...args: unknown[]) => {
@@ -151,6 +174,20 @@ function writableContract() {
   return getContract({ address: contractAddress, abi: CONTRACT_ABI, client: walletClient });
 }
 
+/** Signature d'un message arbitraire (pas une transaction) — utilisé pour
+ *  prouver la possession d'un wallet sans dépenser de gas, ex: délier un
+ *  compte Discord (voir useDiscordLink.ts). */
+async function signMessage(message: string): Promise<`0x${string}`> {
+  if (!address.value) throw new Error("Wallet non connecté");
+  const injected = (window as unknown as { ethereum: unknown }).ethereum;
+  const walletClient = createWalletClient({
+    account: address.value,
+    chain,
+    transport: custom(injected as Parameters<typeof custom>[0]),
+  });
+  return walletClient.signMessage({ account: address.value, message });
+}
+
 export function useWallet() {
   return {
     address,
@@ -159,9 +196,9 @@ export function useWallet() {
     connect,
     readOnlyContract,
     writableContract,
+    signMessage,
     publicClient,
     contractAddress,
-    deployBlock,
     syncLocalContractAddress,
   };
 }
