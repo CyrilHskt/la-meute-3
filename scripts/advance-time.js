@@ -1,12 +1,12 @@
-// Avance l'horloge d'un nœud Hardhat local (npx hardhat node) sans avoir à
-// attendre le temps réel — utile pour tester un vote (7 jours) ou une
-// probation (90 jours) en une seconde. N'a d'effet que sur un simulateur
-// local : ces commandes RPC (evm_increaseTime/evm_mine) n'existent pas sur
-// un vrai réseau comme Sepolia.
+// Advances a local Hardhat node's (npx hardhat node) clock without having
+// to wait for real time — useful to test a vote (7 days) or a probation
+// (90 days) in one second. Only has an effect on a local simulator: these
+// RPC commands (evm_increaseTime/evm_mine) don't exist on a real network
+// like Sepolia.
 //
-// Usage : DURATION=7d node scripts/advance-time.js
-//         (ou via `npm run advance-time` — voir package.json)
-// Formats acceptés : "7d", "12h", "30m", "3600" (secondes brutes).
+// Usage: DURATION=7d node scripts/advance-time.js
+//        (or via `npm run advance-time` — see package.json)
+// Accepted formats: "7d", "12h", "30m", "3600" (raw seconds).
 
 const RPC_URL = process.env.RPC_URL ?? "http://127.0.0.1:8545";
 

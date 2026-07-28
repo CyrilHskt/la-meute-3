@@ -1,57 +1,57 @@
-// Scénario de test isolé : la dépense, avec un bénéficiaire qui est
-// lui-même un Loup actif — pour exercer aussi le conflit d'intérêt
-// (il ne peut pas voter sur sa propre dépense) en plus du mécanisme de
-// dépense lui-même. Part d'un contrat vide.
+// Isolated test scenario: expenses, with a beneficiary who is themselves
+// an active Wolf — to also exercise the conflict of interest (they can't
+// vote on their own expense) on top of the expense mechanism itself.
+// Starts from an empty contract.
 import * as actions from "../actions.js";
 
-export const ruleIds = ["quorum", "majorite", "conflit", "duree-vote"];
+export const ruleIds = ["quorum", "majority", "conflict", "vote-duration"];
 
 export const steps = [
   {
-    id: "setup-depense",
+    id: "setup-expense",
     label: "Mise en place : 3 Loups actifs",
     narration: "Fondateur + 2 Loups admis et titularisés — leurs cotisations ont déjà financé la trésorerie.",
     command: [
-      { type: "code", text: "candidater() -> voter() -> evm_increaseTime(7j) -> executer()" },
-      { type: "code", text: "evm_increaseTime(90j) -> ouvrirTitularisation() -> voter() -> evm_increaseTime(7j) -> executer()" },
+      { type: "code", text: "applyForMembership() -> vote() -> evm_increaseTime(7j) -> execute()" },
+      { type: "code", text: "evm_increaseTime(90j) -> openConfirmationVote() -> vote() -> evm_increaseTime(7j) -> execute()" },
     ],
-    run: actions.setupDepense,
+    run: actions.setupExpense,
   },
   {
-    id: "ouvrir-depense",
+    id: "open-expense",
     label: "1. Un Loup propose une dépense vers un autre Loup",
     narration: "Le bénéficiaire est lui-même un Loup actif — de quoi montrer le conflit d'intérêt juste après.",
-    command: [{ type: "code", text: 'founder.proposerDepense(loup2, 0.005 ETH, "Test dépense")' }],
-    run: actions.ouvrirDepenseTest,
+    command: [{ type: "code", text: 'founder.proposeExpense(wolf2, 0.005 ETH, "Test dépense")' }],
+    run: actions.openTestExpense,
   },
   {
-    id: "vote-depense",
+    id: "vote-expense",
     label: "2. Les autres Loups votent",
     narration: "Le bénéficiaire ne peut pas voter sur sa propre dépense (conflit d'intérêt) — les autres Loups actifs votent Approuver.",
     command: [
-      { type: "code", text: "contrat.voter(id, Approuver)" },
-      { type: "comment", text: "le bénéficiaire serait rejeté avec ConflitInteret() si il essayait" },
+      { type: "code", text: "contract.vote(id, Approve)" },
+      { type: "comment", text: "le bénéficiaire serait rejeté avec ConflictOfInterest() si il essayait" },
     ],
-    run: actions.voteDepenseTest,
+    run: actions.voteOnTestExpense,
   },
   {
-    id: "temps-vote-depense",
+    id: "expense-vote-time",
     label: "3. On avance le temps (fin de la fenêtre de vote)",
     narration: "On saute les 7 jours d'attente.",
     command: [
       { type: "code", text: "evm_increaseTime(604801)" },
       { type: "code", text: "evm_mine()" },
     ],
-    run: actions.tempsVoteDepenseTest,
+    run: actions.testExpenseVoteTime,
   },
   {
-    id: "execution-depense",
+    id: "execute-expense",
     label: "4. La dépense est exécutée",
     narration: "Les fonds quittent la trésorerie vers le bénéficiaire — visible en direct dans le front.",
     command: [
-      { type: "code", text: "founder.executer(id)" },
+      { type: "code", text: "founder.execute(id)" },
       { type: "comment", text: "transfert ETH réel vers la cible" },
     ],
-    run: actions.executionDepenseTest,
+    run: actions.executeTestExpense,
   },
 ];

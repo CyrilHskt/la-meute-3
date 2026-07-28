@@ -1,52 +1,50 @@
-// Peuple un contrat Meute fraîchement déployé sur un nœud Hardhat local
-// (npx hardhat node) avec un état varié — pour avoir tout de suite un
-// contrat avec des Louveteaux/Loups actifs et dormants/votes/historique/
-// trésor à explorer dans le front, plutôt que de tout rejouer à la main
-// via MetaMask. À relancer à chaque redémarrage du nœud (son état repart
-// de zéro à chaque fois).
+// Populates a freshly-deployed Meute contract on a local Hardhat node
+// (npx hardhat node) with a varied state — to immediately have a contract
+// with active/dormant Cubs/Wolves/votes/history/treasury to explore in
+// the front, rather than replaying everything by hand via MetaMask. Rerun
+// on every node restart (its state resets to zero every time).
 //
-// Mapping des comptes `npx hardhat node` (toujours les mêmes adresses,
-// mnémonique par défaut fixe) :
-//   Account #0        -> Loup actif
-//   Account #1        -> Louveteau (jamais titularisé)
-//   Account #2        -> Candidat (candidature ouverte, non votée)
-//   Account #3        -> Loup rendu dormant
-//   Account #4        -> Visiteur (jamais touché, aucune carte)
-//   Account #6        -> Louveteau (jamais titularisé)
-//   Account #7        -> Loup rendu dormant
-//   Account #8        -> Loup rendu dormant
-//   Account #9        -> Loup actif
-//   Account #10       -> Loup actif
-//   Account #11       -> Banni (admis puis exclu par vote — carte brûlée,
-//                        distinct d'une démission volontaire)
-//   Account #12, #13, #14 -> admis puis démissionnaires, gonflent juste le trésor
-//   (le fondateur du module Ignition, une adresse à part, reste Loup actif)
+// Mapping of `npx hardhat node` accounts (always the same addresses,
+// fixed default mnemonic):
+//   Account #0        -> active Wolf
+//   Account #1        -> Cub (never confirmed)
+//   Account #2        -> Applicant (open application, not voted on)
+//   Account #3        -> Wolf made dormant
+//   Account #4        -> Visitor (never touched, no card)
+//   Account #6        -> Cub (never confirmed)
+//   Account #7        -> Wolf made dormant
+//   Account #8        -> Wolf made dormant
+//   Account #9        -> active Wolf
+//   Account #10       -> active Wolf
+//   Account #11       -> Banned (admitted then excluded by vote — card
+//                        burned, distinct from a voluntary resignation)
+//   Account #12, #13, #14 -> admitted then resigned, just pad the treasury
+//   (the Ignition module's founder, a separate address, stays an active Wolf)
 //
-// État final : 4 Loups actifs (fondateur + #0, #9, #10), 3 Loups dormants
-// (#3, #7, #8), 2 Louveteaux (#1, #6), 1 candidature en cours (#2), 1 banni
-// (#11), trésor > 0, une dépense laissée ouverte.
+// Final state: 4 active Wolves (founder + #0, #9, #10), 3 dormant Wolves
+// (#3, #7, #8), 2 Cubs (#1, #6), 1 ongoing application (#2), 1 banned
+// (#11), treasury > 0, an expense left open.
 //
-// Prérequis : `npx hardhat node` dans un terminal, puis
+// Prerequisite: `npx hardhat node` in one terminal, then
 //   npx hardhat ignition deploy ignition/modules/Meute.ts --network localhost
-// dans un autre, avant de lancer ce script.
+// in another, before running this script.
 //
-// Usage : node scripts/seed-local.js
-// Variables d'env optionnelles :
-//   RPC_URL           (défaut http://127.0.0.1:8545)
-//   CONTRACT_ADDRESS  (défaut : adresse du tout premier déploiement Ignition
-//                      sur un nœud fraîchement démarré, toujours la même)
-//   FOUNDER           (défaut : le fondateur unique du module Ignition —
-//                      doit correspondre à ce qui a été réellement déployé)
+// Usage: node scripts/seed-local.js
+// Optional env vars:
+//   RPC_URL           (default http://127.0.0.1:8545)
+//   CONTRACT_ADDRESS  (default: address of the very first Ignition
+//                      deployment on a freshly started node, always the same)
+//   FOUNDER           (default: the Ignition module's sole founder — must
+//                      match what was actually deployed)
 //
-// Pour avoir Account #0..#13 dans MetaMask sans importer chaque clé
-// privée séparément à la main, deux options :
-//   - le plus sûr : copier chaque clé privée affichée par `npx hardhat
-//     node` et l'importer une par une (Importer un compte) — un peu plus
-//     long, mais ne touche à rien d'autre dans MetaMask ;
-//   - éviter d'importer la phrase secrète par défaut de Hardhat comme un
-//     nouveau portefeuille : elle est publique et réutilisée par des
-//     milliers de devs, MetaMask peut alors se mettre à scanner et
-//     importer des centaines de comptes sans rapport.
+// To have Account #0..#13 in MetaMask without importing each private key
+// separately by hand, two options:
+//   - safest: copy each private key shown by `npx hardhat node` and
+//     import them one by one (Import Account) — a bit longer, but doesn't
+//     touch anything else in MetaMask;
+//   - avoid importing Hardhat's default seed phrase as a new wallet: it's
+//     public and reused by thousands of devs, MetaMask can then start
+//     scanning and importing hundreds of unrelated accounts.
 
 import { ethers } from "ethers";
 import { readFileSync } from "node:fs";
@@ -59,8 +57,8 @@ const RPC_URL = process.env.RPC_URL ?? "http://127.0.0.1:8545";
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS ?? "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 const FOUNDER = process.env.FOUNDER ?? "0x95B5d450178C9f13dc977655a9A70a17Aac6c8d3";
 
-const ChoixVote = { Approuver: 0, Rejeter: 1, Ajourner: 2 };
-const JOUR = 24 * 60 * 60;
+const VoteChoice = { Approve: 0, Reject: 1, Postpone: 2 };
+const DAY = 24 * 60 * 60;
 
 function loadAbi() {
   const artifactPath = join(__dirname, "..", "artifacts", "contracts", "Meute.sol", "Meute.json");
@@ -76,9 +74,9 @@ async function advanceTime(provider, seconds) {
   await provider.send("evm_mine", []);
 }
 
-/** Envoie une tx qui ouvre une proposition et retourne son proposalId réel,
- *  lu depuis l'event émis — plus robuste qu'un compteur tenu à la main. */
-async function ouvrirEtRecupererId(contract, txPromise) {
+/** Sends a tx that opens a proposal and returns its real proposalId, read
+ *  from the emitted event — more robust than a hand-kept counter. */
+async function openAndGetId(contract, txPromise) {
   const receipt = await (await txPromise).wait();
   for (const log of receipt.logs) {
     let parsed;
@@ -87,39 +85,39 @@ async function ouvrirEtRecupererId(contract, txPromise) {
     } catch {
       continue;
     }
-    if (parsed?.name === "PropositionOuverte") return parsed.args.proposalId;
+    if (parsed?.name === "ProposalOpened") return parsed.args.proposalId;
   }
-  throw new Error("PropositionOuverte introuvable dans les logs de la transaction.");
+  throw new Error("ProposalOpened introuvable dans les logs de la transaction.");
 }
 
-/** Fait passer une adresse de rien à Loup : candidature -> admission -> probation -> titularisation. */
-async function devenirLoup(contracts, candidatAddr, votants) {
-  const candidatContract = contracts.get(candidatAddr);
-  const candId = await ouvrirEtRecupererId(
-    candidatContract,
-    candidatContract.candidater({ value: contracts.cotisation }),
+/** Takes an address from nothing to Wolf: application -> admission -> probation -> confirmation. */
+async function becomeWolf(contracts, applicantAddr, voters) {
+  const applicantContract = contracts.get(applicantAddr);
+  const applicationId = await openAndGetId(
+    applicantContract,
+    applicantContract.applyForMembership({ value: contracts.fee }),
   );
-  for (const v of votants) await (await contracts.get(v).voter(candId, ChoixVote.Approuver)).wait();
-  await advanceTime(contracts.provider, 7 * JOUR + 1);
-  await (await candidatContract.executer(candId)).wait();
+  for (const v of voters) await (await contracts.get(v).vote(applicationId, VoteChoice.Approve)).wait();
+  await advanceTime(contracts.provider, 7 * DAY + 1);
+  await (await applicantContract.execute(applicationId)).wait();
 
-  await advanceTime(contracts.provider, 90 * JOUR + 1);
-  const titId = await ouvrirEtRecupererId(
-    contracts.get(votants[0]),
-    contracts.get(votants[0]).ouvrirTitularisation(candidatAddr),
+  await advanceTime(contracts.provider, 90 * DAY + 1);
+  const confirmationId = await openAndGetId(
+    contracts.get(voters[0]),
+    contracts.get(voters[0]).openConfirmationVote(applicantAddr),
   );
-  for (const v of votants) await (await contracts.get(v).voter(titId, ChoixVote.Approuver)).wait();
-  await advanceTime(contracts.provider, 7 * JOUR + 1);
-  await (await candidatContract.executer(titId)).wait();
+  for (const v of voters) await (await contracts.get(v).vote(confirmationId, VoteChoice.Approve)).wait();
+  await advanceTime(contracts.provider, 7 * DAY + 1);
+  await (await applicantContract.execute(confirmationId)).wait();
 }
 
-/** Fait candidater une adresse et laisse la carte au rang Louveteau, sans jamais titulariser. */
-async function devenirLouveteau(contracts, candidatAddr, votants) {
-  const c = contracts.get(candidatAddr);
-  const id = await ouvrirEtRecupererId(c, c.candidater({ value: contracts.cotisation }));
-  for (const v of votants) await (await contracts.get(v).voter(id, ChoixVote.Approuver)).wait();
-  await advanceTime(contracts.provider, 7 * JOUR + 1);
-  await (await c.executer(id)).wait();
+/** Makes an address apply and leaves the card at Cub rank, never confirming it. */
+async function becomeCub(contracts, applicantAddr, voters) {
+  const c = contracts.get(applicantAddr);
+  const id = await openAndGetId(c, c.applyForMembership({ value: contracts.fee }));
+  for (const v of voters) await (await contracts.get(v).vote(id, VoteChoice.Approve)).wait();
+  await advanceTime(contracts.provider, 7 * DAY + 1);
+  await (await c.execute(id)).wait();
 }
 
 async function main() {
@@ -128,40 +126,40 @@ async function main() {
 
   await provider.send("hardhat_impersonateAccount", [FOUNDER]);
   await provider.send("hardhat_setBalance", [FOUNDER, "0x56BC75E2D63100000"]); // 100 ETH
-  // provider.getSigner() vérifie l'adresse contre eth_accounts, qui ne
-  // liste jamais les comptes impersonated — il faut construire le signer
-  // directement pour contourner cette vérification côté ethers (le nœud,
-  // lui, accepte bien les transactions de cette adresse).
+  // provider.getSigner() checks the address against eth_accounts, which
+  // never lists impersonated accounts — the signer has to be built
+  // directly to bypass this check on ethers' side (the node itself does
+  // accept transactions from this address).
   const founderSigner = new ethers.JsonRpcSigner(provider, ethers.getAddress(FOUNDER));
 
   const nodeAccounts = await provider.send("eth_accounts", []);
   if (nodeAccounts.length < 15) throw new Error("Pas assez de comptes de test sur le nœud (besoin d'au moins 15).");
 
   const acc = (n) => nodeAccounts[n];
-  const loup0 = acc(0);
-  const louveteau1 = acc(1);
-  const candidat2 = acc(2);
+  const wolf0 = acc(0);
+  const cub1 = acc(1);
+  const applicant2 = acc(2);
   const dormant3 = acc(3);
-  const visiteur4 = acc(4);
-  const louveteau6 = acc(6);
+  const visitor4 = acc(4);
+  const cub6 = acc(6);
   const dormant7 = acc(7);
   const dormant8 = acc(8);
-  const loup9 = acc(9);
-  const loup10 = acc(10);
-  const banni11 = acc(11);
+  const wolf9 = acc(9);
+  const wolf10 = acc(10);
+  const banned11 = acc(11);
   const boosters = [acc(12), acc(13), acc(14)];
 
   const usedAccounts = [
-    loup0,
-    louveteau1,
-    candidat2,
+    wolf0,
+    cub1,
+    applicant2,
     dormant3,
-    louveteau6,
+    cub6,
     dormant7,
     dormant8,
-    loup9,
-    loup10,
-    banni11,
+    wolf9,
+    wolf10,
+    banned11,
     ...boosters,
   ];
   const signers = new Map();
@@ -175,93 +173,93 @@ async function main() {
     },
   };
   const asFounder = contracts.get(FOUNDER);
-  contracts.cotisation = await asFounder.cotisation();
+  contracts.fee = await asFounder.fee();
 
   console.log(`Fondateur   (Loup actif)  : ${FOUNDER}`);
-  console.log(`Account #0  (Loup actif)  : ${loup0}`);
-  console.log(`Account #1  (Louveteau)   : ${louveteau1}`);
-  console.log(`Account #2  (Candidat)    : ${candidat2}`);
+  console.log(`Account #0  (Loup actif)  : ${wolf0}`);
+  console.log(`Account #1  (Louveteau)   : ${cub1}`);
+  console.log(`Account #2  (Candidat)    : ${applicant2}`);
   console.log(`Account #3  (Loup dormant): ${dormant3}`);
-  console.log(`Account #4  (Visiteur)    : ${visiteur4}`);
-  console.log(`Account #6  (Louveteau)   : ${louveteau6}`);
+  console.log(`Account #4  (Visiteur)    : ${visitor4}`);
+  console.log(`Account #6  (Louveteau)   : ${cub6}`);
   console.log(`Account #7  (Loup dormant): ${dormant7}`);
   console.log(`Account #8  (Loup dormant): ${dormant8}`);
-  console.log(`Account #9  (Loup actif)  : ${loup9}`);
-  console.log(`Account #10 (Loup actif)  : ${loup10}`);
-  console.log(`Account #11 (Banni)       : ${banni11}`);
+  console.log(`Account #9  (Loup actif)  : ${wolf9}`);
+  console.log(`Account #10 (Loup actif)  : ${wolf10}`);
+  console.log(`Account #11 (Banni)       : ${banned11}`);
   console.log("");
 
   console.log("1/8 — Account #0 rejoint la meute...");
-  await devenirLoup(contracts, loup0, [FOUNDER]);
+  await becomeWolf(contracts, wolf0, [FOUNDER]);
 
   console.log("2/8 — Account #3 rejoint la meute (deviendra dormant)...");
-  await devenirLoup(contracts, dormant3, [FOUNDER, loup0]);
+  await becomeWolf(contracts, dormant3, [FOUNDER, wolf0]);
 
   console.log("3/8 — Account #7 rejoint la meute (deviendra dormant)...");
-  await devenirLoup(contracts, dormant7, [FOUNDER, loup0, dormant3]);
+  await becomeWolf(contracts, dormant7, [FOUNDER, wolf0, dormant3]);
 
   console.log("4/8 — Account #8 rejoint la meute (deviendra dormant)...");
-  await devenirLoup(contracts, dormant8, [FOUNDER, loup0, dormant3, dormant7]);
+  await becomeWolf(contracts, dormant8, [FOUNDER, wolf0, dormant3, dormant7]);
 
   console.log("5/8 — Account #9 et #10 rejoignent la meute...");
-  await devenirLoup(contracts, loup9, [FOUNDER, loup0, dormant3, dormant7, dormant8]);
-  await devenirLoup(contracts, loup10, [FOUNDER, loup0, dormant3, dormant7, dormant8, loup9]);
+  await becomeWolf(contracts, wolf9, [FOUNDER, wolf0, dormant3, dormant7, dormant8]);
+  await becomeWolf(contracts, wolf10, [FOUNDER, wolf0, dormant3, dormant7, dormant8, wolf9]);
 
-  // Le seuil de majorité grandit avec le nombre de Loups actifs (snapshot
-  // figé à l'ouverture) : à partir d'ici on est tous les 7, donc il faut
-  // les faire voter tous pour être sûr de dépasser la majorité à chaque
-  // fois, plutôt qu'un sous-ensemble fixe qui suffisait au début.
-  const tousLesLoups = [FOUNDER, loup0, dormant3, dormant7, dormant8, loup9, loup10];
+  // The majority threshold grows with the number of active Wolves
+  // (snapshot frozen at opening): from here on we're all 7, so they all
+  // have to vote to be sure of clearing the majority every time, rather
+  // than a fixed subset that was enough at the start.
+  const allWolves = [FOUNDER, wolf0, dormant3, dormant7, dormant8, wolf9, wolf10];
 
   console.log("6/8 — Account #1 et #6 candidatent et restent en probation (jamais titularisés)...");
-  await devenirLouveteau(contracts, louveteau1, tousLesLoups);
-  await devenirLouveteau(contracts, louveteau6, tousLesLoups);
+  await becomeCub(contracts, cub1, allWolves);
+  await becomeCub(contracts, cub6, allWolves);
 
   console.log("7/8 — Account #11 rejoint la meute puis est exclu par vote (banni, pas démissionnaire)...");
-  await devenirLouveteau(contracts, banni11, tousLesLoups);
+  await becomeCub(contracts, banned11, allWolves);
   {
-    const idExclusion = await ouvrirEtRecupererId(asFounder, asFounder.proposerExclusion(banni11));
-    for (const v of tousLesLoups) await (await contracts.get(v).voter(idExclusion, ChoixVote.Approuver)).wait();
-    await advanceTime(provider, 7 * JOUR + 1);
-    await (await asFounder.executer(idExclusion)).wait();
+    const exclusionId = await openAndGetId(asFounder, asFounder.proposeExclusion(banned11));
+    for (const v of allWolves) await (await contracts.get(v).vote(exclusionId, VoteChoice.Approve)).wait();
+    await advanceTime(provider, 7 * DAY + 1);
+    await (await asFounder.execute(exclusionId)).wait();
   }
 
   console.log("8/8 — Trésor : 3 candidats admis puis démissionnaires (cotisation non remboursée)...");
   for (const boosterAddr of boosters) {
     const c = contracts.get(boosterAddr);
-    const id = await ouvrirEtRecupererId(c, c.candidater({ value: contracts.cotisation }));
-    for (const v of tousLesLoups) await (await contracts.get(v).voter(id, ChoixVote.Approuver)).wait();
-    await advanceTime(provider, 7 * JOUR + 1);
-    await (await c.executer(id)).wait();
-    await (await c.demissionner()).wait();
+    const id = await openAndGetId(c, c.applyForMembership({ value: contracts.fee }));
+    for (const v of allWolves) await (await contracts.get(v).vote(id, VoteChoice.Approve)).wait();
+    await advanceTime(provider, 7 * DAY + 1);
+    await (await c.execute(id)).wait();
+    await (await c.resign()).wait();
   }
   const treasury = await provider.getBalance(CONTRACT_ADDRESS);
   console.log(`   -> trésor : ${ethers.formatEther(treasury)} ETH.`);
 
   console.log("Rendre #3, #7 et #8 dormants (365j+ sans agir), les autres restent actifs...");
-  await advanceTime(provider, 366 * JOUR);
-  for (const v of [FOUNDER, loup0, loup9, loup10]) await (await contracts.get(v).jeSuisLa()).wait();
+  await advanceTime(provider, 366 * DAY);
+  for (const v of [FOUNDER, wolf0, wolf9, wolf10]) await (await contracts.get(v).imHere()).wait();
 
   console.log("Ouverture d'une candidature (#2) et d'une dépense, laissées non votées...");
-  await (await contracts.get(candidat2).candidater({ value: contracts.cotisation })).wait();
+  await (await contracts.get(applicant2).applyForMembership({ value: contracts.fee })).wait();
   await (
-    await asFounder.proposerDepense(louveteau1, ethers.parseEther("0.01"), "Hébergement serveur de jeu")
+    await asFounder.proposeExpense(cub1, ethers.parseEther("0.01"), "Hébergement serveur de jeu")
   ).wait();
 
   console.log("");
   console.log("Terminé. Résumé (réseau Hardhat Local dans MetaMask) :");
   console.log(`  Fondateur   (Loup actif)  : ${FOUNDER} — ton compte habituel, déjà financé.`);
-  console.log(`  Account #0  (Loup actif)  : ${loup0}`);
-  console.log(`  Account #1  (Louveteau)   : ${louveteau1}`);
-  console.log(`  Account #2  (Candidat)    : ${candidat2}`);
+  console.log(`  Account #0  (Loup actif)  : ${wolf0}`);
+  console.log(`  Account #1  (Louveteau)   : ${cub1}`);
+  console.log(`  Account #2  (Candidat)    : ${applicant2}`);
   console.log(`  Account #3  (Loup dormant): ${dormant3}`);
-  console.log(`  Account #4  (Visiteur)    : ${visiteur4} — jamais touché, aucune carte.`);
-  console.log(`  Account #6  (Louveteau)   : ${louveteau6}`);
+  console.log(`  Account #4  (Visiteur)    : ${visitor4} — jamais touché, aucune carte.`);
+  console.log(`  Account #6  (Louveteau)   : ${cub6}`);
   console.log(`  Account #7  (Loup dormant): ${dormant7}`);
   console.log(`  Account #8  (Loup dormant): ${dormant8}`);
-  console.log(`  Account #9  (Loup actif)  : ${loup9}`);
-  console.log(`  Account #10 (Loup actif)  : ${loup10}`);
-  console.log(`  Account #11 (Banni)       : ${banni11}`);
+  console.log(`  Account #9  (Loup actif)  : ${wolf9}`);
+  console.log(`  Account #10 (Loup actif)  : ${wolf10}`);
+  console.log(`  Account #11 (Banni)       : ${banned11}`);
 }
 
 main().catch((e) => {
