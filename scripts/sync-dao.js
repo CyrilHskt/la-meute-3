@@ -269,9 +269,16 @@ async function main() {
 
   let louveteaux = 0;
   let loupsDormants = 0;
-  cartes.forEach((c) => {
-    if (Number(c.rang) === Rang.Louveteau) louveteaux++;
-    else if (now - Number(c.derniereActivite) > Number(delaiDormance)) loupsDormants++;
+  const members = [];
+  cartes.forEach((c, i) => {
+    const rang = Number(c.rang);
+    // La dormance ne concerne que les Loups (voir Meute.sol, NatSpec de
+    // ouvrirTitularisation — un Louveteau n'a aucun moyen de réinitialiser
+    // son horloge lui-même, contrairement à un Loup via jeSuisLa()).
+    const dormant = rang !== Rang.Louveteau && now - Number(c.derniereActivite) > Number(delaiDormance);
+    if (rang === Rang.Louveteau) louveteaux++;
+    else if (dormant) loupsDormants++;
+    members.push({ address: currentMembers[i], rang, dormant });
   });
 
   const [treasuryWei, loupsActifsCount] = await Promise.all([
@@ -325,6 +332,7 @@ async function main() {
     proposals,
     memberActivity,
     topDonateurs,
+    members,
   });
 
   await saveJson("state", {
