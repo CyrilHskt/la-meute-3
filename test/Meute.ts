@@ -538,6 +538,29 @@ describe("Meute", function () {
       await expect(meute.execute(1n)).to.be.revertedWithCustomError(meute, "TransferFailed");
     });
 
+    it("blocks reentrancy: a malicious beneficiary cannot re-enter execute()", async function () {
+      const { meute, founders } = await fundTreasury();
+      const amount = FEE;
+
+      const attacker = await ethers.deployContract("ReentrantExpenseBeneficiary");
+      await meute.connect(founders[0]).proposeExpense(attacker.target, amount, "attack");
+      await attacker.setMeute(meute.target);
+      await attacker.setReentrantProposalId(1n);
+
+      await meute.connect(founders[0]).vote(1n, VoteChoice.Approve);
+      await meute.connect(founders[1]).vote(1n, VoteChoice.Approve);
+      await meute.connect(founders[2]).vote(1n, VoteChoice.Approve);
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+
+      // The reentrant call happens inside the low-level `.call{value}` that
+      // pays the beneficiary: `nonReentrant` makes it revert, which the
+      // low-level call swallows as a plain failure (ok = false), so the
+      // outer execute() reverts with TransferFailed rather than the
+      // reentrant call silently succeeding or being ignored.
+      await expect(meute.execute(1n)).to.be.revertedWithCustomError(meute, "TransferFailed");
+    });
+
     it("quorum not reached (1 vote out of 3 active): a single voter can no longer carry an expense alone", async function () {
       // Reproduces the "a single active Wolf could drain the treasury
       // alone" scenario (identified in security review): before the 75%
