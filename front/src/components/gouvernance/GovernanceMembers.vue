@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { Address } from "viem";
 import { useWallet } from "../../composables/useWallet";
 import { useMeute, ProposalType, type Member } from "../../composables/useMeute";
@@ -9,6 +10,7 @@ import { friendlyContractError } from "../../composables/contractErrors";
 import { useLocalAutoRefresh } from "../../composables/useLocalAutoRefresh";
 import AddressChip from "./AddressChip.vue";
 
+const { t } = useI18n();
 const { address, connect, readOnlyContract, writableContract, publicClient } = useWallet();
 const { members, proposals, loading, error, isAuthorized, loadAll } = useMeute();
 
@@ -106,7 +108,7 @@ async function onConnect() {
   try {
     await connect();
   } catch (e) {
-    txError.value = friendlyContractError(e);
+    txError.value = friendlyContractError(e, t);
   }
 }
 
@@ -126,11 +128,11 @@ async function confirmAction() {
       const hash = await writableContract().write.proposeExclusion([target]);
       await publicClient.waitForTransactionReceipt({ hash });
     }
-    showToast(type === "confirm" ? "Titularisation proposée" : "Exclusion proposée");
+    showToast(type === "confirm" ? t('governance.members.confirmationProposed') : t('governance.members.exclusionProposed'));
     confirmation.value = null;
     await loadAll();
   } catch (e) {
-    txError.value = friendlyContractError(e);
+    txError.value = friendlyContractError(e, t);
   } finally {
     txPending.value = false;
   }
@@ -139,33 +141,26 @@ async function confirmAction() {
 
 <template>
   <div class="gm-page">
-    <h2 class="gm-title">Membres de la Meute</h2>
+    <h2 class="gm-title">{{ t('governance.members.title') }}</h2>
 
     <div v-if="!isAuthorized" class="gm-gate">
-      <p class="gm-gate-text">
-        La liste des membres est réservée aux Loups et Louveteaux de la Meute — connecte le wallet que tu utilises
-        pour voter afin de la consulter.
-      </p>
-      <button class="btn btn-primary" type="button" @click="onConnect">Connecter mon wallet</button>
+      <p class="gm-gate-text">{{ t('governance.members.gateText') }}</p>
+      <button class="btn btn-primary" type="button" @click="onConnect">{{ t('common.connectWallet') }}</button>
       <p v-if="txError" class="gm-error">{{ txError }}</p>
     </div>
 
     <template v-else>
-      <p class="gm-intro">
-        {{ rows.length }} membre{{ rows.length > 1 ? "s" : "" }} — Loups, Louveteaux et candidatures en cours.
-      </p>
+      <p class="gm-intro">{{ t('governance.members.intro', { count: rows.length }, rows.length) }}</p>
 
-      <p v-if="loading" class="gm-status">Chargement des données on-chain…</p>
-      <p v-else-if="error" class="gm-status gm-status--error">
-        Erreur de lecture : {{ error }} — la liste ci-dessous peut être incomplète.
-      </p>
+      <p v-if="loading" class="gm-status">{{ t('common.loadingOnChain') }}</p>
+      <p v-else-if="error" class="gm-status gm-status--error">{{ t('governance.members.readError', { error }) }}</p>
 
       <div class="gm-search-wrap">
       <svg class="gm-search-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
         <circle cx="7" cy="7" r="4.5" />
         <path d="M13.5 13.5 10.6 10.6" stroke-linecap="round" />
       </svg>
-      <input v-model="search" class="gm-search" type="text" placeholder="Rechercher un membre…" />
+      <input v-model="search" class="gm-search" type="text" :placeholder="t('governance.members.searchPlaceholder')" />
     </div>
 
     <ul class="gm-list">
@@ -175,23 +170,23 @@ async function confirmAction() {
 
         <div class="gm-identity">
           <span v-if="m.username" class="gm-username">{{ m.username }}</span>
-          <span v-else class="gm-username gm-username--none">Discord non lié</span>
+          <span v-else class="gm-username gm-username--none">{{ t('governance.members.noDiscordLinked') }}</span>
           <AddressChip :address="m.address" short address-only dark />
         </div>
 
         <span
           v-if="m.rank === -1"
           class="gm-badge gm-badge--applicant"
-          title="Candidature d'admission en cours de vote"
+          :title="t('governance.members.applicantTooltip')"
         >
-          Candidat
+          {{ t('governance.members.applicant') }}
         </span>
         <span
           v-else
           class="gm-badge"
           :class="[`gm-badge--${m.rank === 0 ? 'cub' : 'wolf'}`, { 'gm-badge--dormant': m.dormant }]"
         >
-          {{ m.rank === 0 ? "Louveteau" : "Loup" }}{{ m.dormant ? " · dormant" : "" }}
+          {{ m.rank === 0 ? t('governance.dao.rankCub') : t('governance.dao.rankWolf') }}{{ m.dormant ? t('governance.members.dormantSuffix') : "" }}
         </span>
 
         <div
@@ -202,7 +197,7 @@ async function confirmAction() {
             v-if="m.rank === 0"
             class="gm-action gm-action--up"
             type="button"
-            title="Proposer la titularisation"
+            :title="t('governance.members.proposeConfirmation')"
             @click="requestAction('confirm', m)"
           >
             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -212,7 +207,7 @@ async function confirmAction() {
           <button
             class="gm-action gm-action--x"
             type="button"
-            title="Proposer l'exclusion"
+            :title="t('governance.members.proposeExclusion')"
             @click="requestAction('exclude', m)"
           >
             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -221,21 +216,21 @@ async function confirmAction() {
           </button>
         </div>
       </li>
-      <li v-if="!rows.length" class="gm-empty">Aucun membre trouvé.</li>
+      <li v-if="!rows.length" class="gm-empty">{{ t('memberPicker.noMatch') }}</li>
       </ul>
 
       <div v-if="confirmation" class="gm-overlay" @click.self="cancel">
         <div class="gm-modal">
           <p class="gm-modal-title">
-            {{ confirmation.type === "confirm" ? "Proposer la titularisation de" : "Proposer l'exclusion de" }}
+            {{ confirmation.type === "confirm" ? t('governance.members.confirmModalConfirm') : t('governance.members.confirmModalExclude') }}
             <strong>{{ confirmation.member.username ?? confirmation.member.address }}</strong> ?
           </p>
-          <p class="gm-modal-note">Les Loups actifs voteront ensuite pendant 7 jours.</p>
+          <p class="gm-modal-note">{{ t('governance.members.confirmModalNote') }}</p>
           <p v-if="txError" class="gm-error">{{ txError }}</p>
           <div class="gm-modal-actions">
-            <button class="btn btn-outline" type="button" :disabled="txPending" @click="cancel">Annuler</button>
+            <button class="btn btn-outline" type="button" :disabled="txPending" @click="cancel">{{ t('common.cancel') }}</button>
             <button class="btn btn-primary" type="button" :disabled="txPending" @click="confirmAction">
-              {{ txPending ? "En cours…" : "Confirmer" }}
+              {{ txPending ? t('common.inProgress') : t('common.confirm') }}
             </button>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { driver, type Driver } from "driver.js";
 import "driver.js/dist/driver.css";
 import "./driver-overrides.css";
@@ -21,6 +22,8 @@ const tourRequestId = ref(0);
 let highlightInstance: Driver | null = null;
 
 export function useGuidedTour() {
+  const { t } = useI18n();
+
   function requestTour() {
     highlightInstance?.destroy();
     highlightInstance = null;
@@ -48,8 +51,8 @@ export function useGuidedTour() {
         {
           element: selector,
           popover: {
-            title: "Nouveau ici ?",
-            description: "Une visite guidée de 2 minutes te montre comment lire ta carte, voter et suivre les propositions.",
+            title: t('guidedTour.newHereTitle'),
+            description: t('guidedTour.newHereText'),
           },
         },
       ],

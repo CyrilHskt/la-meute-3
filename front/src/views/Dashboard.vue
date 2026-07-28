@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import GovernancePresentation from "../components/gouvernance/GovernancePresentation.vue";
 import GovernanceAssociation from "../components/gouvernance/GovernanceAssociation.vue";
@@ -10,20 +11,21 @@ import { useGuidedTour } from "../composables/useGuidedTour";
 
 type PageTab = "presentation" | "association" | "members" | "dao" | "donations";
 
-const tabs: { id: PageTab; label: string }[] = [
-  { id: "presentation", label: "Présentation" },
-  { id: "association", label: "Association 1901" },
-  { id: "members", label: "Membres" },
-  { id: "dao", label: "Gouvernance DAO" },
-  { id: "donations", label: "Dons" },
-];
+const { t } = useI18n();
+const tabs = computed<{ id: PageTab; label: string }[]>(() => [
+  { id: "presentation", label: t('dashboard.tabPresentation') },
+  { id: "association", label: t('dashboard.tabAssociation') },
+  { id: "members", label: t('dashboard.tabMembers') },
+  { id: "dao", label: t('dashboard.tabDao') },
+  { id: "donations", label: t('dashboard.tabDonations') },
+]);
 
 // The active tab lives in the URL (?tab=dao), not just in memory —
-// otherwise a refresh (or a shared link) always lands back on
-// "Présentation", even when you were on the DAO.
+// otherwise a refresh (or a shared link) always lands back on the
+// presentation tab, even when you were on the DAO.
 const route = useRoute();
 const router = useRouter();
-const tabIds = tabs.map((t) => t.id);
+const tabIds: PageTab[] = ["presentation", "association", "members", "dao", "donations"];
 
 function tabFromQuery(): PageTab {
   const q = route.query.tab;
@@ -70,7 +72,7 @@ watch(
       </button>
     </div>
     <button v-if="activeTab === 'dao'" class="gv-tour-trigger" type="button" @click="requestTour">
-      Visite guidée
+      {{ t('dashboard.guidedTour') }}
       <span v-if="showTourPulse" class="gv-tour-pulse" aria-hidden="true"></span>
     </button>
   </nav>

@@ -1,21 +1,19 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import { useDiscordLink } from "../../composables/useDiscordLink";
 
+const { t } = useI18n();
 const { pendingLinkAddress, cancelDiscordLink, confirmDiscordLink } = useDiscordLink();
 </script>
 
 <template>
   <div v-if="pendingLinkAddress" class="dcm-overlay" @click.self="cancelDiscordLink">
     <div class="dcm-card">
-      <p class="dcm-title">Avant de continuer</p>
-      <p class="dcm-text">
-        Une fois lié, ton pseudo Discord et ton avatar seront visibles <strong>publiquement</strong>, y compris par
-        des non-membres, à côté de tes votes, tes dons et tes propositions — comme à une AG à main levée. Tu peux
-        délier ton compte à tout moment depuis ta carte de membre, mais l'historique déjà rendu public le reste.
-      </p>
+      <p class="dcm-title">{{ t('discordConsent.title') }}</p>
+      <p class="dcm-text" v-html="t('discordConsent.text')"></p>
       <div class="dcm-actions">
-        <button class="btn btn-outline" type="button" @click="cancelDiscordLink">Continuer sans lier</button>
-        <button class="btn btn-primary" type="button" @click="confirmDiscordLink">Lier mon compte Discord</button>
+        <button class="btn btn-outline" type="button" @click="cancelDiscordLink">{{ t('discordConsent.skip') }}</button>
+        <button class="btn btn-primary" type="button" @click="confirmDiscordLink">{{ t('discordConsent.confirm') }}</button>
       </div>
     </div>
   </div>

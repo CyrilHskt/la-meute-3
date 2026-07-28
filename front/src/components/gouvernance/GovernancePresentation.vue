@@ -1,86 +1,55 @@
 <script setup lang="ts">
+import { computed } from "vue";
+import { useI18n } from "vue-i18n";
+
+const { t } = useI18n();
 const emit = defineEmits<{ "go-to-dao": [] }>();
 
-const timelineStart = {
-  version: "V1 — Le clan",
-  title: "La Meute 1.0",
-  text: "Création informelle en 2016 : un groupe de joueurs, sans structure ni règles écrites.",
-};
-const timelineAssociation = {
-  version: "V2 — L'association",
-  title: "La Meute 2.0",
-  text: "Dépôt des statuts en 2019 : passage en association loi 1901, bureau élu, existence légale.",
-};
-const timelineDao = {
-  version: "V3 — La DAO",
-  title: "La Meute 3.0",
-  text: "Les décisions internes de l'association sont désormais votées on-chain par ses membres actifs.",
-};
+const timelineStart = computed(() => ({
+  version: t('presentation.timelineStartVersion'),
+  title: t('presentation.timelineStartTitle'),
+  text: t('presentation.timelineStartText'),
+}));
+const timelineAssociation = computed(() => ({
+  version: t('presentation.timelineAssocVersion'),
+  title: t('presentation.timelineAssocTitle'),
+  text: t('presentation.timelineAssocText'),
+}));
+const timelineDao = computed(() => ({
+  version: t('presentation.timelineDaoVersion'),
+  title: t('presentation.timelineDaoTitle'),
+  text: t('presentation.timelineDaoText'),
+}));
 
-// Reused as-is from the arguments already present in "Pourquoi passer sur
-// une DAO ?" further down the page — condensed here to highlight V3 in
-// the timeline, not a new write-up.
-const daoHighlights = [
-  {
-    title: "Infalsifiable et résilient",
-    text: "Un vote décisif n'est plus modifiable après coup, ni suspendu à la disponibilité d'un serveur Discord.",
-  },
-  {
-    title: "Trésorerie consultable en direct",
-    text: "Le solde et l'historique des dépenses sont visibles à tout moment, par tout le monde.",
-  },
-  {
-    title: "Pensée pour les cycles de dormance",
-    text: "Le contrat détecte les Loups dormants et ajuste automatiquement le quorum.",
-  },
-];
+// Reused as-is from the arguments already present in "Why move to a DAO?"
+// further down the page — condensed here to highlight V3 in the timeline,
+// not a new write-up.
+const daoHighlights = computed(() => [
+  { title: t('presentation.highlight1Title'), text: t('presentation.highlight1Text') },
+  { title: t('presentation.highlight2Title'), text: t('presentation.highlight2Text') },
+  { title: t('presentation.highlight3Title'), text: t('presentation.highlight3Text') },
+]);
 
-const advantages = [
-  {
-    title: "Infalsifiable et résilient",
-    text: "Un vote décisif n'est plus modifiable après coup, ni suspendu à la disponibilité d'un serveur Discord ou d'un carnet de comptes-rendus. Aucun serveur, aucun compte admin, aucun papier à perdre.",
-  },
-  {
-    title: "Trésorerie consultable en direct",
-    text: "Le solde et l'historique des dépenses sont visibles à tout moment, par tout le monde — plus besoin d'attendre l'AG et le rapport du trésorier pour connaître l'état des comptes.",
-  },
-  {
-    title: "Pensée pour les cycles de dormance",
-    text: "Un bon jeu sort, tout le monde revient, puis l'activité retombe à 2-3 membres jusqu'au prochain — depuis toujours. Le contrat détecte les Loups dormants et ajuste automatiquement le quorum, au lieu de bloquer l'association pendant les creux.",
-  },
-];
+const advantages = computed(() => [
+  { title: t('presentation.advantage1Title'), text: t('presentation.advantage1Text') },
+  { title: t('presentation.advantage2Title'), text: t('presentation.advantage2Text') },
+  { title: t('presentation.advantage3Title'), text: t('presentation.advantage3Text') },
+]);
 
-const faq = [
-  {
-    q: "Qui a le dernier mot : l'association ou la DAO ?",
-    a: "Juridiquement, l'association 1901 reste seule habilitée à contracter, encaisser et dépenser — c'est elle qui existe aux yeux de la loi. En pratique, le bureau applique fidèlement les votes de la DAO : le contrat ne fait qu'exécuter ce que les statuts délèguent déjà à l'assemblée de ses membres.",
-  },
-  {
-    q: "Le bureau de l'association correspond-il aux \"Loups\" de la DAO ?",
-    a: "Les deux se recoupent par les personnes, pas par le système : le président, le trésorier et le secrétaire de l'association sont aujourd'hui trois Loups, mais rien dans le contrat ne l'impose. Ce sont deux gouvernances distinctes qui coexistent — l'une légale, l'autre décisionnelle.",
-  },
-  {
-    q: "Pourquoi ne pas tout mettre on-chain, y compris le statut légal ?",
-    a: "Parce qu'aucune blockchain ne remplace l'état à ce jour : pour ouvrir un compte bancaire, signer un bail de local ou être reconnue par une fédération sportive, il faut une personne morale. La DAO gère la délibération interne, pas l'existence légale.",
-  },
-  {
-    q: "Où trouver les documents officiels de l'association ?",
-    a: "Statuts, comptes-rendus d'assemblée générale et composition du bureau sont publiés dans l'onglet Association 1901.",
-  },
-];
+const faq = computed(() => [
+  { q: t('presentation.faq1Q'), a: t('presentation.faq1A') },
+  { q: t('presentation.faq2Q'), a: t('presentation.faq2A') },
+  { q: t('presentation.faq3Q'), a: t('presentation.faq3A') },
+  { q: t('presentation.faq4Q'), a: t('presentation.faq4A') },
+]);
 </script>
 
 <template>
   <section class="gv-presentation">
     <div class="gv-intro-hero">
-      <p class="gv-eyebrow">Qui gouverne La Meute ?</p>
-      <h2 class="gv-section-title">Une association, augmentée par une DAO</h2>
-      <p>
-        La Meute est une association loi 1901 depuis 2019. Depuis 2026, ses décisions
-        internes — admission, exclusion, dépenses — sont votées on-chain par ses
-        membres actifs. L'association reste l'entité légale ; la DAO en est
-        l'outil de délibération.
-      </p>
+      <p class="gv-eyebrow">{{ t('presentation.eyebrow') }}</p>
+      <h2 class="gv-section-title">{{ t('presentation.sectionTitle') }}</h2>
+      <p>{{ t('presentation.intro') }}</p>
     </div>
 
     <div class="gv-timeline">
@@ -126,19 +95,15 @@ const faq = [
         </div>
 
         <button class="gv-timeline-cta" type="button" @click="emit('go-to-dao')">
-          Voir la gouvernance en direct
+          {{ t('presentation.viewGovernanceCta') }}
           <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h10M9 4l4 4-4 4" /></svg>
         </button>
       </div>
     </div>
 
     <div class="gv-why-dao">
-      <h3 class="gv-section-title gv-why-dao-title">Pourquoi passer sur une DAO ?</h3>
-      <p class="gv-why-dao-intro">
-        Pas pour remplacer Discord — les sondages informels y restent. Trois
-        problèmes concrets, propres à l'historique de La Meute, que ni Discord
-        ni le papier ne résolvent.
-      </p>
+      <h3 class="gv-section-title gv-why-dao-title">{{ t('presentation.whyDaoTitle') }}</h3>
+      <p class="gv-why-dao-intro">{{ t('presentation.whyDaoIntro') }}</p>
       <div class="gv-advantage-grid">
         <div v-for="adv in advantages" :key="adv.title" class="gv-advantage-card">
           <h4>{{ adv.title }}</h4>

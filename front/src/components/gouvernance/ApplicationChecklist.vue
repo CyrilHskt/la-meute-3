@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { formatEther } from "viem";
 import AddressChip from "./AddressChip.vue";
 import { useDiscordLink } from "../../composables/useDiscordLink";
 import type { Proposal } from "../../composables/useMeute";
+
+const { t } = useI18n();
 
 const props = defineProps<{
   address: `0x${string}`;
@@ -43,12 +46,12 @@ const voteStep = computed<StepState>(() => (props.application ? "current" : "tod
 
 <template>
   <div class="acl-card">
-    <p class="acl-title">Devenir membre</p>
+    <p class="acl-title">{{ t('applicationChecklist.title') }}</p>
 
     <div class="acl-step acl-step--done">
       <div class="acl-marker">✓</div>
       <div class="acl-body">
-        <div class="acl-step-title">Connecter ton wallet</div>
+        <div class="acl-step-title">{{ t('applicationChecklist.step1Title') }}</div>
         <div class="acl-note"><AddressChip :address="address" short /></div>
       </div>
     </div>
@@ -56,18 +59,18 @@ const voteStep = computed<StepState>(() => (props.application ? "current" : "tod
     <div class="acl-step" :class="`acl-step--${fundsStep}`">
       <div class="acl-marker">{{ fundsStep === "done" ? "✓" : 2 }}</div>
       <div class="acl-body">
-        <div class="acl-step-title">Avoir des ETH Sepolia</div>
+        <div class="acl-step-title">{{ t('applicationChecklist.step2Title') }}</div>
         <div class="acl-note">
-          {{ formatEther(balance) }} ETH disponibles
-          <template v-if="fundsStep === 'current'">— il en faut au moins {{ formatEther(fee) }}</template>
+          {{ t('applicationChecklist.availableEth', { amount: formatEther(balance) }) }}
+          <template v-if="fundsStep === 'current'">{{ t('applicationChecklist.minimumRequired', { amount: formatEther(fee) }) }}</template>
         </div>
         <div v-if="fundsStep === 'current'" class="acl-action">
           <a class="acl-faucet-btn" href="https://www.alchemy.com/faucets/ethereum-sepolia" target="_blank" rel="noopener">
-            Obtenir des ETH de test
+            {{ t('applicationChecklist.getTestEth') }}
           </a>
-          <button class="acl-refresh" type="button" title="Vérifier à nouveau mon solde" @click="emit('refresh-balance')">
+          <button class="acl-refresh" type="button" :title="t('applicationChecklist.refreshBalance')" @click="emit('refresh-balance')">
             <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2v3.5H10" /></svg>
-            Actualiser
+            {{ t('common.refresh') }}
           </button>
         </div>
       </div>
@@ -76,13 +79,13 @@ const voteStep = computed<StepState>(() => (props.application ? "current" : "tod
     <div class="acl-step" :class="`acl-step--${discordStep}`">
       <div class="acl-marker">{{ discordStep === "done" ? "✓" : 3 }}</div>
       <div class="acl-body">
-        <div class="acl-step-title">Lier ton compte Discord</div>
+        <div class="acl-step-title">{{ t('applicationChecklist.step3Title') }}</div>
         <div class="acl-note">
-          <template v-if="myDiscord">Lié en tant que {{ myDiscord.username }}</template>
-          <template v-else>Nécessite d'avoir rejoint le serveur Discord de la Meute</template>
+          <template v-if="myDiscord">{{ t('applicationChecklist.linkedAs', { username: myDiscord.username }) }}</template>
+          <template v-else>{{ t('applicationChecklist.discordRequirement') }}</template>
         </div>
         <div v-if="discordStep === 'current'" class="acl-action">
-          <button class="btn btn-primary" type="button" @click="requestDiscordLink(address)">Lier mon compte Discord</button>
+          <button class="btn btn-primary" type="button" @click="requestDiscordLink(address)">{{ t('applicationChecklist.linkDiscord') }}</button>
         </div>
       </div>
     </div>
@@ -90,10 +93,10 @@ const voteStep = computed<StepState>(() => (props.application ? "current" : "tod
     <div class="acl-step" :class="`acl-step--${applyStep}`">
       <div class="acl-marker">{{ applyStep === "done" ? "✓" : 4 }}</div>
       <div class="acl-body">
-        <div class="acl-step-title">Candidater</div>
-        <div class="acl-note">Cotisation : {{ formatEther(fee) }} ETH, remboursée si refusée</div>
+        <div class="acl-step-title">{{ t('applicationChecklist.step4Title') }}</div>
+        <div class="acl-note">{{ t('applicationChecklist.feeNote', { amount: formatEther(fee) }) }}</div>
         <div v-if="applyStep === 'current'" class="acl-action">
-          <button class="btn btn-primary" :disabled="txPending" @click="emit('apply')">Candidater</button>
+          <button class="btn btn-primary" :disabled="txPending" @click="emit('apply')">{{ t('applicationChecklist.step4Title') }}</button>
         </div>
       </div>
     </div>
@@ -102,16 +105,19 @@ const voteStep = computed<StepState>(() => (props.application ? "current" : "tod
       <div class="acl-marker">5</div>
       <div class="acl-body">
         <div class="acl-step-title">
-          {{ voteStep === "current" ? "Vote en cours" : "Attendre le vote des Loups" }}
+          {{ voteStep === "current" ? t('applicationChecklist.voteInProgress') : t('applicationChecklist.waitForVote') }}
         </div>
         <template v-if="voteStep === 'current' && application">
           <div class="acl-note">
-            {{ application.approveVotes }} pour · {{ application.rejectVotes }} contre ·
-            {{ Math.floor(application.activeSnapshot / 2) + 1 }} requis
+            {{ t('applicationChecklist.voteTally', {
+              approve: application.approveVotes,
+              reject: application.rejectVotes,
+              required: Math.floor(application.activeSnapshot / 2) + 1,
+            }) }}
           </div>
           <span class="acl-countdown" :title="exactDate(application)">{{ countdown(application) }}</span>
         </template>
-        <div v-else class="acl-note">Le vote dure 7 jours</div>
+        <div v-else class="acl-note">{{ t('applicationChecklist.voteDuration') }}</div>
       </div>
     </div>
   </div>

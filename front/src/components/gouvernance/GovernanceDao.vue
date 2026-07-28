@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import { useLocale } from "../../composables/useLocale";
 import { useGuidedTour } from "../../composables/useGuidedTour";
 import { decodeEventLog, formatEther, parseEther, type Address, type Log } from "viem";
 import { driver } from "driver.js";
@@ -17,6 +19,8 @@ import MemberPicker from "./MemberPicker.vue";
 import WalletInstallModal from "./WalletInstallModal.vue";
 import DiscordConsentModal from "./DiscordConsentModal.vue";
 
+const { t } = useI18n();
+const { locale } = useLocale();
 const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient } = useWallet();
 const {
   stats,
@@ -42,9 +46,9 @@ async function onUnlinkDiscord() {
   unlinkPending.value = true;
   try {
     await unlinkDiscord(address.value);
-    showToast("Compte Discord délié.");
+    showToast(t('governance.dao.discordUnlinked'));
   } catch (e) {
-    showToast("Échec du déliage, réessaie.", "error");
+    showToast(t('governance.dao.discordUnlinkFailed'), "error");
   } finally {
     unlinkPending.value = false;
   }
@@ -120,9 +124,9 @@ onMounted(async () => {
   now.value = Number((await publicClient.getBlock()).timestamp);
 
   const discordResult = consumeDiscordCallbackParam();
-  if (discordResult === "linked") showToast("Compte Discord lié !");
-  else if (discordResult === "not_member") showToast("Tu dois d'abord rejoindre le serveur Discord de la Meute.");
-  else if (discordResult === "error") showToast("Échec de la liaison Discord, réessaie.");
+  if (discordResult === "linked") showToast(t('governance.dao.discordLinked'));
+  else if (discordResult === "not_member") showToast(t('governance.dao.discordNotMember'));
+  else if (discordResult === "error") showToast(t('governance.dao.discordLinkFailed'));
   // Discord's return is a full-page redirect (not an SPA navigation): the
   // whole governance session (isAuthorized) was therefore lost on return,
   // even though the wallet is already silently reconnected
@@ -221,7 +225,7 @@ async function onConnect() {
     await connect();
     await Promise.all([refreshMembership(), loadBalance()]);
   } catch (e) {
-    txError.value = friendlyContractError(e);
+    txError.value = friendlyContractError(e, t);
   }
 }
 
@@ -301,7 +305,7 @@ async function runTx(
     now.value = Number((await publicClient.getBlock()).timestamp);
     showToast(successMessage);
   } catch (e) {
-    txError.value = friendlyContractError(e);
+    txError.value = friendlyContractError(e, t);
   } finally {
     txPending.value = false;
   }
@@ -311,7 +315,7 @@ function applyForMembership() {
   return runTx(
     () => readOnlyContract().simulate.applyForMembership({ account: address.value!, value: fee.value }),
     () => writableContract().write.applyForMembership({ value: fee.value }),
-    "Candidature enregistrée — synchronisation blockchain en cours",
+    t('governance.dao.applicationToast'),
   );
 }
 
@@ -345,7 +349,7 @@ function proposeExpense() {
   return runTx(
     () => readOnlyContract().simulate.proposeExpense(args, { account: address.value! }),
     () => writableContract().write.proposeExpense(args),
-    "Proposition de dépense enregistrée — synchronisation blockchain en cours",
+    t('governance.dao.expenseToast'),
   );
 }
 function vote(id: bigint, choice: number) {
@@ -353,7 +357,7 @@ function vote(id: bigint, choice: number) {
   return runTx(
     () => readOnlyContract().simulate.vote(args, { account: address.value! }),
     () => writableContract().write.vote(args),
-    "Vote enregistré — synchronisation blockchain en cours",
+    t('governance.dao.voteToast'),
     id,
   );
 }
@@ -362,7 +366,7 @@ function execute(id: bigint) {
   return runTx(
     () => readOnlyContract().simulate.execute(args, { account: address.value! }),
     () => writableContract().write.execute(args),
-    "Exécution enregistrée — synchronisation blockchain en cours",
+    t('governance.dao.executeToast'),
     id,
   );
 }
@@ -372,8 +376,8 @@ const dormancyDelayDays = computed(() => Math.round(dormancyDelay.value / (24 * 
 const statusTooltip = computed(() => {
   if (role.value !== "wolf") return undefined;
   return isDormant.value
-    ? `Ce Loup n'a voté ni agi depuis plus de ${dormancyDelayDays.value} jours — il ne compte plus dans le quorum tant qu'il ne se manifeste pas (vote ou « Se réveiller »).`
-    : `Vote ou action dans les ${dormancyDelayDays.value} derniers jours. Sans activité pendant ce délai, ce Loup deviendrait dormant et sortirait du quorum.`;
+    ? t('governance.dao.dormantTooltip', { days: dormancyDelayDays.value })
+    : t('governance.dao.activeTooltip', { days: dormancyDelayDays.value });
 });
 
 // imHere(): a Wolf explicitly wakes up without waiting for a vote to
@@ -384,7 +388,7 @@ function wakeUp() {
   return runTx(
     () => readOnlyContract().simulate.imHere({ account: address.value! }),
     () => writableContract().write.imHere(),
-    "Réveil enregistré — synchronisation blockchain en cours",
+    t('governance.dao.wakeUpToast'),
   );
 }
 
@@ -439,7 +443,12 @@ const pastProposalsPage = computed(() => {
 
 const activeTab = ref<"ongoing" | "past">("ongoing");
 
-const typeLabels = ["Admission", "Titularisation", "Exclusion", "Dépense"];
+const typeLabels = computed(() => [
+  t('governance.dao.typeAdmission'),
+  t('governance.dao.typeConfirmation'),
+  t('governance.dao.typeExclusion'),
+  t('governance.dao.typeExpense'),
+]);
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -454,13 +463,13 @@ function authorKnown(p: Proposal): boolean {
 function proposalPrefix(p: Proposal): string {
   switch (p.proposalType) {
     case ProposalType.Admission:
-      return "Candidature de";
+      return t('governance.dao.prefixAdmission');
     case ProposalType.Confirmation:
-      return "Titularisation de";
+      return t('governance.dao.prefixConfirmation');
     case ProposalType.Exclusion:
-      return "Exclusion de";
+      return t('governance.dao.prefixExclusion');
     default:
-      return "Dépense pour";
+      return t('governance.dao.prefixExpense');
   }
 }
 
@@ -505,12 +514,12 @@ function isApproved(p: Proposal): boolean {
 // another chance.
 type PastProposalStatus = "approved" | "rejected" | "quorum" | "postponed";
 
-const PAST_STATUS_LABELS: Record<PastProposalStatus, string> = {
-  approved: "Approuvée",
-  rejected: "Refusée",
-  quorum: "Quorum non atteint",
-  postponed: "Ajournée",
-};
+const PAST_STATUS_LABELS = computed<Record<PastProposalStatus, string>>(() => ({
+  approved: t('governance.dao.statusApproved'),
+  rejected: t('governance.dao.statusRejected'),
+  quorum: t('governance.dao.statusQuorum'),
+  postponed: t('governance.dao.statusPostponed'),
+}));
 
 function pastStatus(p: Proposal): PastProposalStatus {
   const isConfirmation = p.proposalType === ProposalType.Confirmation;
@@ -537,26 +546,23 @@ function isTargetInConflict(p: Proposal): boolean {
   return hasConflictType(p) && p.target.toLowerCase() === address.value.toLowerCase();
 }
 
-const QUORUM_TOOLTIP =
-  "Quorum : au moins 75% des Loups actifs au moment de l'ouverture doivent voter (oui ou non). Une fois le quorum atteint, le nombre de oui doit dépasser le nombre de non.";
-const CONFLICT_TOOLTIP = "La personne visée ne peut pas voter sur cette proposition (conflit d'intérêt).";
-
 function quorumTooltip(p: Proposal): string {
-  return hasConflictType(p) ? `${QUORUM_TOOLTIP}\n\n${CONFLICT_TOOLTIP}` : QUORUM_TOOLTIP;
+  const base = t('governance.dao.quorumTooltip');
+  return hasConflictType(p) ? `${base}\n\n${t('governance.dao.conflictTooltip')}` : base;
 }
 
 function exactDate(p: Proposal): string {
-  return new Date(Number(p.deadline) * 1000).toLocaleString("fr-FR");
+  return new Date(Number(p.deadline) * 1000).toLocaleString(locale.value);
 }
 
 function countdown(p: Proposal): string {
   const diff = Number(p.deadline) - now.value;
-  if (diff <= 0) return "clôturé, à exécuter";
+  if (diff <= 0) return t('governance.dao.closedToExecute');
   const days = Math.floor(diff / 86400);
   const hours = Math.floor((diff % 86400) / 3600);
-  if (days > 0) return `${days}j ${hours}h restantes`;
+  if (days > 0) return t('governance.dao.remainingDaysHours', { days, hours });
   const minutes = Math.floor((diff % 3600) / 60);
-  return `${hours}h ${minutes}min restantes`;
+  return t('governance.dao.remainingHoursMinutes', { hours, minutes });
 }
 
 const myActivity = computed(() => {
@@ -599,7 +605,7 @@ const myExclusion = computed(() => {
 function eurTooltip(wei: bigint): string {
   if (eurPerEth.value === null) return "";
   const eur = Number(formatEther(wei)) * eurPerEth.value;
-  return `≈ ${eur.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} €`;
+  return `≈ ${eur.toLocaleString(locale.value, { maximumFractionDigits: 0, style: "currency", currency: "EUR" })}`;
 }
 
 // The tour highlight (a single driver.js step pointing at the "Guided
@@ -619,30 +625,36 @@ watch(tourRequestId, (id) => {
 function startTour() {
   const headcountStep = {
     element: ".gv-stats-effectifs",
-    popover: { title: "Les effectifs de la meute", description: "Ici tu retrouves les effectifs de la meute : Loups actifs, Loups dormants et Louveteaux." },
+    popover: { title: t('governance.dao.tour.headcountTitle'), description: t('governance.dao.tour.headcountText') },
   };
 
   const steps =
     role.value === "wolf"
       ? [
-          { element: ".gv-card-panel", popover: { title: "Ta carte de Loup", description: "Ton statut, ton ancienneté et ton activité (votes, propositions ouvertes) sont visibles ici." } },
-          { element: ".gv-new-prop-panel", popover: { title: "Ouvrir une proposition", description: "Titularisation, exclusion ou dépense : chaque type de décision a son propre formulaire, ici." } },
-          { element: ".gv-prop-actions", popover: { title: "Voter", description: "Un vote reste ouvert 7 jours. Le seuil affiché s'ajuste automatiquement au nombre de Loups réellement actifs." } },
+          { element: ".gv-card-panel", popover: { title: t('governance.dao.tour.wolfCardTitle'), description: t('governance.dao.tour.wolfCardText') } },
+          { element: ".gv-new-prop-panel", popover: { title: t('governance.dao.tour.wolfNewPropTitle'), description: t('governance.dao.tour.wolfNewPropText') } },
+          { element: ".gv-prop-actions", popover: { title: t('governance.dao.tour.wolfVoteTitle'), description: t('governance.dao.tour.wolfVoteText') } },
           headcountStep,
         ]
       : role.value === "cub"
         ? [
-            { element: ".gv-card-panel", popover: { title: "Ta carte de Louveteau", description: "Ton statut et ta contribution sont à jour en direct — c'est la même carte qui deviendra Loup après titularisation." } },
-            { element: ".gv-stat-row", popover: { title: "En période de probation", description: "Tu peux suivre les propositions en cours, mais le droit de vote arrive avec ta titularisation." } },
+            { element: ".gv-card-panel", popover: { title: t('governance.dao.tour.cubCardTitle'), description: t('governance.dao.tour.cubCardText') } },
+            { element: ".gv-stat-row", popover: { title: t('governance.dao.tour.cubProbationTitle'), description: t('governance.dao.tour.cubProbationText') } },
             headcountStep,
           ]
         : [
-            { element: ".gv-card-panel", popover: { title: "Ton wallet, c'est ta carte", description: "Pas de compte à créer : ton wallet est ton identité ici, du candidat au Loup." } },
-            { element: ".gv-stat-tile:first-child", popover: { title: "Le trésor, en direct", description: "Ce montant vient du solde réel du contrat sur la blockchain — personne ne peut l'afficher faux." } },
+            { element: ".gv-card-panel", popover: { title: t('governance.dao.tour.visitorCardTitle'), description: t('governance.dao.tour.visitorCardText') } },
+            { element: ".gv-stat-tile:first-child", popover: { title: t('governance.dao.tour.visitorTreasuryTitle'), description: t('governance.dao.tour.visitorTreasuryText') } },
             headcountStep,
           ];
 
-  driver({ showProgress: true, nextBtnText: "Suivant", prevBtnText: "Précédent", doneBtnText: "Terminer", steps }).drive();
+  driver({
+    showProgress: true,
+    nextBtnText: t('governance.dao.tour.next'),
+    prevBtnText: t('governance.dao.tour.previous'),
+    doneBtnText: t('governance.dao.tour.done'),
+    steps,
+  }).drive();
 }
 </script>
 
@@ -652,58 +664,53 @@ function startTour() {
     <DiscordConsentModal />
 
     <div v-if="!isAuthorized" class="gv-gate">
-      <p class="gv-gate-text">
-        Les statistiques et propositions de la Meute sont réservées aux membres — connecte le wallet que tu utilises
-        pour voter afin d'y accéder. Sans wallet membre, tu peux toujours candidater ci-dessous.
-      </p>
+      <p class="gv-gate-text">{{ t('governance.dao.gateText') }}</p>
     </div>
 
     <div v-if="isAuthorized && stats" class="gv-stats-bar">
       <div class="gv-stat-tile" :title="eurTooltip(stats.treasuryWei)">
         <div class="value">{{ formatEther(stats.treasuryWei) }} <span class="unit">ETH</span></div>
-        <div class="caption">Trésor</div>
+        <div class="caption">{{ t('governance.dao.treasury') }}</div>
       </div>
       <div class="gv-stats-effectifs">
         <div class="gv-stat-tile">
           <div class="value">{{ stats.activeWolves }}</div>
-          <div class="caption">Loups actifs</div>
+          <div class="caption">{{ t('governance.dao.activeWolves') }}</div>
         </div>
         <div class="gv-stat-tile">
           <div class="value">{{ stats.dormantWolves }}</div>
-          <div class="caption">Loups dormants</div>
+          <div class="caption">{{ t('governance.dao.dormantWolves') }}</div>
         </div>
         <div class="gv-stat-tile">
           <div class="value">{{ stats.cubs }}</div>
-          <div class="caption">Louveteaux</div>
+          <div class="caption">{{ t('governance.dao.cubs') }}</div>
         </div>
       </div>
       <div class="gv-stat-tile">
         <div class="value">{{ stats.votesCast }}</div>
-        <div class="caption">Votes exprimés</div>
+        <div class="caption">{{ t('governance.dao.votesCast') }}</div>
       </div>
       <div class="gv-stat-tile">
         <div class="value">{{ stats.openProposals }}</div>
-        <div class="caption">Propositions ouvertes</div>
+        <div class="caption">{{ t('governance.dao.openProposalsStat') }}</div>
       </div>
     </div>
-    <p v-else-if="loading" class="gv-loading">Chargement des données on-chain…</p>
-    <p v-if="error" class="gv-error">Erreur de lecture : {{ error }}</p>
+    <p v-else-if="loading" class="gv-loading">{{ t('common.loadingOnChain') }}</p>
+    <p v-if="error" class="gv-error">{{ t('common.readError', { error }) }}</p>
 
     <div class="gv-layout">
       <aside class="gv-card-panel">
         <template v-if="!address">
-          <p class="gv-card-title">Ma carte</p>
-          <p class="gv-card-note">Connecte ton wallet pour voir ta carte de membre ou candidater.</p>
-          <button class="btn btn-primary" @click="onConnect">Connecter mon wallet</button>
+          <p class="gv-card-title">{{ t('governance.dao.myCard') }}</p>
+          <p class="gv-card-note">{{ t('governance.dao.connectToSeeCard') }}</p>
+          <button class="btn btn-primary" @click="onConnect">{{ t('common.connectWallet') }}</button>
         </template>
         <template v-else-if="wrongNetwork">
-          <p class="gv-error">Mauvais réseau — connecte-toi à Sepolia dans MetaMask.</p>
+          <p class="gv-error">{{ t('common.wrongNetwork') }}</p>
         </template>
         <template v-else-if="role === 'visitor'">
           <p v-if="myExclusion && !myOpenApplication" class="gv-exclusion-note">
-            Tu as été exclu de la Meute par vote des Loups le
-            {{ new Date(Number(myExclusion.deadline) * 1000).toLocaleDateString("fr-FR") }}. Tu peux retenter ta
-            chance si tu le souhaites.
+            {{ t('governance.dao.excludedNote', { date: new Date(Number(myExclusion.deadline) * 1000).toLocaleDateString(locale) }) }}
           </p>
           <ApplicationChecklist
             :address="address!"
@@ -722,7 +729,7 @@ function startTour() {
           <div class="gv-badge-frame" :class="`gv-badge-frame--${role}`">
             <img v-if="cardImage" :src="cardImage" alt="Illustration de la carte de membre" />
           </div>
-          <p class="gv-card-title" style="text-align: center">Ma carte — {{ role === "wolf" ? "Loup" : "Louveteau" }}</p>
+          <p class="gv-card-title" style="text-align: center">{{ t('governance.dao.myCardRankTitle', { rank: role === "wolf" ? t('governance.dao.rankWolf') : t('governance.dao.rankCub') }) }}</p>
 
           <button
             v-if="!myDiscord"
@@ -730,23 +737,23 @@ function startTour() {
             type="button"
             @click="requestDiscordLink(address!)"
           >
-            Lier mon compte Discord
+            {{ t('governance.dao.linkDiscord') }}
           </button>
           <button
             v-else
             class="gv-discord-unlink-btn"
             type="button"
             :disabled="unlinkPending"
-            title="Retire ton pseudo et ton avatar de l'affichage public — ton historique de votes/dons déjà rendu public le reste."
+            :title="t('governance.dao.unlinkTooltip')"
             @click="onUnlinkDiscord"
           >
-            {{ unlinkPending ? "Déliage…" : "Délier mon compte Discord" }}
+            {{ unlinkPending ? t('governance.dao.unlinking') : t('governance.dao.unlinkDiscord') }}
           </button>
 
           <p class="gv-card-note" style="text-align: center"><AddressChip v-if="address" :address="address" short /></p>
           <div class="gv-stat-row" :title="statusTooltip">
-            <span>Statut</span>
-            <span>{{ isDormant ? "Dormant" : "Actif" }}</span>
+            <span>{{ t('governance.dao.status') }}</span>
+            <span>{{ isDormant ? t('governance.dao.dormant') : t('governance.dao.active') }}</span>
           </div>
           <button
             v-if="role === 'wolf' && isDormant"
@@ -754,26 +761,26 @@ function startTour() {
             :disabled="txPending"
             @click="wakeUp"
           >
-            Se réveiller
+            {{ t('governance.dao.wakeUp') }}
           </button>
           <div class="gv-stat-row">
-            <span>Dernière activité</span>
-            <span>{{ card ? new Date(card.lastActivity * 1000).toLocaleDateString("fr-FR") : "—" }}</span>
+            <span>{{ t('governance.dao.lastActivity') }}</span>
+            <span>{{ card ? new Date(card.lastActivity * 1000).toLocaleDateString(locale) : "—" }}</span>
           </div>
           <div class="gv-stat-row" v-if="role === 'cub'">
-            <span>Ajournements</span>
+            <span>{{ t('governance.dao.postponements') }}</span>
             <span>{{ card?.postponements ?? 0 }} / {{ maxPostponements }}</span>
           </div>
           <div class="gv-stat-row gv-stat-row--sub">
-            <span>↳ Votes soumis</span>
+            <span>{{ t('governance.dao.votesSubmitted') }}</span>
             <span>{{ myActivity.votesSubmitted }}</span>
           </div>
           <div class="gv-stat-row gv-stat-row--sub">
-            <span>↳ Propositions ouvertes</span>
+            <span>{{ t('governance.dao.myOpenProposals') }}</span>
             <span>{{ myActivity.openProposals }}</span>
           </div>
           <div class="gv-stat-row gv-stat-row--sub">
-            <span>↳ Dons cumulés</span>
+            <span>{{ t('governance.dao.totalDonations') }}</span>
             <span>{{ formatEther(myDonations) }} ETH</span>
           </div>
         </template>
@@ -781,20 +788,20 @@ function startTour() {
 
       <main class="gv-main">
         <div v-if="role === 'wolf'" class="gv-new-prop-panel">
-          <h3 class="gv-card-title">Ouvrir une proposition</h3>
+          <h3 class="gv-card-title">{{ t('governance.dao.openProposalTitle') }}</h3>
 
           <div class="gv-prop-form">
-            <p class="gv-form-label">Proposer une dépense</p>
+            <p class="gv-form-label">{{ t('governance.dao.proposeExpense') }}</p>
             <div class="gv-form-row gv-form-row--wrap">
-              <MemberPicker v-model="expenseAddr" :options="knownBeneficiaries" placeholder="0x… bénéficiaire" />
-              <input v-model="expenseAmount" type="number" min="0" step="any" inputmode="decimal" placeholder="Montant en ETH" />
-              <input v-model="expenseReason" placeholder="Motif" />
+              <MemberPicker v-model="expenseAddr" :options="knownBeneficiaries" :placeholder="t('governance.dao.beneficiaryPlaceholder')" />
+              <input v-model="expenseAmount" type="number" min="0" step="any" inputmode="decimal" :placeholder="t('governance.dao.amountPlaceholder')" />
+              <input v-model="expenseReason" :placeholder="t('governance.dao.reasonPlaceholder')" />
               <button
                 class="btn btn-primary"
                 :disabled="txPending || !expenseAddr || !expenseAmount"
                 @click="proposeExpense"
               >
-                Ouvrir
+                {{ t('governance.dao.open') }}
               </button>
             </div>
           </div>
@@ -803,18 +810,18 @@ function startTour() {
         <p v-if="txError" class="gv-error">{{ txError }}</p>
 
         <template v-if="isAuthorized">
-        <h3 class="gv-card-title" style="margin-top: 2rem">Propositions</h3>
+        <h3 class="gv-card-title" style="margin-top: 2rem">{{ t('governance.dao.proposalsTitle') }}</h3>
         <div class="gv-tabs">
           <button class="gv-tab" :class="{ 'gv-tab--active': activeTab === 'ongoing' }" @click="activeTab = 'ongoing'">
-            En cours ({{ ongoingProposals.length + closedNotExecutedProposals.length }})
+            {{ t('governance.dao.ongoingTab', { count: ongoingProposals.length + closedNotExecutedProposals.length }) }}
           </button>
           <button class="gv-tab" :class="{ 'gv-tab--active': activeTab === 'past' }" @click="activeTab = 'past'">
-            Passées ({{ pastProposals.length }})
+            {{ t('governance.dao.pastTab', { count: pastProposals.length }) }}
           </button>
         </div>
 
         <div v-if="activeTab === 'past'" class="gv-statut-filters">
-          <span class="gv-statut-filters-label">Filtrer :</span>
+          <span class="gv-statut-filters-label">{{ t('governance.dao.filterLabel') }}</span>
           <button
             v-for="status in (['approved', 'rejected', 'quorum', 'postponed'] as PastProposalStatus[])"
             :key="status"
@@ -826,7 +833,7 @@ function startTour() {
             {{ PAST_STATUS_LABELS[status] }}
           </button>
           <button v-if="pastStatusFilters.size" class="gv-statut-clear" type="button" @click="resetStatusFilter">
-            ✕ effacer
+            {{ t('governance.dao.clearFilter') }}
           </button>
         </div>
 
@@ -836,7 +843,7 @@ function startTour() {
               <span class="gv-prop-head-left">
                 <span class="gv-prop-type">{{ typeLabels[p.proposalType] }}</span>
                 <span v-if="authorKnown(p)" class="gv-prop-author">
-                  par <AddressChip :address="p.author" short />
+                  {{ t('governance.dao.by') }} <AddressChip :address="p.author" short />
                 </span>
               </span>
               <span class="gv-prop-deadline mono" :title="exactDate(p)">{{ countdown(p) }}</span>
@@ -844,59 +851,59 @@ function startTour() {
             <p class="gv-prop-title">
               {{ proposalPrefix(p) }} <AddressChip :address="p.target" short /> {{ proposalSuffix(p) }}
             </p>
-            <p v-if="applicationWithoutDiscord(p)" class="gv-discord-warning" title="Ce candidat n'a pas lié de compte Discord vérifié — à vérifier avant de voter.">
-              ⚠️ Pas de Discord lié
+            <p v-if="applicationWithoutDiscord(p)" class="gv-discord-warning" :title="t('governance.dao.discordMissingTooltip')">
+              {{ t('governance.dao.discordMissingWarning') }}
             </p>
             <div class="gv-vote-line">
               <span class="gv-vote-count gv-vote-count--pour">
                 <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8.5 6.5 12 13 4.5" /></svg>
-                {{ p.approveVotes }} pour
+                {{ t('governance.dao.votesApprove', { count: p.approveVotes }) }}
               </span>
               <span class="gv-vote-count gv-vote-count--contre">
                 <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8" /></svg>
-                {{ p.rejectVotes }} contre
+                {{ t('governance.dao.votesReject', { count: p.rejectVotes }) }}
               </span>
               <span v-if="p.proposalType === ProposalType.Confirmation" class="gv-vote-count gv-vote-count--ajourner">
                 <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6">
                   <path d="M4 2h8M4 14h8M5 2c0 3 2.5 3.6 3 4.5.5-.9 3-1.5 3-4.5M5 14c0-3 2.5-3.6 3-4.5.5.9 3 1.5 3 4.5" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
-                {{ p.postponeVotes }} ajourner
+                {{ t('governance.dao.votesPostpone', { count: p.postponeVotes }) }}
               </span>
             </div>
             <div class="gv-quorum-line">
               <span :title="quorumTooltip(p)">
-                Quorum : {{ p.approveVotes + p.rejectVotes }}/{{ requiredQuorum(p) }} votes exprimés (sur {{ p.activeSnapshot }} Loups actifs)
+                {{ t('governance.dao.quorumLine', { cast: p.approveVotes + p.rejectVotes, required: requiredQuorum(p), total: p.activeSnapshot }) }}
               </span>
             </div>
             <div class="gv-prop-actions">
               <template v-if="role === 'wolf' && Number(p.deadline) > now && !isTargetInConflict(p)">
-                <button class="btn btn-primary" :disabled="txPending" @click="vote(p.id, VoteChoice.Approve)">Approuver</button>
-                <button class="btn btn-outline-danger" :disabled="txPending" @click="vote(p.id, VoteChoice.Reject)">Rejeter</button>
+                <button class="btn btn-primary" :disabled="txPending" @click="vote(p.id, VoteChoice.Approve)">{{ t('governance.dao.approve') }}</button>
+                <button class="btn btn-outline-danger" :disabled="txPending" @click="vote(p.id, VoteChoice.Reject)">{{ t('governance.dao.reject') }}</button>
                 <button
                   v-if="p.proposalType === ProposalType.Confirmation"
                   class="btn btn-outline"
                   :disabled="txPending || postponementBlocked(p)"
-                  :title="postponementBlocked(p) ? `Nombre maximal d'ajournements (${maxPostponements}) déjà atteint pour ce Louveteau.` : ''"
+                  :title="postponementBlocked(p) ? t('governance.dao.postponeMaxReached', { max: maxPostponements }) : ''"
                   @click="vote(p.id, VoteChoice.Postpone)"
                 >
-                  Ajourner
+                  {{ t('governance.dao.postpone') }}
                 </button>
               </template>
               <p v-else-if="role === 'wolf' && Number(p.deadline) > now && isTargetInConflict(p)" class="gv-card-note">
-                Tu es directement concerné par cette proposition, tu ne peux pas voter dessus.
+                {{ t('governance.dao.inConflictNote') }}
               </p>
               <button v-else-if="Number(p.deadline) <= now" class="btn btn-outline" :disabled="txPending" @click="execute(p.id)">
-                Exécuter
+                {{ t('governance.dao.execute') }}
               </button>
             </div>
           </article>
           <p v-if="!allOngoingProposals.length" class="gv-card-note">
-            Aucune proposition en cours.
+            {{ t('governance.dao.noOngoingProposals') }}
           </p>
           <nav v-if="totalOngoingPages > 1" class="gv-pagination">
-            <button class="gv-page-btn" :disabled="ongoingPage === 1" @click="ongoingPage--">Précédent</button>
-            <span class="gv-page-indicator">Page {{ ongoingPage }} / {{ totalOngoingPages }}</span>
-            <button class="gv-page-btn" :disabled="ongoingPage === totalOngoingPages" @click="ongoingPage++">Suivant</button>
+            <button class="gv-page-btn" :disabled="ongoingPage === 1" @click="ongoingPage--">{{ t('governance.dao.previous') }}</button>
+            <span class="gv-page-indicator">{{ t('governance.dao.pageIndicator', { page: ongoingPage, total: totalOngoingPages }) }}</span>
+            <button class="gv-page-btn" :disabled="ongoingPage === totalOngoingPages" @click="ongoingPage++">{{ t('governance.dao.next') }}</button>
           </nav>
         </div>
 
@@ -911,7 +918,7 @@ function startTour() {
               <span class="gv-prop-head-left">
                 <span class="gv-prop-type">{{ typeLabels[p.proposalType] }}</span>
                 <span v-if="authorKnown(p)" class="gv-prop-author">
-                  par <AddressChip :address="p.author" short />
+                  {{ t('governance.dao.by') }} <AddressChip :address="p.author" short />
                 </span>
               </span>
               <span class="gv-prop-statut" :class="`gv-prop-statut--${pastStatus(p)}`">
@@ -924,34 +931,34 @@ function startTour() {
             <div class="gv-vote-line">
               <span class="gv-vote-count gv-vote-count--pour">
                 <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8.5 6.5 12 13 4.5" /></svg>
-                {{ p.approveVotes }} pour
+                {{ t('governance.dao.votesApprove', { count: p.approveVotes }) }}
               </span>
               <span class="gv-vote-count gv-vote-count--contre">
                 <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8" /></svg>
-                {{ p.rejectVotes }} contre
+                {{ t('governance.dao.votesReject', { count: p.rejectVotes }) }}
               </span>
               <span v-if="p.proposalType === ProposalType.Confirmation" class="gv-vote-count gv-vote-count--ajourner">
                 <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6">
                   <path d="M4 2h8M4 14h8M5 2c0 3 2.5 3.6 3 4.5.5-.9 3-1.5 3-4.5M5 14c0-3 2.5-3.6 3-4.5.5.9 3 1.5 3 4.5" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
-                {{ p.postponeVotes }} ajourner
+                {{ t('governance.dao.votesPostpone', { count: p.postponeVotes }) }}
               </span>
             </div>
             <div class="gv-quorum-line">
               <span :title="quorumTooltip(p)">
-                Quorum : {{ p.approveVotes + p.rejectVotes + (p.proposalType === ProposalType.Confirmation ? p.postponeVotes : 0) }}/{{ requiredQuorum(p) }} votes exprimés (sur {{ p.activeSnapshot }} Loups actifs)
+                {{ t('governance.dao.quorumLine', { cast: p.approveVotes + p.rejectVotes + (p.proposalType === ProposalType.Confirmation ? p.postponeVotes : 0), required: requiredQuorum(p), total: p.activeSnapshot }) }}
               </span>
             </div>
           </article>
-          <p v-if="!pastProposals.length" class="gv-card-note">Aucune proposition passée.</p>
+          <p v-if="!pastProposals.length" class="gv-card-note">{{ t('governance.dao.noPastProposals') }}</p>
           <div v-else-if="!filteredPastProposals.length" class="gv-card-note gv-statut-empty">
-            <p>Aucune proposition ne correspond à ce filtre.</p>
-            <button class="btn btn-outline" type="button" @click="resetStatusFilter">Réinitialiser le filtre</button>
+            <p>{{ t('governance.dao.noFilterMatch') }}</p>
+            <button class="btn btn-outline" type="button" @click="resetStatusFilter">{{ t('governance.dao.resetFilter') }}</button>
           </div>
           <nav v-if="totalPastPages > 1" class="gv-pagination">
-            <button class="gv-page-btn" :disabled="pastPage === 1" @click="pastPage--">Précédent</button>
-            <span class="gv-page-indicator">Page {{ pastPage }} / {{ totalPastPages }}</span>
-            <button class="gv-page-btn" :disabled="pastPage === totalPastPages" @click="pastPage++">Suivant</button>
+            <button class="gv-page-btn" :disabled="pastPage === 1" @click="pastPage--">{{ t('governance.dao.previous') }}</button>
+            <span class="gv-page-indicator">{{ t('governance.dao.pageIndicator', { page: pastPage, total: totalPastPages }) }}</span>
+            <button class="gv-page-btn" :disabled="pastPage === totalPastPages" @click="pastPage++">{{ t('governance.dao.next') }}</button>
           </nav>
         </div>
         </template>

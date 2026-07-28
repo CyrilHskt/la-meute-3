@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { formatEther, parseEther } from "viem";
 import { useWallet } from "../../composables/useWallet";
 import { useMeute } from "../../composables/useMeute";
@@ -9,6 +10,7 @@ import { useLocalAutoRefresh } from "../../composables/useLocalAutoRefresh";
 import AddressChip from "./AddressChip.vue";
 import WalletInstallModal from "./WalletInstallModal.vue";
 
+const { t } = useI18n();
 const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient } = useWallet();
 const { topDonors, loading, error, isAuthorized, loadAll, loadMyDonations } = useMeute();
 const { showToast } = useToast();
@@ -41,7 +43,7 @@ async function onConnect() {
     await connect();
     await loadMyDonations(address.value);
   } catch (e) {
-    txError.value = friendlyContractError(e);
+    txError.value = friendlyContractError(e, t);
   }
 }
 
@@ -55,9 +57,9 @@ async function donate() {
     await publicClient.waitForTransactionReceipt({ hash });
     await loadMyDonations(address.value);
     donationInput.value = "";
-    showToast("Don enregistré — merci !");
+    showToast(t('donations.thanksToast'));
   } catch (e) {
-    txError.value = friendlyContractError(e);
+    txError.value = friendlyContractError(e, t);
   } finally {
     txPending.value = false;
   }
@@ -68,20 +70,16 @@ async function donate() {
   <div class="gv-donations">
     <WalletInstallModal />
 
-    <h2 class="gv-donations-title">Dons</h2>
-    <p class="gv-donations-intro">
-      Un don est ouvert à n'importe qui — membre de la meute ou non. Il n'a rien à voir avec la cotisation
-      d'adhésion : l'ETH rejoint directement la trésorerie du contrat, immédiatement disponible pour une future
-      dépense votée par les Loups.
-    </p>
+    <h2 class="gv-donations-title">{{ t('donations.title') }}</h2>
+    <p class="gv-donations-intro">{{ t('donations.intro') }}</p>
 
     <div class="gv-donations-panel">
       <template v-if="!address">
-        <p class="gv-card-note">Connecte ton wallet pour faire un don.</p>
-        <button class="btn btn-primary" @click="onConnect">Connecter mon wallet</button>
+        <p class="gv-card-note">{{ t('donations.connectPrompt') }}</p>
+        <button class="btn btn-primary" @click="onConnect">{{ t('common.connectWallet') }}</button>
       </template>
       <template v-else-if="wrongNetwork">
-        <p class="gv-error">Mauvais réseau — connecte-toi à Sepolia dans MetaMask.</p>
+        <p class="gv-error">{{ t('common.wrongNetwork') }}</p>
       </template>
       <template v-else>
         <div class="gv-form-row">
@@ -91,23 +89,21 @@ async function donate() {
             min="0"
             step="any"
             inputmode="decimal"
-            placeholder="Montant en ETH"
+            :placeholder="t('donations.amountPlaceholder')"
             :disabled="txPending"
           />
-          <button class="btn btn-primary" :disabled="txPending || !donationInput" @click="donate">Donner</button>
+          <button class="btn btn-primary" :disabled="txPending || !donationInput" @click="donate">{{ t('donations.donate') }}</button>
         </div>
         <p v-if="txError" class="gv-error">{{ txError }}</p>
       </template>
     </div>
 
     <div class="gv-donations-panel">
-      <h3 class="gv-card-title">Merci aux donateurs</h3>
-      <p v-if="!isAuthorized" class="gv-card-note">
-        Classement réservé aux membres de la Meute — connecte le wallet avec lequel tu votes pour le consulter.
-      </p>
+      <h3 class="gv-card-title">{{ t('donations.leaderboardTitle') }}</h3>
+      <p v-if="!isAuthorized" class="gv-card-note">{{ t('donations.leaderboardRestricted') }}</p>
       <template v-else>
-        <p v-if="loading" class="gv-card-note">Chargement des données on-chain…</p>
-        <p v-else-if="error" class="gv-error">Erreur de lecture : {{ error }} — le classement peut être incomplet.</p>
+        <p v-if="loading" class="gv-card-note">{{ t('common.loadingOnChain') }}</p>
+        <p v-else-if="error" class="gv-error">{{ t('common.readError', { error }) }}</p>
         <div v-else-if="topDonors.length" class="gv-donors-list">
           <div v-for="(d, i) in topDonors" :key="d.address" class="gv-donor-row">
             <span class="gv-donor-rank">#{{ i + 1 }}</span>
@@ -115,7 +111,7 @@ async function donate() {
             <span class="gv-donor-amount">{{ formatEther(d.total) }} ETH</span>
           </div>
         </div>
-        <p v-else class="gv-card-note">Aucun don pour l'instant — sois le premier !</p>
+        <p v-else class="gv-card-note">{{ t('donations.noDonationsYet') }}</p>
       </template>
     </div>
   </div>

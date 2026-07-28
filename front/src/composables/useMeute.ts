@@ -2,6 +2,11 @@ import { ref } from "vue";
 import type { Address } from "viem";
 import { useWallet } from "./useWallet";
 import { useDiscordLink } from "./useDiscordLink";
+// Direct `i18n.global.t` rather than `useI18n()`: this composable is also
+// invoked from useWallet.ts's connect()/accountsChanged handlers, outside
+// any component's setup() — `useI18n()` requires an active component
+// instance and would throw there.
+import { i18n } from "../i18n";
 
 // Stats/proposals come from a snapshot maintained by a GitHub Actions job
 // (scripts/sync-dao.js), read via a Netlify function
@@ -303,7 +308,7 @@ export function useMeute() {
         resetSession();
         return;
       }
-      if (!res.ok) throw new Error(`Impossible de charger l'instantané DAO (HTTP ${res.status})`);
+      if (!res.ok) throw new Error(i18n.global.t('errors.daoSnapshotLoadFailed', { status: res.status }));
       applyIndex((await res.json()) as DaoIndex);
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e);

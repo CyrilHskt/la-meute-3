@@ -2,6 +2,11 @@ import { ref } from "vue";
 import { createPublicClient, createWalletClient, custom, http, getContract, type Address, type Chain } from "viem";
 import { sepolia, hardhat } from "viem/chains";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../contract";
+// Direct `i18n.global.t` rather than the `useI18n()` composable: these
+// guards live in plain module-level functions (the singleton pattern used
+// throughout this file), not inside a component's setup(), where
+// `useI18n()` requires an active injection context.
+import { i18n } from "../i18n";
 
 // Target network: Sepolia by default (the real, committed deployment), or
 // the local Hardhat node to test the whole cycle in a few seconds (time
@@ -163,7 +168,7 @@ function readOnlyContract() {
 
 /** Signed contract: requires a connected wallet, for functions that write. */
 function writableContract() {
-  if (!address.value) throw new Error("Wallet non connecté");
+  if (!address.value) throw new Error(i18n.global.t("errors.walletNotConnected"));
   const injected = (window as unknown as { ethereum: unknown }).ethereum;
   const walletClient = createWalletClient({
     account: address.value,
@@ -177,7 +182,7 @@ function writableContract() {
  *  ownership of a wallet without spending gas, e.g. unlinking a Discord
  *  account (see useDiscordLink.ts). */
 async function signMessage(message: string): Promise<`0x${string}`> {
-  if (!address.value) throw new Error("Wallet non connecté");
+  if (!address.value) throw new Error(i18n.global.t("errors.walletNotConnected"));
   const injected = (window as unknown as { ethereum: unknown }).ethereum;
   const walletClient = createWalletClient({
     account: address.value,
