@@ -167,7 +167,7 @@ function pollProgress(stepId) {
 
 async function runStep(stepId) {
   runningStepId = stepId;
-  await refresh(); // réaffiche immédiatement avec la barre à 0% et le bouton désactivé
+  await refresh(); // re-renders immediately with the bar at 0% and the button disabled
   const interval = pollProgress(stepId);
   try {
     const res = await fetch("/api/step", { method: "POST" });

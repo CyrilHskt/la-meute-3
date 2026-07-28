@@ -15,9 +15,9 @@ const showTourPulse = ref(localStorage.getItem(TOUR_TAKEN_KEY) !== "1");
 // Incremented on every launch request — GovernanceDao.vue watches this
 // counter to trigger driver.js at the right time.
 const tourRequestId = ref(0);
-// Instance active du popover de mise en avant, pour pouvoir la fermer si
-// le vrai tour démarre pendant qu'elle est encore ouverte (sinon les deux
-// popovers driver.js se superposent).
+// Active instance of the highlight popover, so it can be closed if the
+// real tour starts while it's still open (otherwise the two driver.js
+// popovers stack on top of each other).
 let highlightInstance: Driver | null = null;
 
 export function useGuidedTour() {

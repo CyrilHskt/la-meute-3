@@ -97,7 +97,7 @@ function defaultAvatar(discordId: string): string {
 
 async function handleStart(req: Request, url: URL): Promise<Response> {
   const wallet = url.searchParams.get("wallet");
-  if (!wallet || !isAddress(wallet)) return new Response("Paramètre wallet (adresse) requis", { status: 400 });
+  if (!wallet || !isAddress(wallet)) return new Response("Missing wallet parameter (address required)", { status: 400 });
   const returnTo = safeReturnTo(url.searchParams.get("returnTo"), frontOrigin(url));
 
   const authorizeUrl = new URL("https://discord.com/api/oauth2/authorize");
@@ -179,17 +179,17 @@ async function handleUnlink(req: Request): Promise<Response> {
   const wallet = body.wallet;
   const signature = body.signature;
   if (!wallet || !isAddress(wallet) || !signature) {
-    return new Response("wallet et signature requis", { status: 400 });
+    return new Response("wallet and signature required", { status: 400 });
   }
 
   let recovered: string;
   try {
     recovered = await recoverMessageAddress({ message: unlinkMessage(wallet), signature });
   } catch {
-    return new Response("Signature invalide", { status: 401 });
+    return new Response("Invalid signature", { status: 401 });
   }
   if (recovered.toLowerCase() !== wallet.toLowerCase()) {
-    return new Response("Signature invalide", { status: 401 });
+    return new Response("Invalid signature", { status: 401 });
   }
 
   const store = getStore("dao");
@@ -204,10 +204,10 @@ export default async (req: Request) => {
   if (url.searchParams.get("action") === "unlink") return handleUnlink(req);
 
   if (!CLIENT_ID || !CLIENT_SECRET || !GUILD_ID || !STATE_SECRET) {
-    return new Response("Configuration Discord manquante côté serveur", { status: 500 });
+    return new Response("Discord configuration missing on the server", { status: 500 });
   }
 
   if (url.searchParams.get("action") === "start") return handleStart(req, url);
   if (url.searchParams.get("code")) return handleCallback(req, url);
-  return new Response("Paramètres manquants (attendu: action=start&wallet=… ou code=…&state=…)", { status: 400 });
+  return new Response("Missing parameters (expected: action=start&wallet=… or code=…&state=…)", { status: 400 });
 };

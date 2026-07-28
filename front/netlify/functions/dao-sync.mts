@@ -140,13 +140,13 @@ const DEFAULT_STATE = {
 
 async function handlePatchProposal(req: Request): Promise<Response> {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
-  if (!RPC_URL) return new Response("RPC_URL non configuré côté serveur", { status: 500 });
+  if (!RPC_URL) return new Response("RPC_URL not configured on the server", { status: 500 });
 
   const body = (await req.json()) as { proposalId?: string; author?: string };
   const proposalId = body.proposalId;
   const author = body.author;
   if (!proposalId || !/^\d+$/.test(proposalId) || !author || !isAddress(author)) {
-    return new Response("proposalId (entier) et author (adresse) requis", { status: 400 });
+    return new Response("proposalId (integer) and author (address) required", { status: 400 });
   }
 
   const store = getStore("dao");
@@ -154,7 +154,7 @@ async function handlePatchProposal(req: Request): Promise<Response> {
   const rateLimits = ((await store.get("rate-limit", { type: "json" })) ?? {}) as Record<string, number>;
   const lastPatch = rateLimits[proposalId];
   if (lastPatch && Date.now() - lastPatch < PATCH_COOLDOWN_MS) {
-    return new Response("Trop de requêtes pour cette proposition, réessaie dans quelques secondes", { status: 429 });
+    return new Response("Too many requests for this proposal, try again in a few seconds", { status: 429 });
   }
   rateLimits[proposalId] = Date.now();
   await store.setJSON("rate-limit", rateLimits);
@@ -221,7 +221,7 @@ function membershipMessage(wallet: string, nonce: string): string {
 
 async function handleDiscordNonce(url: URL): Promise<Response> {
   const wallet = url.searchParams.get("wallet");
-  if (!wallet || !isAddress(wallet)) return new Response("Paramètre wallet requis", { status: 400 });
+  if (!wallet || !isAddress(wallet)) return new Response("Missing wallet parameter", { status: 400 });
   return Response.json({ nonce: createNonce(wallet) });
 }
 
@@ -235,22 +235,22 @@ async function verifyMembership(
   signature: string | null,
   nonce: string | null,
 ): Promise<Response | { wallet: string }> {
-  if (!RPC_URL) return new Response("RPC_URL non configuré côté serveur", { status: 500 });
+  if (!RPC_URL) return new Response("RPC_URL not configured on the server", { status: 500 });
   if (!wallet || !isAddress(wallet) || !signature || !nonce) {
-    return new Response("wallet, signature et nonce requis", { status: 400 });
+    return new Response("wallet, signature and nonce required", { status: 400 });
   }
   if (!verifyNonce(nonce, wallet)) {
-    return new Response("Nonce invalide ou expiré — relance la vérification.", { status: 401 });
+    return new Response("Invalid or expired nonce — restart the verification.", { status: 401 });
   }
 
   let recovered: string;
   try {
     recovered = await recoverMessageAddress({ message: membershipMessage(wallet, nonce), signature: signature as `0x${string}` });
   } catch {
-    return new Response("Signature invalide", { status: 401 });
+    return new Response("Invalid signature", { status: 401 });
   }
   if (recovered.toLowerCase() !== wallet.toLowerCase()) {
-    return new Response("Signature invalide", { status: 401 });
+    return new Response("Invalid signature", { status: 401 });
   }
 
   const client = createPublicClient({ chain: sepolia, transport: http(RPC_URL) });
@@ -260,7 +260,7 @@ async function verifyMembership(
     functionName: "balanceOf",
     args: [wallet as Address],
   })) as bigint;
-  if (balance === 0n) return new Response("Réservé aux membres actuels", { status: 403 });
+  if (balance === 0n) return new Response("Restricted to current members", { status: 403 });
 
   return { wallet };
 }
@@ -279,7 +279,7 @@ async function handleGovernance(req: Request): Promise<Response> {
   try {
     body = await req.json();
   } catch {
-    return new Response("JSON invalide", { status: 400 });
+    return new Response("Invalid JSON", { status: 400 });
   }
   const verified = await verifyMembership(body.wallet ?? null, body.signature ?? null, body.nonce ?? null);
   if (verified instanceof Response) return verified;
@@ -299,10 +299,10 @@ async function handleIndexAuth(url: URL): Promise<Response> {
   const wallet = url.searchParams.get("wallet");
   const sessionToken = url.searchParams.get("session");
   if (!wallet || !isAddress(wallet) || !sessionToken) {
-    return new Response("wallet et session requis", { status: 400 });
+    return new Response("wallet and session required", { status: 400 });
   }
   if (!verifySession(sessionToken, wallet)) {
-    return new Response("Session invalide ou expirée — reconnecte ton wallet.", { status: 401 });
+    return new Response("Invalid or expired session — reconnect your wallet.", { status: 401 });
   }
   const store = getStore("dao");
   const value = await store.get("index", { type: "json" });
@@ -320,7 +320,7 @@ export default async (req: Request) => {
 
   if (key !== "index" && key !== "state") {
     return new Response(
-      "Paramètre ?key= manquant ou invalide (attendu: index|state|discord-nonce|governance|patch-proposal)",
+      "Missing or invalid ?key= parameter (expected: index|state|discord-nonce|governance|patch-proposal)",
       { status: 400 },
     );
   }

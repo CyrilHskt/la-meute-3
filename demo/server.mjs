@@ -128,7 +128,7 @@ function seedDemoDiscordLinks(ctx) {
 async function handleDiscordStart(req, res, url) {
   const wallet = url.searchParams.get("wallet");
   if (!wallet || !isAddress(wallet)) {
-    res.writeHead(400).end("Paramètre wallet requis");
+    res.writeHead(400).end("Missing wallet parameter");
     return;
   }
   const returnTo = safeDemoReturnTo(url.searchParams.get("returnTo"));
@@ -230,7 +230,7 @@ function membershipMessage(wallet, nonce) {
 async function handleDiscordNonce(req, res, url) {
   const wallet = url.searchParams.get("wallet");
   if (!wallet || !isAddress(wallet)) {
-    res.writeHead(400).end("Paramètre wallet requis");
+    res.writeHead(400).end("Missing wallet parameter");
     return;
   }
   sendJson(res, 200, { nonce: createNonce(wallet) });
@@ -261,7 +261,7 @@ async function handleGovernance(req, res) {
     return;
   }
   if (!verifyNonce(nonce, wallet)) {
-    res.writeHead(401).end("Nonce invalide ou expiré — relance la vérification.");
+    res.writeHead(401).end("Invalid or expired nonce — restart the verification.");
     return;
   }
   let recovered;
@@ -277,7 +277,7 @@ async function handleGovernance(req, res) {
   }
   const balance = await ctx.contracts.get(ctx.founder).balanceOf(wallet);
   if (balance === 0n) {
-    res.writeHead(403).end("Réservé aux membres actuels");
+    res.writeHead(403).end("Restricted to current members");
     return;
   }
   let index;
@@ -301,7 +301,7 @@ async function handleIndexAuth(req, res, url) {
     return;
   }
   if (!verifySession(sessionToken, wallet)) {
-    res.writeHead(401).end("Session invalide ou expirée — reconnecte ton wallet.");
+    res.writeHead(401).end("Invalid or expired session — reconnect your wallet.");
     return;
   }
   try {
@@ -517,9 +517,9 @@ const server = createServer((req, res) => {
 });
 
 server.listen(PORT, "127.0.0.1", () => {
-  console.log(`Panneau de démo : http://127.0.0.1:${PORT}`);
-  console.log("Assure-toi que `npx hardhat node` tourne déjà, puis choisis un scénario.");
+  console.log(`Demo panel: http://127.0.0.1:${PORT}`);
+  console.log("Make sure `npx hardhat node` is already running, then pick a scenario.");
   if (!DISCORD_CLIENT_ID || !DISCORD_CLIENT_SECRET || !DISCORD_GUILD_ID || !DISCORD_STATE_SECRET) {
-    console.log("(Variables DISCORD_* absentes — copie .env.example en .env.local pour activer le lien Discord en démo.)");
+    console.log("(DISCORD_* variables missing — copy .env.example to .env.local to enable Discord linking in the demo.)");
   }
 });
