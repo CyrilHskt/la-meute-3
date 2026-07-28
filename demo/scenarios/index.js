@@ -11,21 +11,21 @@
 // "for info" box to only show the rules relevant to that specific
 // scenario.
 import { steps as certification, ruleIds as ruleIdsCertification } from "./certification.js";
-import { steps as demoMemberLife, ruleIds as ruleIdsMemberLife } from "./demo-vie-membre.js";
+import { steps as demoMemberLife, ruleIds as ruleIdsMemberLife } from "./demo-member-life.js";
 import { steps as testExclusion, ruleIds as ruleIdsExclusion } from "./test-exclusion.js";
-import { steps as testPostponement, ruleIds as ruleIdsPostponement } from "./test-ajournement.js";
-import { steps as testDormance, ruleIds as ruleIdsDormance } from "./test-dormance.js";
-import { steps as testExpense, ruleIds as ruleIdsExpense } from "./test-depense.js";
+import { steps as testPostponement, ruleIds as ruleIdsPostponement } from "./test-postponement.js";
+import { steps as testDormancy, ruleIds as ruleIdsDormancy } from "./test-dormancy.js";
+import { steps as testExpense, ruleIds as ruleIdsExpense } from "./test-expense.js";
 import { steps as testDonation, ruleIds as ruleIdsDonation } from "./test-donation.js";
 
 export const scenarios = [
   { id: "certification", label: "Scénario de certification", group: "certification", steps: certification, ruleIds: ruleIdsCertification },
   // Soutenance — C7 (demo B: a member's life) and C7 (demo C: dormancy +
-  // conflict of interest, the expense that closes test-dormance.js
+  // conflict of interest, the expense that closes test-dormancy.js
   // deliberately targets wolf2, who therefore can't vote on their own
   // case).
   { id: "demo-member-life", label: "B. Vie d'un membre", group: "soutenance", steps: demoMemberLife, ruleIds: ruleIdsMemberLife },
-  { id: "test-dormance", label: "C. Gouvernance sous tension (dormance)", group: "soutenance", steps: testDormance, ruleIds: ruleIdsDormance },
+  { id: "test-dormancy", label: "C. Gouvernance sous tension (dormance)", group: "soutenance", steps: testDormancy, ruleIds: ruleIdsDormancy },
   { id: "test-exclusion", label: "Exclusion", group: "test", steps: testExclusion, ruleIds: ruleIdsExclusion },
   { id: "test-postponement", label: "Ajournement (plafond)", group: "test", steps: testPostponement, ruleIds: ruleIdsPostponement },
   { id: "test-expense", label: "Dépense", group: "test", steps: testExpense, ruleIds: ruleIdsExpense },
