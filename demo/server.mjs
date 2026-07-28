@@ -1,11 +1,11 @@
-// Petit serveur local pour piloter les scénarios de démo depuis la page
-// demo/public/index.html. N'écoute que sur localhost, jamais déployé —
-// voir docs/local/soutenance-prep.md pour le contexte.
+// Small local server to drive the demo scenarios from the
+// demo/public/index.html page. Only listens on localhost, never deployed
+// — see docs/local/soutenance-prep.md for context.
 //
-// Prérequis avant de lancer ce serveur : `npx hardhat node` tourne déjà
-// dans un autre terminal.
+// Prerequisite before starting this server: `npx hardhat node` is already
+// running in another terminal.
 //
-// Usage : node demo/server.mjs
+// Usage: node demo/server.mjs
 
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
@@ -29,11 +29,11 @@ let currentIndex = 0;
 let lastMessage = null;
 let lastError = null;
 
-// Vrai flux OAuth Discord, réplique de netlify/functions/discord-link.mts —
-// même code, mais le lien vit ici en mémoire (jamais dans Netlify Blobs) et
-// repart de zéro à chaque reset de scénario, comme le contrat lui-même :
-// aucune trace d'une démo à l'autre. Nécessite un .env.local à la racine
-// (voir .env.example) pour les 4 variables DISCORD_*.
+// Real Discord OAuth flow, a replica of netlify/functions/discord-link.mts
+// — same code, but the link lives here in memory (never in Netlify Blobs)
+// and starts over on every scenario reset, just like the contract itself:
+// no trace from one demo to the next. Requires a .env.local at the repo
+// root (see .env.example) for the 4 DISCORD_* variables.
 let discordLinks = {};
 
 const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID;
@@ -75,11 +75,11 @@ function defaultDiscordAvatar(discordId) {
 
 const DEMO_FALLBACK_RETURN_TO = "http://localhost:5173/";
 
-// Un returnTo forgé pourrait sinon rediriger vers n'importe quel site après
-// une vraie autorisation Discord (open redirect classique) — on n'accepte
-// qu'une origine locale (le port de Vite change d'une session à l'autre,
-// donc pas de correspondance exacte possible ici, seulement le fait que ça
-// reste sur la machine du développeur).
+// A forged returnTo could otherwise redirect to any site after a real
+// Discord authorization (classic open redirect) — we only accept a local
+// origin (Vite's port changes from one session to the next, so no exact
+// match is possible here, only the fact that it stays on the developer's
+// machine).
 function safeDemoReturnTo(candidate) {
   if (!candidate) return DEMO_FALLBACK_RETURN_TO;
   try {
@@ -97,15 +97,15 @@ function withDiscordParam(returnTo, result) {
   return url.toString();
 }
 
-// Pseudos de démo pour les autres acteurs du scénario — sans ça, seul le
-// wallet réellement lié à la main (le fondateur/président, testé en vrai
-// via OAuth) affiche un pseudo, tous les autres restent des hash. Le
-// fondateur est délibérément exclu : c'est le seul compte pour lequel on
-// veut pouvoir démontrer le vrai flux OAuth en direct, pas une donnée
-// bidon qu'il faudrait re-écraser à chaque démo.
-// Assez de noms distincts pour couvrir tous les comptes du nœud de test
-// (30, voir hardhat.config.ts) sans jamais recourir au suffixe numérique
-// ("Croc 2") — repéré comme peu soigné à l'usage.
+// Demo usernames for the scenario's other actors — without this, only the
+// wallet actually linked by hand (the founder/president, tested for real
+// via OAuth) would show a username, everyone else stays a hash. The
+// founder is deliberately excluded: it's the only account we want to be
+// able to demonstrate the real OAuth flow live on, not fake data that
+// would need overwriting on every demo.
+// Enough distinct names to cover every account on the test node (30, see
+// hardhat.config.ts) without ever falling back to a numeric suffix
+// ("Croc 2") — flagged as sloppy-looking in practice.
 const DEMO_CODENAMES = [
   "Fenrir", "Akela", "Nanook", "Balto", "Ombre", "Croc", "Griffe", "Ecaille",
   "Tempête", "Brume", "Sirius", "Blizzard", "Ronce", "Eclair", "Orage",
@@ -118,7 +118,7 @@ function seedDemoDiscordLinks(ctx) {
   accounts.forEach((addr, i) => {
     discordLinks[addr.toLowerCase()] = {
       discordId: String(1000 + i),
-      pseudo: DEMO_CODENAMES[i % DEMO_CODENAMES.length],
+      username: DEMO_CODENAMES[i % DEMO_CODENAMES.length],
       avatarUrl: defaultDiscordAvatar(String(1000 + i)),
       linkedAt: new Date().toISOString(),
     };
@@ -177,53 +177,53 @@ async function handleDiscordCallback(req, res, url) {
     if (!memberRes.ok) return fail("error");
     const member = await memberRes.json();
 
-    const pseudo = member.nick || user.username;
+    const username = member.nick || user.username;
     const avatarUrl = member.avatar
       ? `https://cdn.discordapp.com/guilds/${DISCORD_GUILD_ID}/users/${user.id}/avatars/${member.avatar}.png`
       : user.avatar
         ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
         : defaultDiscordAvatar(user.id);
 
-    discordLinks[wallet.toLowerCase()] = { discordId: user.id, pseudo, avatarUrl, linkedAt: new Date().toISOString() };
+    discordLinks[wallet.toLowerCase()] = { discordId: user.id, username, avatarUrl, linkedAt: new Date().toISOString() };
     res.writeHead(302, { Location: withDiscordParam(returnTo, "linked") }).end();
   } catch {
     fail("error");
   }
 }
 
-// Réplique des jetons signés de dao-sync.mts (nonce à usage unique + session
-// courte) — même principe HMAC auto-vérifiable, réutilise DISCORD_STATE_SECRET
-// (déjà en place pour le `state` OAuth), pas de nouvelle variable d'env pour
-// la démo. La page gouvernance entière (pas juste la table Discord) est
-// réservée aux membres — voir dao-sync.mts pour le contexte complet.
+// Replica of dao-sync.mts's signed tokens (single-use nonce + short
+// session) — same self-verifying HMAC principle, reuses
+// DISCORD_STATE_SECRET (already in place for the OAuth `state`), no new
+// env var for the demo. The entire governance page (not just the Discord
+// table) is members-only — see dao-sync.mts for the full context.
 const NONCE_MAX_AGE_MS = 5 * 60 * 1000;
 const SESSION_MAX_AGE_MS = 30 * 60 * 1000;
 
-function creerJeton(data) {
+function createToken(data) {
   const payload = Buffer.from(JSON.stringify({ ...data, ts: Date.now() })).toString("base64url");
   return `${payload}.${discordSign(payload)}`;
 }
 
-function verifierJeton(jeton, wallet, maxAgeMs) {
-  const [payload, sig] = (jeton ?? "").split(".");
+function verifyToken(token, wallet, maxAgeMs) {
+  const [payload, sig] = (token ?? "").split(".");
   if (!payload || !sig) return false;
-  const attendu = discordSign(payload);
-  if (sig.length !== attendu.length || !timingSafeEqual(Buffer.from(sig), Buffer.from(attendu))) return false;
+  const expected = discordSign(payload);
+  if (sig.length !== expected.length || !timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return false;
   try {
-    const { wallet: walletJeton, ts } = JSON.parse(Buffer.from(payload, "base64url").toString());
+    const { wallet: tokenWallet, ts } = JSON.parse(Buffer.from(payload, "base64url").toString());
     if (Date.now() - ts > maxAgeMs) return false;
-    return walletJeton.toLowerCase() === wallet.toLowerCase();
+    return tokenWallet.toLowerCase() === wallet.toLowerCase();
   } catch {
     return false;
   }
 }
 
-const creerNonce = (wallet) => creerJeton({ wallet });
-const verifierNonce = (nonce, wallet) => verifierJeton(nonce, wallet, NONCE_MAX_AGE_MS);
-const creerSession = (wallet) => creerJeton({ wallet });
-const verifierSession = (session, wallet) => verifierJeton(session, wallet, SESSION_MAX_AGE_MS);
+const createNonce = (wallet) => createToken({ wallet });
+const verifyNonce = (nonce, wallet) => verifyToken(nonce, wallet, NONCE_MAX_AGE_MS);
+const createSession = (wallet) => createToken({ wallet });
+const verifySession = (session, wallet) => verifyToken(session, wallet, SESSION_MAX_AGE_MS);
 
-function messageAppartenance(wallet, nonce) {
+function membershipMessage(wallet, nonce) {
   return `Je fais partie de La Meute (${wallet}) — ${nonce}`;
 }
 
@@ -233,15 +233,15 @@ async function handleDiscordNonce(req, res, url) {
     res.writeHead(400).end("Paramètre wallet requis");
     return;
   }
-  sendJson(res, 200, { nonce: creerNonce(wallet) });
+  sendJson(res, 200, { nonce: createNonce(wallet) });
 }
 
-// Réplique de handleGouvernance (dao-sync.mts) : signature + nonce +
-// balanceOf en direct sur le contrat local, jamais mis en cache — un membre
-// exclu en cours de démo ne peut plus obtenir de nouvelle session. Renvoie
-// l'instantané complet (index + table Discord) plus une session courte pour
-// les relectures via /api/index sans re-signer.
-async function handleGouvernance(req, res) {
+// Replica of handleGovernance (dao-sync.mts): signature + nonce +
+// balanceOf live on the local contract, never cached — a member excluded
+// mid-demo can no longer obtain a new session. Returns the full snapshot
+// (index + Discord table) plus a short session for rereads via
+// /api/index without re-signing.
+async function handleGovernance(req, res) {
   if (req.method !== "POST") {
     res.writeHead(405).end("Method Not Allowed");
     return;
@@ -260,13 +260,13 @@ async function handleGouvernance(req, res) {
     res.writeHead(400).end("wallet, signature et nonce requis");
     return;
   }
-  if (!verifierNonce(nonce, wallet)) {
+  if (!verifyNonce(nonce, wallet)) {
     res.writeHead(401).end("Nonce invalide ou expiré — relance la vérification.");
     return;
   }
   let recovered;
   try {
-    recovered = verifyMessage(messageAppartenance(wallet, nonce), signature);
+    recovered = verifyMessage(membershipMessage(wallet, nonce), signature);
   } catch {
     res.writeHead(401).end("Signature invalide");
     return;
@@ -287,20 +287,20 @@ async function handleGouvernance(req, res) {
     res.writeHead(503).end(e.message ?? String(e));
     return;
   }
-  sendJson(res, 200, { session: creerSession(wallet), index, discordLinks });
+  sendJson(res, 200, { session: createSession(wallet), index, discordLinks });
 }
 
-// Relecture de l'instantané pour un membre déjà authentifié — vérifie
-// seulement la session, pas de nouvel appel on-chain (même compromis
-// qu'en prod, voir dao-sync.mts).
+// Rereads the snapshot for an already-authenticated member — only checks
+// the session, no new on-chain call (same trade-off as in prod, see
+// dao-sync.mts).
 async function handleIndexAuth(req, res, url) {
   const wallet = url.searchParams.get("wallet");
-  const jetonSession = url.searchParams.get("session");
-  if (!wallet || !isAddress(wallet) || !jetonSession) {
+  const sessionToken = url.searchParams.get("session");
+  if (!wallet || !isAddress(wallet) || !sessionToken) {
     res.writeHead(400).end("wallet et session requis");
     return;
   }
-  if (!verifierSession(jetonSession, wallet)) {
+  if (!verifySession(sessionToken, wallet)) {
     res.writeHead(401).end("Session invalide ou expirée — reconnecte ton wallet.");
     return;
   }
@@ -311,9 +311,9 @@ async function handleIndexAuth(req, res, url) {
   }
 }
 
-// Réplique de la route ?action=unlink de discord-link.mts — même message
-// signé, même vérification par récupération de l'adresse depuis la
-// signature (pas de RPC nécessaire, pure cryptographie).
+// Replica of discord-link.mts's ?action=unlink route — same signed
+// message, same verification by recovering the address from the
+// signature (no RPC needed, pure cryptography).
 async function handleDiscordUnlink(req, res) {
   if (req.method !== "POST") {
     res.writeHead(405).end("Method Not Allowed");
@@ -349,11 +349,11 @@ async function handleDiscordUnlink(req, res) {
   res.writeHead(200).end("OK");
 }
 
-// Progression d'une étape en cours (mise à jour par l'action elle-même via
-// ctx.progress.tick()/setTotal(), lue en parallèle par le front qui poll
-// /api/progress pendant que la requête POST /api/step est encore en vol).
-// Une seule étape à la fois tourne (le front attend la réponse avant d'en
-// relancer une autre), donc un objet module-scope suffit.
+// Progress of the currently running step (updated by the action itself
+// via ctx.progress.tick()/setTotal(), read in parallel by the front which
+// polls /api/progress while the POST /api/step request is still in
+// flight). Only one step runs at a time (the front waits for the response
+// before starting another), so a module-scope object is enough.
 function freshProgress() {
   return {
     current: 0,
@@ -394,9 +394,9 @@ function stateBody(extra = {}) {
 }
 
 function sendJson(res, status, body) {
-  // Le front (servi par Vite/Netlify sur un autre port) doit pouvoir
-  // appeler ce serveur en local — CORS ouvert, sans risque : rien ici ne
-  // tourne jamais ailleurs qu'en local, sur la machine du développeur.
+  // The front (served by Vite/Netlify on another port) must be able to
+  // call this server locally — CORS wide open, no risk: nothing here ever
+  // runs anywhere but locally, on the developer's machine.
   res.writeHead(status, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
   res.end(JSON.stringify(body));
 }
@@ -416,15 +416,15 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, { current: ctx.progress?.current ?? 0, total: ctx.progress?.total ?? 1 });
   }
 
-  // Réservé aux membres authentifiés (session obtenue via /gouvernance/verifier)
-  // — voir dao-sync.mts pour le même principe en prod.
+  // Reserved to authenticated members (session obtained via
+  // /governance/verify) — see dao-sync.mts for the same principle in prod.
   if (req.method === "GET" && url.pathname === "/api/index") {
     return handleIndexAuth(req, res, url);
   }
 
-  // Changer de scénario redéploie systématiquement un contrat neuf : les
-  // scénarios de test partent d'un contrat vide, pas de l'état laissé par
-  // le scénario précédent.
+  // Switching scenarios always redeploys a fresh contract: test scenarios
+  // start from an empty contract, not the state left by the previous
+  // scenario.
   if (req.method === "POST" && url.pathname === "/api/select") {
     const { id } = await readBody(req);
     activeScenario = findScenario(id);
@@ -467,7 +467,7 @@ async function handleApi(req, res, url) {
     } catch (e) {
       lastError = e.message ?? String(e);
     }
-    ctx.progress.current = ctx.progress.total; // barre pleine même si l'action n'a pas tick jusqu'au bout (erreur, étape courte)
+    ctx.progress.current = ctx.progress.total; // full bar even if the action didn't tick all the way (error, short step)
     return sendJson(res, 200, stateBody());
   }
 
@@ -488,15 +488,15 @@ async function serveStatic(req, res, url) {
 }
 
 const server = createServer((req, res) => {
-  // Le front (Vite sur un autre port) et ce serveur sont deux origines
-  // différentes : sans ces en-têtes sur TOUTES les réponses (y compris les
-  // erreurs texte ci-dessus, pas seulement sendJson), le navigateur bloque
-  // la lecture de la réponse. Et sans répondre nous-mêmes à OPTIONS, un
-  // POST avec un corps JSON déclenche une pré-requête preflight qui tombe
-  // dans serveStatic (404, sans en-tête CORS) — la vraie requête ne part
-  // jamais, en échouant silencieusement côté fetch() (constaté : la carte
-  // de membre s'affiche, lue en direct on-chain, mais /gouvernance/verifier
-  // échoue et la page reste bloquée en mode "réservé aux membres").
+  // The front (Vite on another port) and this server are two different
+  // origins: without these headers on EVERY response (including the text
+  // errors above, not just sendJson), the browser blocks reading the
+  // response. And without answering OPTIONS ourselves, a POST with a JSON
+  // body triggers a preflight request that falls into serveStatic (404,
+  // no CORS header) — the real request never goes out, failing silently
+  // on the fetch() side (observed: the membership card displays, read
+  // live on-chain, but /governance/verify fails and the page stays stuck
+  // in "members-only" mode).
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -511,7 +511,7 @@ const server = createServer((req, res) => {
   if (url.pathname === "/discord/callback") return void handleDiscordCallback(req, res, url);
   if (url.pathname === "/discord/unlink") return void handleDiscordUnlink(req, res);
   if (url.pathname === "/discord/nonce") return void handleDiscordNonce(req, res, url);
-  if (url.pathname === "/gouvernance/verifier") return void handleGouvernance(req, res);
+  if (url.pathname === "/governance/verify") return void handleGovernance(req, res);
   if (url.pathname.startsWith("/api/")) return void handleApi(req, res, url);
   return void serveStatic(req, res, url);
 });

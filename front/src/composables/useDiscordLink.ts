@@ -4,30 +4,30 @@ import { useWallet } from "./useWallet";
 
 export interface DiscordLink {
   discordId: string;
-  pseudo: string;
+  username: string;
   avatarUrl: string;
   linkedAt: string;
 }
 
-// Même principe que useMeute.ts : en local (panneau de démo), la source de
-// vérité est le serveur de démo (demo/server.mjs), qui fait le même vrai
-// flux OAuth Discord que la prod (voir demo/server.mjs, réplique de
-// netlify/functions/discord-link.mts) — juste avec un lien stocké en
-// mémoire, remis à zéro à chaque reset de scénario plutôt que dans Netlify
-// Blobs. DEV, pas seulement VITE_CHAIN : voir useMeute.ts pour le détail.
+// Same principle as useMeute.ts: locally (demo panel), the source of truth
+// is the demo server (demo/server.mjs), which runs the same real Discord
+// OAuth flow as prod (see demo/server.mjs, a replica of
+// netlify/functions/discord-link.mts) — just with a link stored in memory,
+// reset on every scenario reset instead of in Netlify Blobs. DEV, not just
+// VITE_CHAIN: see useMeute.ts for details.
 const isLocal = import.meta.env.DEV && import.meta.env.VITE_CHAIN === "local";
 const DEMO_SERVER_URL = "http://127.0.0.1:4100";
 const UNLINK_URL = isLocal ? `${DEMO_SERVER_URL}/discord/unlink` : "/.netlify/functions/discord-link?action=unlink";
 
-// wallet (minuscules) → identité Discord vérifiée. Toute la page
-// gouvernance est réservée aux membres actuels (voir useMeute.ts,
-// estAutorise/chargerGouvernance) : cette table n'est peuplée qu'après
-// cette vérification, jamais par un fetch direct depuis ce fichier.
+// wallet (lowercase) → verified Discord identity. The whole governance
+// page is reserved to current members (see useMeute.ts,
+// isAuthorized/loadAll): this table is only populated after that
+// verification, never by a direct fetch from this file.
 const links = ref<Record<string, DiscordLink>>({});
 
-/** Appelée par useMeute.ts une fois la preuve d'appartenance validée côté
- *  serveur — ce fichier ne fait plus lui-même aucune requête réseau pour
- *  peupler cette table, il ne fait qu'exposer le résultat déjà vérifié. */
+/** Called by useMeute.ts once proof of membership is validated
+ *  server-side — this file no longer makes any network request itself to
+ *  populate this table, it only exposes the already-verified result. */
 function setLinks(data: Record<string, DiscordLink>) {
   links.value = data;
 }
@@ -37,14 +37,14 @@ function discordLinkFor(address: Address | null | undefined): DiscordLink | null
   return links.value[address.toLowerCase()] ?? null;
 }
 
-// Adresse en attente de confirmation avant de partir vers Discord — voir
-// DiscordConsentModal.vue. Sans cet écran, rien n'informait le membre
-// qu'une fois lié, son pseudo et son avatar deviennent visibles par les
-// autres membres, à côté de ses votes/dons — un consentement RGPD valide
-// doit être éclairé et spécifique, pas juste "un clic sur un bouton".
+// Address pending confirmation before heading to Discord — see
+// DiscordConsentModal.vue. Without this screen, nothing told the member
+// that once linked, their username and avatar become visible to other
+// members, next to their votes/donations — a valid GDPR consent must be
+// informed and specific, not just "one click on a button".
 const pendingLinkAddress = ref<Address | null>(null);
 
-/** Ouvre l'écran de consentement — ne part vers Discord qu'après confirmation. */
+/** Opens the consent screen — only heads to Discord after confirmation. */
 function requestDiscordLink(address: Address) {
   pendingLinkAddress.value = address;
 }
@@ -52,15 +52,15 @@ function cancelDiscordLink() {
   pendingLinkAddress.value = null;
 }
 
-/** Démarre le flux OAuth Discord pour ce wallet — redirection pleine page,
- *  le retour se fait via ?discord=linked|error|not_member sur l'URL. */
+/** Starts the Discord OAuth flow for this wallet — full-page redirect, the
+ *  return happens via ?discord=linked|error|not_member on the URL. */
 function confirmDiscordLink() {
   const address = pendingLinkAddress.value;
   if (!address) return;
   pendingLinkAddress.value = null;
-  // URL complète (pas juste l'origine) : sans ça, le retour de Discord
-  // renvoyait systématiquement vers la racine du site au lieu de la page
-  // de gouvernance d'où on est parti — constaté en test.
+  // Full URL (not just the origin): without this, the return from Discord
+  // systematically redirected to the site root instead of the governance
+  // page we started from — observed in testing.
   const returnTo = encodeURIComponent(window.location.href);
   if (isLocal) {
     window.location.href = `${DEMO_SERVER_URL}/discord/start?wallet=${address}&returnTo=${returnTo}`;
@@ -69,8 +69,8 @@ function confirmDiscordLink() {
   window.location.href = `/.netlify/functions/discord-link?action=start&wallet=${address}&returnTo=${returnTo}`;
 }
 
-/** À appeler une fois au chargement d'une page pour lire et nettoyer le
- *  paramètre ?discord= laissé par le callback OAuth. */
+/** To call once on page load to read and clean up the ?discord= parameter
+ *  left by the OAuth callback. */
 function consumeDiscordCallbackParam(): "linked" | "error" | "not_member" | null {
   const url = new URL(window.location.href);
   const result = url.searchParams.get("discord") as "linked" | "error" | "not_member" | null;
@@ -80,10 +80,10 @@ function consumeDiscordCallbackParam(): "linked" | "error" | "not_member" | null
   return result;
 }
 
-/** Délie un compte Discord — signature du wallet exigée (prouve la
- *  possession sans dépenser de gas) plutôt qu'une simple requête HTTP, pour
- *  qu'on ne puisse jamais délier le compte de quelqu'un d'autre. Réponse au
- *  droit à l'oubli RGPD : sans ça, un lien une fois créé était permanent. */
+/** Unlinks a Discord account — wallet signature required (proves
+ *  ownership without spending gas) rather than a plain HTTP request, so
+ *  no one can ever unlink someone else's account. Answers the GDPR right
+ *  to erasure: without this, a link once created was permanent. */
 async function unlinkDiscord(address: Address) {
   const { signMessage } = useWallet();
   const message = `Délier mon compte Discord de La Meute (${address})`;

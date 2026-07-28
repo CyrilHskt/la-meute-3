@@ -1,15 +1,15 @@
 <script setup lang="ts">
-// Documents publics de l'association — PDF déposés dans public/docs/,
-// pas de logique on-chain, simple liste de liens à tenir à jour.
+// Public association documents — PDFs dropped in public/docs/, no
+// on-chain logic, just a list of links to keep up to date.
 const documents = [
   { label: "Statuts de l'association", href: "/docs/statuts.pdf" },
   { label: "Compte-rendu AG — 2026", href: "/docs/cr-ag-2026.pdf" },
   { label: "Compte-rendu AG — 2025", href: "/docs/cr-ag-2025.pdf" },
 ];
 
-// Le bureau légal 1901 et le rang Loup se recoupent par les personnes,
-// pas par le système : rien dans le contrat n'impose ce lien.
-const bureau = [
+// The legal 1901 board and the Wolf rank overlap through people, not
+// through the system: nothing in the contract enforces this link.
+const board = [
   { role: "Présidence", name: "— nom —", rank: "Loup" },
   { role: "Trésorerie", name: "— nom —", rank: "Loup" },
   { role: "Secrétariat", name: "— nom —", rank: "Loup" },
@@ -48,11 +48,11 @@ const legal = [
 
       <div class="gv-info-card gv-info-card--wide">
         <h3 class="gv-card-title">Bureau</h3>
-        <div class="gv-bureau-grid">
-          <div v-for="member in bureau" :key="member.role" class="gv-bureau-card">
-            <div class="gv-bureau-role">{{ member.role }}</div>
-            <div class="gv-bureau-name">{{ member.name }}</div>
-            <div class="gv-bureau-rank">{{ member.rank }}</div>
+        <div class="gv-board-grid">
+          <div v-for="member in board" :key="member.role" class="gv-board-card">
+            <div class="gv-board-role">{{ member.role }}</div>
+            <div class="gv-board-name">{{ member.name }}</div>
+            <div class="gv-board-rank">{{ member.rank }}</div>
           </div>
         </div>
       </div>
@@ -118,15 +118,15 @@ const legal = [
 }
 .gv-doc-meta { margin-left: auto; color: $color-text-dim; font-size: $fs-caption; }
 
-.gv-bureau-grid {
+.gv-board-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
   margin-top: 0.4rem;
 }
-@media (max-width: 600px) { .gv-bureau-grid { grid-template-columns: 1fr; } }
-.gv-bureau-card { text-align: center; }
-.gv-bureau-role {
+@media (max-width: 600px) { .gv-board-grid { grid-template-columns: 1fr; } }
+.gv-board-card { text-align: center; }
+.gv-board-role {
   font-size: $fs-caption;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -134,6 +134,6 @@ const legal = [
   font-weight: 700;
   margin-bottom: 0.3rem;
 }
-.gv-bureau-name { font-weight: 700; color: $color-black; font-size: $fs-h4; }
-.gv-bureau-rank { font-size: $fs-caption; color: $color-text-dim; }
+.gv-board-name { font-weight: 700; color: $color-black; font-size: $fs-h4; }
+.gv-board-rank { font-size: $fs-caption; color: $color-text-dim; }
 </style>

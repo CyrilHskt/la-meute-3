@@ -1,11 +1,11 @@
-// Annonces "grand public" des mises à jour — à tenir à la main, pas
-// généré depuis les commits. On ne veut pas montrer aux visiteurs des
-// messages de commit techniques, juste ce qui vaut la peine d'être annoncé.
-// Mettre à jour ce fichier à chaque nouvelle version qu'on veut annoncer.
+// "General public" update announcements — kept by hand, not generated from
+// commits. We don't want to show visitors technical commit messages, just
+// what's worth announcing. Update this file for every new version we want
+// to announce.
 //
-// Ces numéros de version sont propres à cette popup ("informative"),
-// tenus à la main indépendamment de package.json ou du contrat déployé —
-// Site, Dashboard et Contrat ont chacun leur propre historique.
+// These version numbers are specific to this popup ("informative"), kept
+// by hand independently of package.json or the deployed contract — Site,
+// Dashboard and Contract each have their own history.
 
 export interface ChangelogEntry {
   date: string;

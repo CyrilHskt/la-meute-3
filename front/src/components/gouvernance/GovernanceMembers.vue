@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import type { Address } from "viem";
 import { useWallet } from "../../composables/useWallet";
-import { useMeute, TypeProposition, type Member } from "../../composables/useMeute";
+import { useMeute, ProposalType, type Member } from "../../composables/useMeute";
 import { useDiscordLink } from "../../composables/useDiscordLink";
 import { useToast } from "../../composables/useToast";
 import { friendlyContractError } from "../../composables/contractErrors";
@@ -10,97 +10,97 @@ import { useLocalAutoRefresh } from "../../composables/useLocalAutoRefresh";
 import AddressChip from "./AddressChip.vue";
 
 const { address, connect, readOnlyContract, writableContract, publicClient } = useWallet();
-const { members, proposals, loading, error, estAutorise, loadAll } = useMeute();
+const { members, proposals, loading, error, isAuthorized, loadAll } = useMeute();
 
-// Marqueur purement front (jamais une vraie valeur de Rang côté contrat, qui
-// n'a que Louveteau=0/Loup=1) : un candidat n'a pas encore de carte du tout,
-// juste une proposition d'Admission ouverte — on le mélange quand même dans
-// la liste des membres (on joue déjà avec eux en pratique), sans actions
-// titulariser/exclure puisqu'il se vote via sa propre candidature.
-const RANG_CANDIDAT = -1;
+// Purely front-side marker (never a real Rank value on the contract side,
+// which only has Cub=0/Wolf=1): an applicant doesn't have a card at all
+// yet, just an open Admission proposal — we still mix them into the
+// members list (we already interact with them in practice), without
+// confirm/exclude actions since they're voted on via their own
+// application.
+const APPLICANT_RANK = -1;
 const { discordLinkFor } = useDiscordLink();
 const { showToast } = useToast();
 
-// Rôle du visiteur courant — pas exposé par useMeute (qui décrit les
-// membres en général, pas "moi" en particulier) : une lecture ciblée
-// suffit, pas besoin de dupliquer toute la logique de GouvernanceDao.vue.
-const monRang = ref<number | null>(null);
-async function chargerMonRang() {
+// Current visitor's role — not exposed by useMeute (which describes
+// members in general, not "me" specifically): a targeted read is enough,
+// no need to duplicate all of GovernanceDao.vue's logic.
+const myRank = ref<number | null>(null);
+async function loadMyRank() {
   if (!address.value) {
-    monRang.value = null;
+    myRank.value = null;
     return;
   }
   const balance = (await readOnlyContract().read.balanceOf([address.value])) as bigint;
   if (balance === 0n) {
-    monRang.value = null;
+    myRank.value = null;
     return;
   }
-  const carte = (await readOnlyContract().read.carte([address.value])) as { rang: number };
-  monRang.value = Number(carte.rang);
+  const card = (await readOnlyContract().read.card([address.value])) as { rank: number };
+  myRank.value = Number(card.rank);
 }
-const jeSuisLoup = computed(() => monRang.value === 1);
+const amIAWolf = computed(() => myRank.value === 1);
 
 onMounted(async () => {
   await loadAll();
-  chargerMonRang();
+  loadMyRank();
 });
-watch(address, chargerMonRang);
+watch(address, loadMyRank);
 
-// Voir GouvernanceDao.vue : sans remettre le scroll à 0 quand la liste des
-// membres disparaît (déconnexion), la position de scroll reste celle
-// d'avant sur une page bien plus courte.
-watch(estAutorise, (autorise) => {
-  if (!autorise) window.scrollTo({ top: 0 });
+// See GovernanceDao.vue: without resetting scroll to 0 when the members
+// list disappears (disconnect), the scroll position stays where it was on
+// a much shorter page.
+watch(isAuthorized, (authorized) => {
+  if (!authorized) window.scrollTo({ top: 0 });
 });
 
-// Mode démo locale uniquement — voir GouvernanceDao.vue pour le contexte
-// (le panneau de démo modifie l'état dans un autre onglet, sans prévenir
-// celui-ci).
+// Local demo mode only — see GovernanceDao.vue for context (the demo
+// panel changes state in another tab, without notifying this one).
 useLocalAutoRefresh(async () => {
   await loadAll();
-  await chargerMonRang();
+  await loadMyRank();
 });
 
-interface Ligne extends Member {
-  pseudo?: string;
+interface Row extends Member {
+  username?: string;
   avatarUrl?: string;
 }
 
-const recherche = ref("");
-const lignes = computed<Ligne[]>(() => {
-  const q = recherche.value.trim().toLowerCase();
+const search = ref("");
+const rows = computed<Row[]>(() => {
+  const q = search.value.trim().toLowerCase();
 
-  const candidats: Ligne[] = proposals.value
-    .filter((p) => p.typeProp === TypeProposition.Admission && !p.executee)
-    .map((p) => ({ address: p.cible, rang: RANG_CANDIDAT, dormant: false }));
+  const applicants: Row[] = proposals.value
+    .filter((p) => p.proposalType === ProposalType.Admission && !p.executed)
+    .map((p) => ({ address: p.target, rank: APPLICANT_RANK, dormant: false }));
 
-  return [...members.value, ...candidats]
+  return [...members.value, ...applicants]
     .map((m) => {
       const link = discordLinkFor(m.address);
-      return { ...m, pseudo: link?.pseudo, avatarUrl: link?.avatarUrl };
+      return { ...m, username: link?.username, avatarUrl: link?.avatarUrl };
     })
-    .filter((m) => !q || (m.pseudo ?? "").toLowerCase().includes(q) || m.address.toLowerCase().includes(q))
-    .sort((a, b) => (a.pseudo ?? a.address).localeCompare(b.pseudo ?? b.address));
+    .filter((m) => !q || (m.username ?? "").toLowerCase().includes(q) || m.address.toLowerCase().includes(q))
+    .sort((a, b) => (a.username ?? a.address).localeCompare(b.username ?? b.address));
 });
 
-type ActionType = "titulariser" | "exclure";
-const confirmation = ref<{ type: ActionType; membre: Ligne } | null>(null);
+type ActionType = "confirm" | "exclude";
+const confirmation = ref<{ type: ActionType; member: Row } | null>(null);
 const txPending = ref(false);
 const txError = ref<string | null>(null);
 
-function demander(type: ActionType, membre: Ligne) {
+function requestAction(type: ActionType, member: Row) {
   txError.value = null;
-  confirmation.value = { type, membre };
+  confirmation.value = { type, member };
 }
-function annuler() {
+function cancel() {
   confirmation.value = null;
   txError.value = null;
 }
 
-// GouvernanceDao.vue et GouvernanceDons.vue passent déjà par un handler qui
-// affiche l'erreur — cette page appelait `connect` brut, donc un clic
-// annulé sur le popup MetaMask partait en rejet de promesse non géré, sans
-// aucun retour visible à l'utilisateur.
+// GovernanceDao.vue and GovernanceDonations.vue already go through a
+// handler that displays the error — this page called `connect` raw, so a
+// cancelled click on the MetaMask popup turned into an unhandled promise
+// rejection, with no visible feedback to the user.
 async function onConnect() {
   txError.value = null;
   try {
@@ -110,23 +110,23 @@ async function onConnect() {
   }
 }
 
-async function confirmer() {
+async function confirmAction() {
   if (!confirmation.value) return;
-  const { type, membre } = confirmation.value;
-  const cible = membre.address as Address;
+  const { type, member } = confirmation.value;
+  const target = member.address as Address;
   txPending.value = true;
   txError.value = null;
   try {
-    if (type === "titulariser") {
-      await readOnlyContract().simulate.ouvrirTitularisation([cible], { account: address.value! });
-      const hash = await writableContract().write.ouvrirTitularisation([cible]);
+    if (type === "confirm") {
+      await readOnlyContract().simulate.openConfirmationVote([target], { account: address.value! });
+      const hash = await writableContract().write.openConfirmationVote([target]);
       await publicClient.waitForTransactionReceipt({ hash });
     } else {
-      await readOnlyContract().simulate.proposerExclusion([cible], { account: address.value! });
-      const hash = await writableContract().write.proposerExclusion([cible]);
+      await readOnlyContract().simulate.proposeExclusion([target], { account: address.value! });
+      const hash = await writableContract().write.proposeExclusion([target]);
       await publicClient.waitForTransactionReceipt({ hash });
     }
-    showToast(type === "titulariser" ? "Titularisation proposée" : "Exclusion proposée");
+    showToast(type === "confirm" ? "Titularisation proposée" : "Exclusion proposée");
     confirmation.value = null;
     await loadAll();
   } catch (e) {
@@ -141,7 +141,7 @@ async function confirmer() {
   <div class="gm-page">
     <h2 class="gm-title">Membres de la Meute</h2>
 
-    <div v-if="!estAutorise" class="gm-gate">
+    <div v-if="!isAuthorized" class="gm-gate">
       <p class="gm-gate-text">
         La liste des membres est réservée aux Loups et Louveteaux de la Meute — connecte le wallet que tu utilises
         pour voter afin de la consulter.
@@ -152,7 +152,7 @@ async function confirmer() {
 
     <template v-else>
       <p class="gm-intro">
-        {{ lignes.length }} membre{{ lignes.length > 1 ? "s" : "" }} — Loups, Louveteaux et candidatures en cours.
+        {{ rows.length }} membre{{ rows.length > 1 ? "s" : "" }} — Loups, Louveteaux et candidatures en cours.
       </p>
 
       <p v-if="loading" class="gm-status">Chargement des données on-chain…</p>
@@ -165,23 +165,23 @@ async function confirmer() {
         <circle cx="7" cy="7" r="4.5" />
         <path d="M13.5 13.5 10.6 10.6" stroke-linecap="round" />
       </svg>
-      <input v-model="recherche" class="gm-search" type="text" placeholder="Rechercher un membre…" />
+      <input v-model="search" class="gm-search" type="text" placeholder="Rechercher un membre…" />
     </div>
 
     <ul class="gm-list">
-      <li v-for="m in lignes" :key="m.address" class="gm-row">
+      <li v-for="m in rows" :key="m.address" class="gm-row">
         <img v-if="m.avatarUrl" class="gm-avatar" :src="m.avatarUrl" alt="" />
         <span v-else class="gm-avatar gm-avatar--placeholder" aria-hidden="true"></span>
 
         <div class="gm-identity">
-          <span v-if="m.pseudo" class="gm-pseudo">{{ m.pseudo }}</span>
-          <span v-else class="gm-pseudo gm-pseudo--none">Discord non lié</span>
+          <span v-if="m.username" class="gm-username">{{ m.username }}</span>
+          <span v-else class="gm-username gm-username--none">Discord non lié</span>
           <AddressChip :address="m.address" short address-only dark />
         </div>
 
         <span
-          v-if="m.rang === -1"
-          class="gm-badge gm-badge--candidat"
+          v-if="m.rank === -1"
+          class="gm-badge gm-badge--applicant"
           title="Candidature d'admission en cours de vote"
         >
           Candidat
@@ -189,21 +189,21 @@ async function confirmer() {
         <span
           v-else
           class="gm-badge"
-          :class="[`gm-badge--${m.rang === 0 ? 'louveteau' : 'loup'}`, { 'gm-badge--dormant': m.dormant }]"
+          :class="[`gm-badge--${m.rank === 0 ? 'cub' : 'wolf'}`, { 'gm-badge--dormant': m.dormant }]"
         >
-          {{ m.rang === 0 ? "Louveteau" : "Loup" }}{{ m.dormant ? " · dormant" : "" }}
+          {{ m.rank === 0 ? "Louveteau" : "Loup" }}{{ m.dormant ? " · dormant" : "" }}
         </span>
 
         <div
-          v-if="jeSuisLoup && m.rang !== -1 && m.address.toLowerCase() !== address?.toLowerCase()"
+          v-if="amIAWolf && m.rank !== -1 && m.address.toLowerCase() !== address?.toLowerCase()"
           class="gm-actions"
         >
           <button
-            v-if="m.rang === 0"
+            v-if="m.rank === 0"
             class="gm-action gm-action--up"
             type="button"
             title="Proposer la titularisation"
-            @click="demander('titulariser', m)"
+            @click="requestAction('confirm', m)"
           >
             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8">
               <path d="M8 12.5V3.5M4 7.5 8 3.5l4 4" stroke-linecap="round" stroke-linejoin="round" />
@@ -213,7 +213,7 @@ async function confirmer() {
             class="gm-action gm-action--x"
             type="button"
             title="Proposer l'exclusion"
-            @click="demander('exclure', m)"
+            @click="requestAction('exclude', m)"
           >
             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8">
               <path d="M4 4l8 8M12 4l-8 8" stroke-linecap="round" />
@@ -221,20 +221,20 @@ async function confirmer() {
           </button>
         </div>
       </li>
-      <li v-if="!lignes.length" class="gm-empty">Aucun membre trouvé.</li>
+      <li v-if="!rows.length" class="gm-empty">Aucun membre trouvé.</li>
       </ul>
 
-      <div v-if="confirmation" class="gm-overlay" @click.self="annuler">
+      <div v-if="confirmation" class="gm-overlay" @click.self="cancel">
         <div class="gm-modal">
           <p class="gm-modal-title">
-            {{ confirmation.type === "titulariser" ? "Proposer la titularisation de" : "Proposer l'exclusion de" }}
-            <strong>{{ confirmation.membre.pseudo ?? confirmation.membre.address }}</strong> ?
+            {{ confirmation.type === "confirm" ? "Proposer la titularisation de" : "Proposer l'exclusion de" }}
+            <strong>{{ confirmation.member.username ?? confirmation.member.address }}</strong> ?
           </p>
           <p class="gm-modal-note">Les Loups actifs voteront ensuite pendant 7 jours.</p>
           <p v-if="txError" class="gm-error">{{ txError }}</p>
           <div class="gm-modal-actions">
-            <button class="btn btn-outline" type="button" :disabled="txPending" @click="annuler">Annuler</button>
-            <button class="btn btn-primary" type="button" :disabled="txPending" @click="confirmer">
+            <button class="btn btn-outline" type="button" :disabled="txPending" @click="cancel">Annuler</button>
+            <button class="btn btn-primary" type="button" :disabled="txPending" @click="confirmAction">
               {{ txPending ? "En cours…" : "Confirmer" }}
             </button>
           </div>
@@ -326,9 +326,10 @@ async function confirmer() {
   }
 }
 
-// Rangées translucides sur le fond noir du dashboard plutôt qu'une seule
-// dalle blanche opaque — la liste fait alors partie du dashboard sombre au
-// lieu de flotter dessus comme une page à part (retour d'un agent UX).
+// Translucent rows on the dashboard's black background rather than a
+// single opaque white slab — the list then feels part of the dark
+// dashboard instead of floating on top of it like a separate page
+// (feedback from a UX agent).
 .gm-list {
   list-style: none;
   margin: 0;
@@ -352,9 +353,9 @@ async function confirmer() {
     background: rgba(255, 255, 255, 0.07);
   }
 
-  // Les actions ne prennent leur plein poids visuel qu'au survol de la
-  // ligne — sinon 2 icônes x N lignes rivalisent avec les pseudos à la
-  // lecture (retour d'un agent UX).
+  // Actions only reach their full visual weight on row hover — otherwise
+  // 2 icons x N rows compete with the usernames when reading (feedback
+  // from a UX agent).
   &:hover .gm-action,
   &:focus-within .gm-action {
     opacity: 1;
@@ -388,7 +389,7 @@ async function confirmer() {
   flex: 1;
 }
 
-.gm-pseudo {
+.gm-username {
   font-weight: 700;
   font-size: $fs-body;
   color: #fff;
@@ -405,9 +406,9 @@ async function confirmer() {
 
 .gm-badge {
   flex-shrink: 0;
-  // Largeur fixe plutôt qu'au contenu : "Loup", "Louveteau · dormant" et
-  // "Candidat" n'ont pas la même longueur, et les laisser au contenu
-  // décalait les icônes d'action d'une ligne à l'autre (retour utilisateur).
+  // Fixed width rather than content-based: "Loup", "Louveteau · dormant"
+  // and "Candidat" aren't the same length, and leaving it to content
+  // shifted the action icons from one row to the next (user feedback).
   width: 150px;
   text-align: center;
   font-size: $fs-caption;
@@ -419,20 +420,20 @@ async function confirmer() {
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.6);
 
-  &--loup {
+  &--wolf {
     background: rgba(232, 146, 90, 0.18);
     color: #e8925a;
   }
-  &--louveteau {
+  &--cub {
     background: rgba(199, 159, 224, 0.18);
     color: #c79fe0;
   }
-  // Rôle assourdi plutôt qu'un badge séparé — "Loup dormant" reste un Loup,
-  // pas une deuxième info disjointe (retour d'un agent UX).
+  // Muted role rather than a separate badge — "dormant Wolf" stays a
+  // Wolf, not a second disjoint piece of info (feedback from a UX agent).
   &--dormant {
     opacity: 0.55;
   }
-  &--candidat {
+  &--applicant {
     background: rgba(249, 174, 60, 0.18);
     color: $color-orange;
   }

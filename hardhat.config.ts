@@ -4,10 +4,10 @@ import { configVariable, defineConfig } from "hardhat/config";
 export default defineConfig({
   plugins: [hardhatToolboxMochaEthersPlugin],
   solidity: {
-    // L'optimiseur est nécessaire en permanence, pas juste pour un profil
-    // "production" séparé : sans lui, le contrat dépasse la limite de
-    // taille EVM (24576 octets, EIP-170) et ne peut même plus être déployé
-    // dans les tests locaux.
+    // The optimizer is needed permanently, not just for a separate
+    // "production" profile: without it, the contract exceeds the EVM size
+    // limit (24576 bytes, EIP-170) and can't even be deployed in local
+    // tests.
     profiles: {
       default: {
         version: "0.8.28",
@@ -25,12 +25,12 @@ export default defineConfig({
       type: "edr-simulated",
       chainType: "l1",
     },
-    // `npx hardhat node` (sans --network) résout vers le réseau nommé
-    // "node" par défaut, pas "hardhat" — 30 comptes plutôt que les 20 par
-    // défaut : le scénario de démo "certification" (demo/actions.js) a
-    // besoin d'assez d'adresses distinctes pour tous ses rôles (Loups
-    // actifs/dormants, Louveteaux, candidats...) sans jamais en réutiliser
-    // une par accident (DejaMembre).
+    // `npx hardhat node` (without --network) resolves to the network named
+    // "node" by default, not "hardhat" — 30 accounts rather than the
+    // default 20: the "certification" demo scenario (demo/actions.js) needs
+    // enough distinct addresses for all its roles (active/dormant Wolves,
+    // Cubs, applicants...) without ever accidentally reusing one
+    // (AlreadyMember).
     node: {
       type: "edr-simulated",
       chainType: "l1",
@@ -40,10 +40,10 @@ export default defineConfig({
       type: "edr-simulated",
       chainType: "op",
     },
-    // Nœud JSON-RPC autonome (`npx hardhat node`), pour tester le front en
-    // conditions de vote réelles (avance de temps) sans attendre les 7
-    // jours/90 jours réels que Sepolia impose. Pas d'`accounts` : le nœud
-    // expose déjà ses propres comptes de test préfinancés.
+    // Standalone JSON-RPC node (`npx hardhat node`), to test the front under
+    // real voting conditions (time advancement) without waiting for the
+    // real 7 days/90 days that Sepolia imposes. No `accounts`: the node
+    // already exposes its own prefunded test accounts.
     localhost: {
       type: "http",
       chainType: "l1",

@@ -1,34 +1,38 @@
-// Adresse et ABI copiées depuis artifacts/contracts/Meute.sol/Meute.json
-// après compilation (`npx hardhat compile` à la racine du dépôt).
-// À régénérer manuellement si le contrat change.
+// Address and ABI copied from artifacts/contracts/Meute.sol/Meute.json
+// after compilation (`npx hardhat compile` at the repo root).
+// Regenerate manually if the contract changes.
 //
-// Le front et le contrat ont chacun leur propre version (tags séparés
-// contract-vX.Y.Z / front-vA.B.C, cf. .github/workflows/) : rien n'oblige
-// leurs numéros à matcher. Le vrai lien de compatibilité, c'est cette
-// constante : elle documente quelle version du contrat ce build du front
-// cible réellement, à mettre à jour à chaque redéploiement.
-export const CONTRACT_VERSION = "0.2.0" as const;
+// The front and the contract each have their own version (separate
+// contract-vX.Y.Z / front-vA.B.C tags, see .github/workflows/): nothing
+// forces their numbers to match. The real compatibility link is this
+// constant: it documents which contract version this front build actually
+// targets, to update on every redeployment.
+export const CONTRACT_VERSION = "0.4.0" as const;
 
-export const CONTRACT_ADDRESS = "0xc5279023174a56b076a1C501523B3D362408ecbe" as const;
+// PLACEHOLDER — replace with the real address once Meute.sol (renamed to
+// English, VERSION 0.4.0) is redeployed to Sepolia. The previous address
+// pointed at a contract compiled from the old French-named ABI and is no
+// longer compatible with CONTRACT_ABI below.
+export const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 
-// Bloc de déploiement (ignition/deployments/chain-11155111/journal.jsonl) :
-// point de départ des requêtes de logs, pour ne jamais interroger depuis le
-// bloc 0 — les RPC publics plafonnent la plage `eth_getLogs` (10 000 blocs
-// sur celui utilisé ici), et le contrat n'a de toute façon aucune activité
-// avant ce bloc.
-export const CONTRACT_DEPLOY_BLOCK = 11319851n;
+// Deployment block (ignition/deployments/chain-11155111/journal.jsonl):
+// starting point for log queries, so we never query from block 0 — public
+// RPCs cap the `eth_getLogs` range (10,000 blocks on the one used here),
+// and the contract has no activity before this block anyway.
+// PLACEHOLDER — replace with the real deployment block once redeployed.
+export const CONTRACT_DEPLOY_BLOCK = 0n;
 
 export const CONTRACT_ABI = [
   {
     "inputs": [
       {
         "internalType": "address[]",
-        "name": "fondateurs",
+        "name": "founders",
         "type": "address[]"
       },
       {
         "internalType": "uint256",
-        "name": "montantCotisation",
+        "name": "feeAmount",
         "type": "uint256"
       }
     ],
@@ -37,42 +41,32 @@ export const CONTRACT_ABI = [
   },
   {
     "inputs": [],
-    "name": "AucunFondateur",
+    "name": "AlreadyExecuted",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "CandidatureDejaOuverte",
+    "name": "AlreadyMember",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "ChoixInvalide",
+    "name": "AlreadyVoted",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "ConflitInteret",
+    "name": "ApplicationAlreadyOpen",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "CotisationIncorrecte",
+    "name": "ConfirmationAlreadyOpen",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "DejaExecutee",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "DejaMembre",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "DejaVote",
+    "name": "ConflictOfInterest",
     "type": "error"
   },
   {
@@ -180,47 +174,47 @@ export const CONTRACT_ABI = [
   },
   {
     "inputs": [],
-    "name": "FondsInsuffisants",
+    "name": "IncorrectFee",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "MontantInvalide",
+    "name": "InsufficientFunds",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "PasCandidat",
+    "name": "InvalidAmount",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "PasLoup",
+    "name": "InvalidChoice",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "PasLouveteau",
+    "name": "NoFounders",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "PasMembre",
+    "name": "NotACub",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "ProbationNonTerminee",
+    "name": "NotAMember",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "ProposalInconnue",
+    "name": "NotAWolf",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "PseudoTropLong",
+    "name": "ProbationNotOver",
     "type": "error"
   },
   {
@@ -246,27 +240,27 @@ export const CONTRACT_ABI = [
   },
   {
     "inputs": [],
-    "name": "TitularisationDejaOuverte",
+    "name": "TransferFailed",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "TransfertEchoue",
+    "name": "TransferForbidden",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "TransfertInterdit",
+    "name": "UnknownProposal",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "VoteEncoreOuvert",
+    "name": "VoteClosed",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "VoteFerme",
+    "name": "VoteStillOpen",
     "type": "error"
   },
   {
@@ -325,23 +319,23 @@ export const CONTRACT_ABI = [
       {
         "indexed": true,
         "internalType": "address",
-        "name": "donateur",
+        "name": "donor",
         "type": "address"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "montant",
+        "name": "amount",
         "type": "uint256"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "totalCumule",
+        "name": "totalDonated",
         "type": "uint256"
       }
     ],
-    "name": "DonRecu",
+    "name": "DonationReceived",
     "type": "event"
   },
   {
@@ -350,24 +344,11 @@ export const CONTRACT_ABI = [
       {
         "indexed": true,
         "internalType": "address",
-        "name": "membre",
+        "name": "member",
         "type": "address"
       }
     ],
-    "name": "MembreReveille",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "proposalId",
-        "type": "uint256"
-      }
-    ],
-    "name": "PropositionExecutee",
+    "name": "MemberWokenUp",
     "type": "event"
   },
   {
@@ -378,46 +359,40 @@ export const CONTRACT_ABI = [
         "internalType": "uint256",
         "name": "proposalId",
         "type": "uint256"
+      }
+    ],
+    "name": "ProposalExecuted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "proposalId",
+        "type": "uint256"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "cible",
+        "name": "target",
         "type": "address"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "auteur",
+        "name": "author",
         "type": "address"
       },
       {
         "indexed": false,
-        "internalType": "enum Meute.TypeProposition",
-        "name": "typeProp",
+        "internalType": "enum Meute.ProposalType",
+        "name": "proposalType",
         "type": "uint8"
       }
     ],
-    "name": "PropositionOuverte",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "compte",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "pseudo",
-        "type": "string"
-      }
-    ],
-    "name": "PseudoModifie",
+    "name": "ProposalOpened",
     "type": "event"
   },
   {
@@ -457,16 +432,29 @@ export const CONTRACT_ABI = [
       {
         "indexed": true,
         "internalType": "address",
-        "name": "votant",
+        "name": "voter",
         "type": "address"
       }
     ],
-    "name": "VoteExprime",
+    "name": "VoteCast",
     "type": "event"
   },
   {
     "inputs": [],
-    "name": "AJOURNEMENTS_MAX",
+    "name": "DORMANCY_DELAY",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "MAX_POSTPONEMENTS",
     "outputs": [
       {
         "internalType": "uint8",
@@ -479,33 +467,7 @@ export const CONTRACT_ABI = [
   },
   {
     "inputs": [],
-    "name": "DELAI_DORMANCE",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "DUREE_PROBATION",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "DUREE_VOTE",
+    "name": "PROBATION_DURATION",
     "outputs": [
       {
         "internalType": "uint256",
@@ -556,6 +518,39 @@ export const CONTRACT_ABI = [
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "VOTE_DURATION",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "activeWolves",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "active",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "applyForMembership",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -593,41 +588,34 @@ export const CONTRACT_ABI = [
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "candidater",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "address",
-        "name": "membre",
+        "name": "member",
         "type": "address"
       }
     ],
-    "name": "carte",
+    "name": "card",
     "outputs": [
       {
         "components": [
           {
-            "internalType": "enum Meute.Rang",
-            "name": "rang",
+            "internalType": "enum Meute.Rank",
+            "name": "rank",
             "type": "uint8"
           },
           {
             "internalType": "uint40",
-            "name": "derniereActivite",
+            "name": "lastActivity",
             "type": "uint40"
           },
           {
             "internalType": "uint8",
-            "name": "ajournements",
+            "name": "postponements",
             "type": "uint8"
           }
         ],
-        "internalType": "struct Meute.Carte",
+        "internalType": "struct Meute.Card",
         "name": "",
         "type": "tuple"
       }
@@ -637,80 +625,9 @@ export const CONTRACT_ABI = [
   },
   {
     "inputs": [],
-    "name": "cotisation",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "nouveau",
-        "type": "string"
-      }
-    ],
-    "name": "definirPseudo",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "demissionner",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "donner",
+    "name": "donate",
     "outputs": [],
     "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "donateur",
-        "type": "address"
-      }
-    ],
-    "name": "donsCumules",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "membre",
-        "type": "address"
-      }
-    ],
-    "name": "estDormant",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -721,9 +638,22 @@ export const CONTRACT_ABI = [
         "type": "uint256"
       }
     ],
-    "name": "executer",
+    "name": "execute",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "fee",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -743,6 +673,13 @@ export const CONTRACT_ABI = [
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "imHere",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -770,20 +707,19 @@ export const CONTRACT_ABI = [
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "jeSuisLa",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "loupsActifs",
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "member",
+        "type": "address"
+      }
+    ],
+    "name": "isDormant",
     "outputs": [
       {
-        "internalType": "uint256",
-        "name": "actifs",
-        "type": "uint256"
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -806,11 +742,11 @@ export const CONTRACT_ABI = [
     "inputs": [
       {
         "internalType": "address",
-        "name": "louveteau",
+        "name": "cub",
         "type": "address"
       }
     ],
-    "name": "ouvrirTitularisation",
+    "name": "openConfirmationVote",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -837,108 +773,72 @@ export const CONTRACT_ABI = [
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "beneficiaire",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "montant",
-        "type": "uint256"
-      },
-      {
-        "internalType": "string",
-        "name": "motif",
-        "type": "string"
-      }
-    ],
-    "name": "proposerDepense",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "membre",
-        "type": "address"
-      }
-    ],
-    "name": "proposerExclusion",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "uint256",
         "name": "proposalId",
         "type": "uint256"
       }
     ],
-    "name": "proposition",
+    "name": "proposal",
     "outputs": [
       {
         "components": [
           {
-            "internalType": "enum Meute.TypeProposition",
-            "name": "typeProp",
+            "internalType": "enum Meute.ProposalType",
+            "name": "proposalType",
             "type": "uint8"
           },
           {
             "internalType": "address",
-            "name": "cible",
+            "name": "target",
             "type": "address"
           },
           {
             "internalType": "uint64",
-            "name": "echeance",
+            "name": "deadline",
             "type": "uint64"
           },
           {
             "internalType": "uint32",
-            "name": "snapshotActifs",
+            "name": "activeSnapshot",
             "type": "uint32"
           },
           {
             "internalType": "bool",
-            "name": "snapshotFige",
+            "name": "snapshotFrozen",
             "type": "bool"
           },
           {
             "internalType": "bool",
-            "name": "executee",
+            "name": "executed",
             "type": "bool"
           },
           {
             "internalType": "uint32",
-            "name": "votesApprouver",
+            "name": "approveVotes",
             "type": "uint32"
           },
           {
             "internalType": "uint32",
-            "name": "votesRejeter",
+            "name": "rejectVotes",
             "type": "uint32"
           },
           {
             "internalType": "uint32",
-            "name": "votesAjourner",
+            "name": "postponeVotes",
             "type": "uint32"
           },
           {
             "internalType": "uint256",
-            "name": "montant",
+            "name": "amount",
             "type": "uint256"
           },
           {
             "internalType": "string",
-            "name": "motif",
+            "name": "reason",
             "type": "string"
           }
         ],
-        "internalType": "struct Meute.Proposition",
+        "internalType": "struct Meute.Proposal",
         "name": "",
         "type": "tuple"
       }
@@ -950,19 +850,43 @@ export const CONTRACT_ABI = [
     "inputs": [
       {
         "internalType": "address",
-        "name": "compte",
+        "name": "member",
         "type": "address"
       }
     ],
-    "name": "pseudo",
-    "outputs": [
+    "name": "proposeExclusion",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "beneficiary",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
       {
         "internalType": "string",
-        "name": "",
+        "name": "reason",
         "type": "string"
       }
     ],
-    "stateMutability": "view",
+    "name": "proposeExpense",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "resign",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -1089,6 +1013,25 @@ export const CONTRACT_ABI = [
     "inputs": [
       {
         "internalType": "address",
+        "name": "donor",
+        "type": "address"
+      }
+    ],
+    "name": "totalDonations",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
         "name": "from",
         "type": "address"
       },
@@ -1116,12 +1059,12 @@ export const CONTRACT_ABI = [
         "type": "uint256"
       },
       {
-        "internalType": "enum Meute.ChoixVote",
-        "name": "choix",
+        "internalType": "enum Meute.VoteChoice",
+        "name": "choice",
         "type": "uint8"
       }
     ],
-    "name": "voter",
+    "name": "vote",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

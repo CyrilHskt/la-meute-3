@@ -1,7 +1,7 @@
 {
   "name": "la-meute-3",
   "version": "0.1.0",
-  "description": "Prototype de gouvernance décentralisée pour une association loi 1901 — certification Alyra RS6515",
+  "description": "Decentralized governance prototype for a French non-profit (loi 1901 association) — Alyra RS6515 certification",
   "type": "module",
   "scripts": {
     "advance-time": "node scripts/advance-time.js",

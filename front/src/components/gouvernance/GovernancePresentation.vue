@@ -17,9 +17,9 @@ const timelineDao = {
   text: "Les décisions internes de l'association sont désormais votées on-chain par ses membres actifs.",
 };
 
-// Repris tels quels des arguments déjà présents dans "Pourquoi passer sur
-// une DAO ?" plus bas sur la page — condensés ici pour mettre en avant la
-// V3 dans la timeline, pas une nouvelle rédaction.
+// Reused as-is from the arguments already present in "Pourquoi passer sur
+// une DAO ?" further down the page — condensed here to highlight V3 in
+// the timeline, not a new write-up.
 const daoHighlights = [
   {
     title: "Infalsifiable et résilient",
@@ -185,13 +185,13 @@ const faq = [
   margin: 0 0 1.2rem;
 }
 
-// Version précédente : chaque carte était découpée en flèche (clip-path)
-// pour suggérer la progression V1→V2→V3. Abandonné (2026-07-22) — la
-// géométrie exigeait un padding toujours strictement supérieur à la
-// profondeur de la pointe, et un titre qui passait sur plusieurs lignes
-// finissait quand même par tomber dans la zone découpée à certaines
-// largeurs. Remplacé par : V1/V2 réduites empilées à gauche, V3 mise en
-// avant à droite (plus grande, contenu enrichi) — aucune géométrie fragile.
+// Previous version: each card was cut into an arrow shape (clip-path) to
+// suggest the V1→V2→V3 progression. Abandoned (2026-07-22) — the geometry
+// required padding always strictly greater than the tip's depth, and a
+// title wrapping onto multiple lines still ended up falling into the cut
+// zone at certain widths. Replaced with: V1/V2 shrunk and stacked on the
+// left, V3 highlighted on the right (bigger, richer content) — no fragile
+// geometry.
 .gv-timeline {
   max-width: 1080px;
   margin: 2.8rem auto;
@@ -209,10 +209,10 @@ const faq = [
   flex: 0 0 260px;
   display: flex;
   flex-direction: column;
-  // Gap fixe, identique à celui entre la colonne et la carte V3 (voir
-  // .gv-timeline-arrow--to-v3), pour une cohérence visuelle entre les deux
-  // flèches. Le surplus de hauteur par rapport à V3 est absorbé par les
-  // cartes elles-mêmes (flex: 1 ci-dessous), pas par un espace vide.
+  // Fixed gap, identical to the one between the column and the V3 card
+  // (see .gv-timeline-arrow--to-v3), for visual consistency between the
+  // two arrows. The extra height compared to V3 is absorbed by the cards
+  // themselves (flex: 1 below), not by empty space.
   gap: 1.4rem;
 }
 @media (max-width: 820px) {
@@ -242,9 +242,9 @@ const faq = [
 }
 
 .gv-timeline-step--1 {
-  // Un gris chaud plutôt que #eee, qui se fondait presque dans le fond de
-  // page (#f9f9f9) — assez de contraste pour que la carte se détache
-  // clairement, tout en restant sobre à côté de l'orange et du noir.
+  // A warm gray rather than #eee, which nearly blended into the page
+  // background (#f9f9f9) — enough contrast for the card to stand out
+  // clearly, while staying sober next to the orange and black.
   background: linear-gradient(135deg, #ede7dd, #ddd5c6);
 
   .gv-timeline-version, h3 { color: #4a453d; }
@@ -259,14 +259,14 @@ const faq = [
   p { color: rgba(0, 0, 0, 0.7); }
 }
 
-// Positionnée par rapport à la carte V2 elle-même (pas à toute la ligne)
-// pour rester centrée sur V2 quelle que soit la hauteur de V1 ou de V3.
+// Positioned relative to the V2 card itself (not the whole row) to stay
+// centered on V2 regardless of V1 or V3's height.
 .gv-timeline-arrow--to-v3 {
   position: absolute;
   top: 50%;
-  // Centrée au milieu du gap (1.4rem) entre la colonne et la carte V3,
-  // plutôt que collée au bord de V2 — même logique d'espacement que la
-  // flèche V1→V2 (posée au milieu du gap de la colonne).
+  // Centered in the middle of the gap (1.4rem) between the column and the
+  // V3 card, rather than stuck to V2's edge — same spacing logic as the
+  // V1→V2 arrow (placed in the middle of the column's gap).
   left: calc(100% + 0.7rem);
   transform: translate(-50%, -50%);
 }
@@ -348,9 +348,9 @@ const faq = [
 }
 
 .gv-timeline-arrow--v {
-  // V1/V2 sont toujours empilées verticalement (.gv-timeline-col est en
-  // colonne quel que soit l'écran) — cette flèche pointe donc toujours
-  // vers le bas, contrairement à la flèche V2→V3 qui pivote à 820px.
+  // V1/V2 are always stacked vertically (.gv-timeline-col is a column
+  // regardless of screen size) — this arrow therefore always points
+  // down, unlike the V2→V3 arrow which rotates at 820px.
   align-self: center;
   transform: rotate(90deg) !important;
 }
