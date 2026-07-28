@@ -5,6 +5,7 @@ const resetInfoBtn = document.getElementById("reset-info");
 const resetCommandEl = document.getElementById("reset-command");
 const titleEl = document.getElementById("scenario-title");
 const menuCertificationEl = document.getElementById("menu-certification");
+const menuSoutenanceEl = document.getElementById("menu-soutenance");
 const menuTestEl = document.getElementById("menu-test");
 const rulesListEl = document.getElementById("rules-list");
 
@@ -46,6 +47,7 @@ function renderMenu(state) {
       });
   };
   build(menuCertificationEl, "certification");
+  build(menuSoutenanceEl, "soutenance");
   build(menuTestEl, "test");
 
   const active = state.scenarios.find((s) => s.id === state.activeScenarioId);
@@ -169,7 +171,13 @@ async function runStep(stepId) {
   const interval = pollProgress(stepId);
   try {
     const res = await fetch("/api/step", { method: "POST" });
-    render(await res.json());
+    const nextState = await res.json();
+    // Remettre à null AVANT de rendre : sinon ce rendu voit encore l'étape
+    // qui vient de se terminer comme "en cours" (son bouton reste figé sur
+    // "En cours..." jusqu'au prochain rendu complet, qui peut ne jamais
+    // arriver — constaté en test).
+    runningStepId = null;
+    render(nextState);
   } finally {
     clearInterval(interval);
     runningStepId = null;

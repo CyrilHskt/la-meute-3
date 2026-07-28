@@ -8,7 +8,6 @@ const MESSAGES: Record<string, string> = {
   PasLoup: "Seuls les Loups peuvent effectuer cette action.",
   PasLouveteau: "Cette action ne concerne que les Louveteaux.",
   PasMembre: "Cette adresse n'est pas membre de la Meute.",
-  PasCandidat: "Cette adresse n'a pas de candidature en cours.",
   DejaMembre: "Cette adresse est déjà membre.",
   VoteFerme: "Le vote est clos pour cette proposition.",
   VoteEncoreOuvert: "Le vote est encore en cours, impossible d'exécuter pour l'instant.",

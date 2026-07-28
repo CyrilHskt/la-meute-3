@@ -8,9 +8,13 @@
 // déclenché par une donnée qui change.
 //
 // Trois usages sur le même store :
-//   "index" — l'instantané public (stats, propositions, activité), lu par
-//             n'importe qui sans authentification (c'est déjà une donnée
-//             publique on-chain, pas la peine de la protéger en lecture).
+//   "index" — l'instantané de gouvernance (stats, propositions, membres,
+//             activité). Bien que ce soit déjà une donnée on-chain, on la
+//             réserve aux membres actuels plutôt que de la rendre publique
+//             sur le site — voir la discussion sur la désanonymisation dans
+//             docs/local/. Lecture via ?key=gouvernance (1re fois, avec
+//             signature) ou ?key=index&wallet=&session= (relectures).
+//             Écriture toujours protégée par x-sync-secret (job d'indexation).
 //   "state" — le curseur interne de l'indexeur (dernier bloc traité,
 //             membres/propositions déjà vus) ; lecture ET écriture
 //             protégées par un secret partagé, seul le job doit y toucher.
@@ -24,18 +28,82 @@
 //             on-chain avant d'écrire, impossible d'y injecter une donnée
 //             inventée depuis le navigateur.
 //
-// GET  ?key=index                 → instantané public (aucune auth)
-// GET  ?key=state                 → état interne (header x-sync-secret requis)
-// POST ?key=index|state           → écrit le corps JSON (header x-sync-secret requis)
-// POST ?key=patch-proposal        → { proposalId, auteur } (aucune auth, mais rate-limité)
+// GET  ?key=state                       → état interne (header x-sync-secret requis)
+// GET  ?key=discord-nonce&wallet=       → jeton à usage unique, préalable à ?key=gouvernance (voir plus bas)
+// POST ?key=gouvernance                 → { wallet, signature, nonce } → { session, index, discordLinks },
+//                                          réservé aux membres actuels (carte vérifiée en direct sur la
+//                                          chaîne à cet appel) — voir la discussion sur la
+//                                          désanonymisation dans docs/local/. Toute la page gouvernance
+//                                          (propositions, membres, dons, identités Discord) est
+//                                          réservée aux membres, pas seulement la table Discord.
+// GET  ?key=index&wallet=&session=      → relit l'instantané avec la session obtenue via ?key=gouvernance
+//                                          (pas de nouvelle signature tant qu'elle est valide, ~30 min)
+// POST ?key=index|state                 → écrit le corps JSON (header x-sync-secret requis) — utilisé par
+//                                          le job d'indexation, jamais par le front
+// POST ?key=patch-proposal              → { proposalId, auteur } (aucune auth, mais rate-limité)
 
 import { getStore } from "@netlify/blobs";
-import { createPublicClient, http, isAddress, type Address } from "viem";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { createPublicClient, http, isAddress, recoverMessageAddress, type Address } from "viem";
 import { sepolia } from "viem/chains";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../../src/contract.js";
 
 const SYNC_SECRET = process.env.SYNC_SECRET;
 const RPC_URL = process.env.RPC_URL;
+// Même secret que discord-link.mts (déjà utilisé pour signer le `state`
+// OAuth) — pas de nouvelle variable d'env à poser, même famille de jetons
+// signés côté serveur, à courte durée de vie.
+const STATE_SECRET = process.env.DISCORD_STATE_SECRET;
+const NONCE_MAX_AGE_MS = 5 * 60 * 1000;
+// Durée de la session gouvernance : assez courte pour qu'un membre exclu
+// perde l'accès rapidement, assez longue pour ne pas redemander une
+// signature à chaque vote ou changement d'onglet pendant une session de
+// travail normale.
+const SESSION_MAX_AGE_MS = 30 * 60 * 1000;
+
+function signer(payload: string): string {
+  return createHmac("sha256", STATE_SECRET!).update(payload).digest("hex");
+}
+
+function creerJeton(data: Record<string, unknown>): string {
+  const payload = Buffer.from(JSON.stringify({ ...data, ts: Date.now() })).toString("base64url");
+  return `${payload}.${signer(payload)}`;
+}
+
+/** Vérifie qu'un jeton (nonce ou session) a bien été émis par nous
+ *  (signature HMAC), qu'il n'est pas expiré, et qu'il correspond au wallet
+ *  qui l'utilise — sans avoir besoin de le stocker nulle part (pas de
+ *  Blobs pour ça, juste une signature auto-vérifiable, même principe que
+ *  `state` dans discord-link.mts). */
+function verifierJeton(jeton: string, wallet: string, maxAgeMs: number): boolean {
+  const [payload, sig] = (jeton ?? "").split(".");
+  if (!payload || !sig) return false;
+  const attendu = signer(payload);
+  if (sig.length !== attendu.length || !timingSafeEqual(Buffer.from(sig), Buffer.from(attendu))) return false;
+  try {
+    const { wallet: walletJeton, ts } = JSON.parse(Buffer.from(payload, "base64url").toString()) as {
+      wallet: string;
+      ts: number;
+    };
+    if (Date.now() - ts > maxAgeMs) return false;
+    return walletJeton.toLowerCase() === wallet.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
+function creerNonce(wallet: string): string {
+  return creerJeton({ wallet });
+}
+function verifierNonce(nonce: string, wallet: string): boolean {
+  return verifierJeton(nonce, wallet, NONCE_MAX_AGE_MS);
+}
+function creerSession(wallet: string): string {
+  return creerJeton({ wallet });
+}
+function verifierSession(session: string, wallet: string): boolean {
+  return verifierJeton(session, wallet, SESSION_MAX_AGE_MS);
+}
 
 // Une seule vraie transaction ne déclenche jamais plus d'un appel par
 // proposition — un cooldown court suffit à bloquer un usage abusif
@@ -58,7 +126,10 @@ const DEFAULT_INDEX = {
   proposals: [] as Record<string, unknown>[],
   memberActivity: {},
   topDonateurs: [] as { adresse: string; total: string }[],
+  members: [] as { address: string; rang: number; dormant: boolean }[],
 };
+
+const DEFAULT_DISCORD_LINKS = {} as Record<string, { discordId: string; pseudo: string; avatarUrl: string; linkedAt: string }>;
 
 const DEFAULT_STATE = {
   lastBlock: null, // null = jamais lancé ; sync-dao.js retombe alors sur CONTRACT_DEPLOY_BLOCK
@@ -147,14 +218,114 @@ async function handlePatchProposal(req: Request): Promise<Response> {
   return new Response("OK");
 }
 
+function messageAppartenance(wallet: string, nonce: string): string {
+  return `Je fais partie de La Meute (${wallet}) — ${nonce}`;
+}
+
+async function handleDiscordNonce(url: URL): Promise<Response> {
+  const wallet = url.searchParams.get("wallet");
+  if (!wallet || !isAddress(wallet)) return new Response("Paramètre wallet requis", { status: 400 });
+  return Response.json({ nonce: creerNonce(wallet) });
+}
+
+/** Preuve d'appartenance à la Meute, réutilisée par ?key=gouvernance et par
+ *  la relecture ?key=index — vérifie le solde en direct sur la chaîne à
+ *  CHAQUE appel initial (jamais en cache) : un membre qui vient d'être
+ *  exclu ne peut plus obtenir de nouvelle session. Retourne l'adresse
+ *  vérifiée, ou une Response d'erreur à renvoyer telle quelle. */
+async function verifierAppartenance(
+  wallet: string | null,
+  signature: string | null,
+  nonce: string | null,
+): Promise<Response | { wallet: string }> {
+  if (!RPC_URL) return new Response("RPC_URL non configuré côté serveur", { status: 500 });
+  if (!wallet || !isAddress(wallet) || !signature || !nonce) {
+    return new Response("wallet, signature et nonce requis", { status: 400 });
+  }
+  if (!verifierNonce(nonce, wallet)) {
+    return new Response("Nonce invalide ou expiré — relance la vérification.", { status: 401 });
+  }
+
+  let recovered: string;
+  try {
+    recovered = await recoverMessageAddress({ message: messageAppartenance(wallet, nonce), signature: signature as `0x${string}` });
+  } catch {
+    return new Response("Signature invalide", { status: 401 });
+  }
+  if (recovered.toLowerCase() !== wallet.toLowerCase()) {
+    return new Response("Signature invalide", { status: 401 });
+  }
+
+  const client = createPublicClient({ chain: sepolia, transport: http(RPC_URL) });
+  const balance = (await client.readContract({
+    address: CONTRACT_ADDRESS,
+    abi: CONTRACT_ABI,
+    functionName: "balanceOf",
+    args: [wallet as Address],
+  })) as bigint;
+  if (balance === 0n) return new Response("Réservé aux membres actuels", { status: 403 });
+
+  return { wallet };
+}
+
+/** Réservée aux membres actuels : la page gouvernance entière (propositions,
+ *  membres, activité, dons, identités Discord) — pas seulement la table
+ *  Discord. Voir la discussion sur la désanonymisation dans docs/local/ :
+ *  plutôt qu'un système de pseudos masqués pour les visiteurs, on masque
+ *  directement la donnée à qui n'est pas membre. Une signature réussie
+ *  délivre une session courte (30 min) qui évite de resigner à chaque
+ *  rafraîchissement (voir ?key=index plus bas). */
+async function handleGouvernance(req: Request): Promise<Response> {
+  if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
+
+  let body: { wallet?: string; signature?: string; nonce?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return new Response("JSON invalide", { status: 400 });
+  }
+  const verif = await verifierAppartenance(body.wallet ?? null, body.signature ?? null, body.nonce ?? null);
+  if (verif instanceof Response) return verif;
+
+  const store = getStore("dao");
+  const index = (await store.get("index", { type: "json" })) ?? DEFAULT_INDEX;
+  const discordLinks = (await store.get("discord-links", { type: "json" })) ?? DEFAULT_DISCORD_LINKS;
+  return Response.json({ session: creerSession(verif.wallet), index, discordLinks });
+}
+
+/** Relit l'instantané pour un membre déjà authentifié — vérifie seulement
+ *  la session (HMAC + expiration), pas de nouvel appel RPC : le compromis
+ *  volontaire est qu'un membre exclu en cours de session garde l'accès en
+ *  lecture jusqu'à expiration (30 min) ou prochaine reconnexion, plutôt que
+ *  de redemander une signature à chaque rafraîchissement de la page. */
+async function handleIndexAuth(url: URL): Promise<Response> {
+  const wallet = url.searchParams.get("wallet");
+  const jetonSession = url.searchParams.get("session");
+  if (!wallet || !isAddress(wallet) || !jetonSession) {
+    return new Response("wallet et session requis", { status: 400 });
+  }
+  if (!verifierSession(jetonSession, wallet)) {
+    return new Response("Session invalide ou expirée — reconnecte ton wallet.", { status: 401 });
+  }
+  const store = getStore("dao");
+  const value = await store.get("index", { type: "json" });
+  return Response.json(value ?? DEFAULT_INDEX);
+}
+
 export default async (req: Request) => {
   const url = new URL(req.url);
   const key = url.searchParams.get("key");
 
   if (key === "patch-proposal") return handlePatchProposal(req);
+  if (key === "discord-nonce") return handleDiscordNonce(url);
+  if (key === "gouvernance") return handleGouvernance(req);
+  if (key === "index" && req.method === "GET" && !req.headers.get("x-sync-secret")) return handleIndexAuth(url);
 
   if (key !== "index" && key !== "state") {
-    return new Response("Paramètre ?key= manquant ou invalide (attendu: index|state|patch-proposal)", { status: 400 });
+    return new Response(
+      "Paramètre ?key= manquant ou invalide (attendu: index|state|discord-nonce|gouvernance|patch-proposal)",
+      { status: 400 },
+    );
   }
 
   const requiresAuth = key === "state" || req.method === "POST";

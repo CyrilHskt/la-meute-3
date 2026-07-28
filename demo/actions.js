@@ -70,7 +70,9 @@ async function connect(ctx, contractAddress) {
   const founderSigner = new ethers.JsonRpcSigner(provider, ethers.getAddress(FOUNDER));
 
   const nodeAccounts = await provider.send("eth_accounts", []);
-  if (nodeAccounts.length < 19) throw new Error("Pas assez de comptes de test sur le nœud (besoin d'au moins 19).");
+  // 5 : le plus haut index de rôle utilisé (loup4 = nodeAccounts[4]) —
+  // filet de sécurité générique, tôt, avant même de choisir un scénario.
+  if (nodeAccounts.length < 5) throw new Error("Pas assez de comptes de test sur le nœud (besoin d'au moins 5).");
 
   // Rôles fixes parmi les comptes du nœud, distincts du fondateur — utilisés
   // par les scénarios de test isolés (exclusion, ajournement, dormance).
@@ -79,10 +81,6 @@ async function connect(ctx, contractAddress) {
     candidat: nodeAccounts[1],
     loup3: nodeAccounts[3],
     loup4: nodeAccounts[4],
-    louveteauA: nodeAccounts[5],
-    louveteauB: nodeAccounts[6],
-    boosterA: nodeAccounts[7],
-    boosterB: nodeAccounts[8],
   };
 
   // Tous les comptes ont un signer prêt, pas seulement les rôles nommés —
@@ -165,86 +163,93 @@ export async function reset(ctx) {
   return `Contrat redéployé à ${contractAddress}.`;
 }
 
-/** Mise en place : la meute a déjà une vraie activité avant même que
- *  l'histoire commence — 3 Loups de plus, 2 Louveteaux, de la trésorerie,
- *  plusieurs propositions déjà passées, et une encore ouverte. */
-// Nombre de Loups actifs / dormants visés dans l'état initial de la
-// certification (2026-07-25, sur demande de Cyril) — au-delà de la
-// trésorerie/propositions, ça donne un vrai volume à montrer côté front.
-const LOUPS_ACTIFS_CIBLE = 10; // fondateur inclus
-const LOUPS_DORMANTS_CIBLE = 5;
-
+/** Mise en place légère (remplace l'ancienne mise en place à 14 Loups,
+ *  devenue inutile une fois les scénarios A/B/C dédiés à la soutenance
+ *  créés — voir docs/local/soutenance-prep.md) : 5 comptes réutilisés au
+ *  fil des étapes, un maximum de statuts visibles différents pour un
+ *  minimum de transactions, plutôt qu'un volume réaliste (ça, c'est le
+ *  travail de scripts/seed-local.js). Conçue avec un agent "scénariste"
+ *  (variété visible au moindre coût) et un agent "expert code" (formule de
+ *  quorum exacte côté Meute.sol : exprimes*4 > actifs*3 — voir
+ *  _approuvee) pour rester correcte sur les cas limites (ex: avec 3 Loups
+ *  actifs, RIEN n'atteint le quorum sans que TOUS votent).
+ *
+ *  Rôles réutilisés (mêmes noms que les scénarios de test isolés — sans
+ *  risque, un seul scénario tourne à la fois sur un contrat tout neuf) :
+ *  loup2 → 1er Loup titularisé, loup3 → 2e Loup titularisé puis laissé
+ *  dormant, loup4 → reste Louveteau (jamais titularisé), candidat → refusé
+ *  une fois puis libre de redonner (aucun état on-chain ne l'en empêche,
+ *  voir _executerAdmission qui rembourse et referme la candidature). */
 export async function miseEnPlace(ctx) {
-  const { louveteauA, louveteauB, boosterA, boosterB } = ctx.roles;
+  const { loup2: l1, loup3: l2, loup4: l3, candidat: d } = ctx.roles;
+  ctx.knownAddresses.push(l1, l2, l3, d);
+  ctx.progress?.setTotal(7);
 
-  // Un pool d'adresses dédié à cette mise en place, distinct des rôles
-  // utilisés plus loin dans cette même fonction (candidat, louveteauA/B,
-  // boosterA/B) — sinon une même adresse se retrouverait candidater() deux
-  // fois (DejaMembre). loup2/loup3/loup4 ne servent qu'aux scénarios de
-  // test isolés (jamais dans la même session que la certification), donc
-  // libres de réutilisation ici.
-  const reserves = new Set([ctx.candidat, louveteauA, louveteauB, boosterA, boosterB].map((a) => a.toLowerCase()));
-  const pool = ctx.nodeAccounts.filter((a) => !reserves.has(a.toLowerCase()));
-  const nbLoupsATitulariser = LOUPS_ACTIFS_CIBLE - 1 + LOUPS_DORMANTS_CIBLE;
-  const nouveauxLoups = pool.slice(0, nbLoupsATitulariser);
-
-  // Une unité de progression par Loup admis + 1 pour le réveil partiel + 1
-  // par Louveteau + 1 par booster + 1 pour la proposition finale.
-  ctx.progress?.setTotal(nouveauxLoups.length + 1 + 2 + 2 + 1);
-
-  // Chaque admission/titularisation fait voter tous les Loups déjà présents
-  // (faireRejoindre → tousVotent) : leur activité est donc rafraîchie à
-  // chaque tour, personne ne devient dormant pendant cette phase.
-  for (const addr of nouveauxLoups) {
-    await faireRejoindre(ctx, addr, { titulariser: true });
-    ctx.progress?.tick();
-  }
-  ctx.knownAddresses.push(...nouveauxLoups);
-
-  // On endort volontairement LOUPS_DORMANTS_CIBLE d'entre eux : on avance
-  // le temps au-delà du délai de dormance, puis seuls les autres confirment
-  // leur présence — les silencieux restent dormants pour de vrai.
-  const loupsAReveiller = [ctx.founder, ...nouveauxLoups.slice(0, LOUPS_ACTIFS_CIBLE - 1)];
-  const loupsLaissesDormants = nouveauxLoups.slice(LOUPS_ACTIFS_CIBLE - 1);
-  await avancerTemps(ctx, 180 * JOUR + 1);
-  for (const addr of loupsAReveiller) {
-    await (await ctx.contracts.get(addr).jeSuisLa()).wait();
-  }
+  // 1. L1 candidate et est titularisé — seul le fondateur vote (1 actif) :
+  //    quorum le plus trivial possible, juste pour amorcer la meute.
+  await faireRejoindre(ctx, l1, { titulariser: true });
   ctx.progress?.tick();
-  // Seuls les réveillés continuent de voter à partir d'ici — voter avec un
-  // dormant le réveillerait, ce qui ruinerait l'état qu'on vient de figer.
-  ctx.loups = loupsAReveiller;
 
-  await faireRejoindre(ctx, louveteauA, { titulariser: false });
+  // 2. L2 candidate et est titularisé — F+L1 votent (2 actifs).
+  await faireRejoindre(ctx, l2, { titulariser: true });
   ctx.progress?.tick();
-  await faireRejoindre(ctx, louveteauB, { titulariser: false });
-  ctx.progress?.tick();
-  ctx.knownAddresses.push(louveteauA, louveteauB);
 
-  // Deux candidats admis puis démissionnaires : gonflent la trésorerie
-  // (cotisation non remboursée) sans compter dans les effectifs actuels.
-  for (const addr of [boosterA, boosterB]) {
-    const c = ctx.contracts.get(addr);
-    const founder = ctx.contracts.get(ctx.founder);
-    const id = await ouvrirEtRecupererId(ctx, c, c.candidater({ value: await founder.cotisation() }));
-    await tousVotent(ctx, id);
+  // 3. L3 candidate mais reste Louveteau (jamais titularisé) — F+L1+L2
+  //    votent (3 actifs) : premier quorum non trivial (100% de participation
+  //    exigée avec seulement 3 actifs, cf. _approuvee).
+  await faireRejoindre(ctx, l3, { titulariser: false });
+  ctx.progress?.tick();
+
+  // 4. Dormance : on avance 181 jours (personne n'agit depuis un moment),
+  //    puis seuls F et L1 confirment leur présence — L2 reste dormant sans
+  //    aucune transaction dédiée (juste l'absence d'action).
+  await avancerTemps(ctx, 181 * JOUR);
+  await (await ctx.contracts.get(ctx.founder).jeSuisLa()).wait();
+  await (await ctx.contracts.get(l1).jeSuisLa()).wait();
+  ctx.progress?.tick();
+
+  // 5. D candidate et est nettement refusé — F+L1 votent Rejeter (L2
+  //    dormant, exclu du calcul ; 2 actifs, quorum atteint car les deux
+  //    votent). Cotisation remboursée automatiquement par le contrat, D
+  //    reste donc libre de redonner plus loin (dons, étape 7).
+  {
+    const c = ctx.contracts.get(d);
+    const id = await ouvrirEtRecupererId(ctx, c, c.candidater({ value: await ctx.contracts.get(ctx.founder).cotisation() }));
+    await (await ctx.contracts.get(ctx.founder).voter(id, ChoixVote.Rejeter)).wait();
+    await (await ctx.contracts.get(l1).voter(id, ChoixVote.Rejeter)).wait();
     await avancerTemps(ctx, 7 * JOUR + 1);
     await (await c.executer(id)).wait();
-    ctx.ids[`admission_${addr}`] = id;
-    await (await c.demissionner()).wait();
+    ctx.ids.admissionRefusee = id;
     ctx.progress?.tick();
   }
 
-  // Une proposition de dépense laissée ouverte, jamais votée — pour
-  // démarrer avec "1 proposition en cours" plutôt qu'un tableau vide.
+  // 6. Dépense qui n'atteint jamais le quorum — seul F vote (L1 s'abstient,
+  //    L2 dormant) : 1 votant sur 2 actifs, sous les 75% requis.
+  {
+    const founder = ctx.contracts.get(ctx.founder);
+    const id = await ouvrirEtRecupererId(ctx, founder, founder.proposerDepense(l3, ethers.parseEther("0.001"), "Rachat de goodies (jamais assez voté)"));
+    await (await founder.voter(id, ChoixVote.Approuver)).wait();
+    await avancerTemps(ctx, 7 * JOUR + 1);
+    await (await founder.executer(id)).wait();
+    ctx.ids.depenseQuorumRate = id;
+    ctx.progress?.tick();
+  }
+
+  // 7. Une dépense laissée ouverte, jamais votée (une proposition "en
+  //    cours" visible dès l'arrivée) + quelques dons pour un petit
+  //    classement (3 entrées) sur la page Dons.
   const founder = ctx.contracts.get(ctx.founder);
-  ctx.ids.depenseInitiale = await ouvrirEtRecupererId(ctx, 
-    founder,
-    founder.proposerDepense(louveteauA, ethers.parseEther("0.002"), "Achat d'un nom de domaine"),
-  );
+  ctx.ids.depenseOuverte = await ouvrirEtRecupererId(ctx, founder, founder.proposerDepense(d, ethers.parseEther("0.002"), "Achat d'un nom de domaine"));
+  await (await founder.donner({ value: ethers.parseEther("0.5") })).wait();
+  await (await ctx.contracts.get(d).donner({ value: ethers.parseEther("0.3") })).wait();
+  await (await ctx.contracts.get(l3).donner({ value: ethers.parseEther("0.1") })).wait();
   ctx.progress?.tick();
 
-  return `Meute mise en place : ${ctx.loups.length} Loups actifs, ${loupsLaissesDormants.length} Loups dormants, 2 Louveteaux, trésorerie alimentée, plusieurs propositions passées et une en cours.`;
+  return (
+    `Meute mise en place : ${ctx.loups.length} Loups actifs (dont 1 dormant), 1 Louveteau, ` +
+    "1 candidature refusée et 1 dépense sans quorum dans l'historique, 0.9 ETH reçus en dons, " +
+    "une dépense encore en cours."
+  );
 }
 
 export async function candidatPostule(ctx) {
@@ -306,8 +311,14 @@ export async function propositionDepense(ctx) {
 }
 
 export async function voteDepense(ctx) {
-  await tousVotent(ctx, ctx.ids.depense);
-  return `Les ${ctx.loups.length} Loups actifs votent Approuver.`;
+  // Le bénéficiaire (ctx.candidat, tout juste titularisé) ne peut pas voter
+  // sur sa propre dépense (ConflitInteret) — même filtre que
+  // voteDepenseTest/voteDepenseDormance plus haut dans ce fichier.
+  const votants = ctx.loups.filter((a) => a !== ctx.candidat);
+  for (const v of votants) {
+    await (await ctx.contracts.get(v).voter(ctx.ids.depense, ChoixVote.Approuver)).wait();
+  }
+  return `Les ${votants.length} autres Loups actifs votent Approuver (le bénéficiaire ne peut pas voter sur son propre cas).`;
 }
 
 export async function tempsVoteDepense(ctx) {
@@ -460,8 +471,8 @@ export async function setupDormance(ctx) {
 }
 
 export async function avancerUnAn(ctx) {
-  await avancerTemps(ctx, 366 * JOUR);
-  return "366 jours plus tard, sans aucune activité de personne.";
+  await avancerTemps(ctx, 181 * JOUR);
+  return "181 jours plus tard, sans aucune activité de personne.";
 }
 
 export async function reveilPartiel(ctx) {
@@ -480,9 +491,13 @@ export async function ouvrirDepenseDormance(ctx) {
 }
 
 export async function voteDepenseDormance(ctx) {
+  // loup2 est le bénéficiaire de cette dépense (voir ouvrirDepenseDormance)
+  // — conflit d'intérêt (§7.4) : il ne peut pas voter sur son propre cas et
+  // est retiré du dénominateur du quorum pour ce vote-là. Seul le fondateur
+  // vote donc ici (constaté : un `founder + loup2` votait par erreur,
+  // provoquant un revert ConflitInteret sur le vote de loup2).
   await (await ctx.contracts.get(ctx.founder).voter(ctx.ids.depenseDormance, ChoixVote.Approuver)).wait();
-  await (await ctx.contracts.get(ctx.roles.loup2).voter(ctx.ids.depenseDormance, ChoixVote.Approuver)).wait();
-  return "Le fondateur et loup2 votent Approuver — 2 votes sur un snapshot de 2 : ça doit suffire.";
+  return "Le fondateur vote Approuver — loup2 (bénéficiaire) ne peut pas voter sur son propre cas, retiré du dénominateur du quorum.";
 }
 
 export async function tempsVoteDepenseDormance(ctx) {
@@ -527,18 +542,39 @@ export async function buildIndex(ctx) {
 
   let loupsDormants = 0;
   let louveteaux = 0;
+  const members = [];
   for (const addr of ctx.knownAddresses) {
     // carte() renvoie une struct à zéro (donc rang Louveteau) pour une
     // adresse qui n'a jamais eu de carte du tout — il faut d'abord vérifier
     // que la carte existe vraiment (le contrat est un ERC721).
     if ((await founder.balanceOf(addr)) === 0n) continue;
     const c = await founder.carte(addr);
-    if (Number(c.rang) === 0) {
+    const rang = Number(c.rang);
+    if (rang === 0) {
       louveteaux += 1;
+      members.push({ address: addr, rang, dormant: false });
       continue;
     }
-    if (await founder.estDormant(addr)) loupsDormants += 1;
+    const dormant = await founder.estDormant(addr);
+    if (dormant) loupsDormants += 1;
+    members.push({ address: addr, rang, dormant });
   }
+
+  // Même principe que le classement des dons juste au-dessus : la struct
+  // Proposition ne stocke pas qui a voté ou proposé quoi (seulement des
+  // compteurs), donc l'activité par membre se reconstruit à partir des
+  // events — comme le fait le vrai indexeur (scripts/sync-dao.js). Avant
+  // ce correctif, cette table restait vide en démo locale, affichant
+  // toujours 0 pour "Votes soumis"/"Propositions ouvertes" sur la carte de
+  // membre, contrairement à la prod.
+  const memberActivity = {};
+  const bump = (addr, key) => {
+    const k = addr.toLowerCase();
+    memberActivity[k] ??= { votesSoumis: 0, propositionsOuvertes: 0 };
+    memberActivity[k][key]++;
+  };
+  for (const log of await founder.queryFilter(founder.filters.VoteExprime())) bump(log.args.votant, "votesSoumis");
+  for (const log of await founder.queryFilter(founder.filters.PropositionOuverte())) bump(log.args.auteur, "propositionsOuvertes");
 
   const proposals = [];
   let votesExprimes = 0;
@@ -567,8 +603,9 @@ export async function buildIndex(ctx) {
   return {
     stats: { treasuryWei: treasuryWei.toString(), loupsActifs, loupsDormants, louveteaux, votesExprimes, propositionsOuvertes },
     proposals,
-    memberActivity: {},
+    memberActivity,
     topDonateurs,
+    members,
   };
 }
 

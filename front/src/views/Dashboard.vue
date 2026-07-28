@@ -3,15 +3,17 @@ import { nextTick, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import GouvernancePresentation from "../components/gouvernance/GouvernancePresentation.vue";
 import GouvernanceAssociation from "../components/gouvernance/GouvernanceAssociation.vue";
+import GouvernanceMembres from "../components/gouvernance/GouvernanceMembres.vue";
 import GouvernanceDao from "../components/gouvernance/GouvernanceDao.vue";
 import GouvernanceDons from "../components/gouvernance/GouvernanceDons.vue";
 import { useGuidedTour } from "../composables/useGuidedTour";
 
-type PageTab = "presentation" | "association" | "dao" | "dons";
+type PageTab = "presentation" | "association" | "membres" | "dao" | "dons";
 
 const tabs: { id: PageTab; label: string }[] = [
   { id: "presentation", label: "Présentation" },
   { id: "association", label: "Association 1901" },
+  { id: "membres", label: "Membres" },
   { id: "dao", label: "Gouvernance DAO" },
   { id: "dons", label: "Dons" },
 ];
@@ -75,6 +77,7 @@ watch(
 
   <GouvernancePresentation v-show="activeTab === 'presentation'" @go-to-dao="activeTab = 'dao'" />
   <GouvernanceAssociation v-show="activeTab === 'association'" />
+  <GouvernanceMembres v-show="activeTab === 'membres'" />
   <GouvernanceDao v-show="activeTab === 'dao'" />
   <GouvernanceDons v-show="activeTab === 'dons'" />
   </div>

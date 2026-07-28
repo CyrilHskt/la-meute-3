@@ -25,6 +25,17 @@ export default defineConfig({
       type: "edr-simulated",
       chainType: "l1",
     },
+    // `npx hardhat node` (sans --network) résout vers le réseau nommé
+    // "node" par défaut, pas "hardhat" — 30 comptes plutôt que les 20 par
+    // défaut : le scénario de démo "certification" (demo/actions.js) a
+    // besoin d'assez d'adresses distinctes pour tous ses rôles (Loups
+    // actifs/dormants, Louveteaux, candidats...) sans jamais en réutiliser
+    // une par accident (DejaMembre).
+    node: {
+      type: "edr-simulated",
+      chainType: "l1",
+      accounts: { count: 30 },
+    },
     hardhatOp: {
       type: "edr-simulated",
       chainType: "op",

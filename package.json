@@ -7,7 +7,7 @@
     "advance-time": "node scripts/advance-time.js",
     "seed:local": "node scripts/seed-local.js",
     "sync:dao": "node scripts/sync-dao.js",
-    "demo": "node demo/server.mjs"
+    "demo": "node --env-file-if-exists=.env.local demo/server.mjs"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^4.0.14",

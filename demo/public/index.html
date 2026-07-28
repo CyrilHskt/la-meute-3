@@ -12,6 +12,21 @@
     <h1>🐺 La Meute</h1>
     <p class="sidebar-eyebrow">Certification</p>
     <ul id="menu-certification" class="menu"></ul>
+
+    <p class="sidebar-eyebrow">Soutenance (C6/C7)</p>
+    <!-- A n'est pas un scénario cliquable : `npx hardhat test` se lance
+         dans un terminal, pas dans ce panneau — voir
+         docs/local/soutenance-prep.md pour le découpage complet des 3
+         démos face au référentiel RS6515. Affiché ici juste comme
+         pense-bête pendant la présentation. -->
+    <div class="scenario-a-note">
+      <p class="scenario-a-title">A. Tests en direct (C6)</p>
+      <code>npx hardhat test --grep "dormance"</code>
+      <code>npx hardhat test --grep "proposerExclusion"</code>
+      <code>npx hardhat test --grep "ouvrirTitularisation"</code>
+    </div>
+    <ul id="menu-soutenance" class="menu"></ul>
+
     <p class="sidebar-eyebrow">Scénarios de test</p>
     <ul id="menu-test" class="menu"></ul>
   </nav>

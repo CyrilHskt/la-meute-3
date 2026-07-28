@@ -1,7 +1,27 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
+import type { Address } from "viem";
+import { useDiscordLink } from "../../composables/useDiscordLink";
 
-const props = defineProps<{ address: string; short?: boolean }>();
+const props = defineProps<{
+  address: string;
+  short?: boolean;
+  // Force l'affichage du hash même si un pseudo Discord existe — pour les
+  // endroits (ex: GouvernanceMembres.vue) où le pseudo est déjà affiché
+  // séparément juste au-dessus : sans ça, ce composant le réaffichait une
+  // deuxième fois (constaté par l'utilisateur, doublon visuel).
+  addressOnly?: boolean;
+  // Icônes/texte clairs, pour un usage sur fond sombre (dashboard #111).
+  dark?: boolean;
+}>();
+
+const { discordLinkFor } = useDiscordLink();
+// L'identité Discord vérifiée prime sur le hash dès qu'elle existe — plus
+// lisible pour les Loups qui votent, l'adresse reste toujours disponible
+// juste à côté (copier/Etherscan) pour qui veut vérifier. La page entière
+// n'est de toute façon accessible qu'aux membres authentifiés (voir
+// useMeute.ts, estAutorise) : pas besoin d'un mode "masqué" séparé ici.
+const link = computed(() => (props.addressOnly ? null : discordLinkFor(props.address as Address)));
 
 const copied = ref(false);
 
@@ -18,8 +38,12 @@ async function copy() {
 </script>
 
 <template>
-  <span class="addr-chip mono">
-    {{ displayed() }}
+  <span class="addr-chip" :class="{ 'addr-chip--dark': dark }">
+    <template v-if="link">
+      <img class="addr-avatar" :src="link.avatarUrl" alt="" />
+      <span class="addr-pseudo" :title="address">{{ link.pseudo }}</span>
+    </template>
+    <span v-else class="mono">{{ displayed() }}</span>
     <span class="addr-actions">
       <button
         class="icon-btn"
@@ -60,10 +84,33 @@ async function copy() {
   font-size: $fs-caption;
 }
 
+.addr-chip--dark {
+  color: rgba(255, 255, 255, 0.5);
+
+  .icon-btn {
+    color: rgba(255, 255, 255, 0.5);
+
+    &:hover {
+      color: $color-orange;
+      background: rgba(249, 174, 60, 0.16);
+    }
+  }
+}
+
 .addr-actions {
   display: inline-flex;
   align-items: center;
   gap: 0.15rem;
+}
+
+.addr-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+}
+
+.addr-pseudo {
+  font-weight: 600;
 }
 
 .icon-btn {
