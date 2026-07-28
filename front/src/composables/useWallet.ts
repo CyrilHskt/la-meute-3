@@ -3,28 +3,28 @@ import { createPublicClient, createWalletClient, custom, http, getContract, type
 import { sepolia, hardhat } from "viem/chains";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../contract";
 
-// Réseau ciblé : Sepolia par défaut (le déploiement réel et committé), ou
-// le nœud Hardhat local pour tester tout le cycle en quelques secondes
-// (avance de temps via networkHelpers) plutôt qu'en jours réels. Se
-// configure via front/.env.local (jamais committé, cf. *.local dans
-// .gitignore) — ne touche jamais contract.ts, qui reste la source de
-// vérité du déploiement Sepolia.
-// import.meta.env.DEV en plus de VITE_CHAIN : DEV est figé à `false` par
-// Vite pour tout `vite build` (production), quel que soit le contenu d'un
-// éventuel .env.local présent par erreur — élimination garantie à la
-// compilation, pas seulement "ce fichier ne devrait jamais être commité".
+// Target network: Sepolia by default (the real, committed deployment), or
+// the local Hardhat node to test the whole cycle in a few seconds (time
+// advancement via networkHelpers) instead of real days. Configured via
+// front/.env.local (never committed, see *.local in .gitignore) — never
+// touches contract.ts, which stays the source of truth for the Sepolia
+// deployment.
+// import.meta.env.DEV in addition to VITE_CHAIN: DEV is pinned to `false`
+// by Vite for every `vite build` (production), regardless of the content
+// of a stray .env.local present by mistake — guaranteed elimination at
+// compile time, not just "this file should never be committed".
 const isLocal = import.meta.env.DEV && import.meta.env.VITE_CHAIN === "local";
 const chain: Chain = isLocal ? hardhat : sepolia;
-// En local, l'adresse n'est pas figée : le panneau de démo (demo/server.mjs)
-// redéploie un contrat tout neuf à chaque réinitialisation, donc une
-// nouvelle adresse à chaque fois. `let` plutôt que `const` pour pouvoir la
-// rafraîchir sans redémarrer le serveur de dev — voir syncLocalContractAddress.
+// Locally, the address isn't fixed: the demo panel (demo/server.mjs)
+// redeploys a brand-new contract on every reset, so a new address every
+// time. `let` rather than `const` so it can be refreshed without
+// restarting the dev server — see syncLocalContractAddress.
 let contractAddress = (import.meta.env.VITE_CONTRACT_ADDRESS as Address | undefined) ?? CONTRACT_ADDRESS;
 
 const DEMO_SERVER_URL = "http://127.0.0.1:4100";
 
-/** Va chercher l'adresse actuelle auprès du panneau de démo. Sans effet en
- *  dehors du mode local — jamais appelé (ni même atteignable) en prod. */
+/** Fetches the current address from the demo panel. No effect outside
+ *  local mode — never called (or even reachable) in prod. */
 async function syncLocalContractAddress() {
   if (!isLocal) return;
   try {
@@ -33,24 +33,24 @@ async function syncLocalContractAddress() {
     const data = (await res.json()) as { contractAddress?: Address | null };
     if (data.contractAddress) contractAddress = data.contractAddress;
   } catch {
-    // Le panneau de démo n'est peut-être pas lancé — pas bloquant, on garde
-    // la dernière adresse connue.
+    // The demo panel might not be running — not blocking, we keep the last
+    // known address.
   }
 }
 const address = ref<Address | null>(null);
 const wrongNetwork = ref(false);
 const noWalletDetected = ref(false);
 
-// Lecture seule : ne nécessite aucun wallet, fonctionne même pour un
-// visiteur sans MetaMask installé. Ne pas utiliser `custom(window.ethereum)`
-// ici : ça exigerait un wallet juste pour afficher des stats publiques.
+// Read-only: requires no wallet, works even for a visitor without MetaMask
+// installed. Don't use `custom(window.ethereum)` here: that would require
+// a wallet just to display public stats.
 //
-// VITE_RPC_URL (Alchemy) plutôt que le RPC public par défaut de viem :
-// ce dernier (thirdweb pour Sepolia) s'est montré capricieux en prod avec
-// la croissance du trafic (échecs réseau intermittents constatés
-// directement dans le navigateur, invisibles en local/CLI) — pas de clé
-// secrète à protéger ici, une clé RPC en lecture n'autorise aucune
-// transaction, seulement à restreindre par domaine dans Alchemy si besoin.
+// VITE_RPC_URL (Alchemy) rather than viem's default public RPC: the
+// latter (thirdweb for Sepolia) proved flaky in prod as traffic grew
+// (intermittent network failures observed directly in the browser,
+// invisible locally/CLI) — no secret key to protect here, a read-only RPC
+// key authorizes no transaction, only lets you restrict by domain in
+// Alchemy if needed.
 const publicClient = createPublicClient({
   chain,
   transport: http(import.meta.env.VITE_RPC_URL as string | undefined),
@@ -80,21 +80,20 @@ async function connect() {
   address.value = account;
   wrongNetwork.value = chainId !== chain.id;
 
-  // Import dynamique pour casser la dépendance circulaire (useMeute importe
-  // useWallet pour readOnlyContract/signMessage). Uniquement ici, jamais
-  // dans tryRestoreConnection() : la vérification d'appartenance demande
-  // une signature, elle ne doit jamais surgir silencieusement à la
-  // reconnexion automatique au chargement de la page, seulement sur un
-  // clic explicite sur "Connecter mon wallet". C'est aussi ce qui débloque
-  // toute la page gouvernance (réservée aux membres) — voir useMeute.ts.
-  const { verifierAppartenanceEtCharger } = await import("./useMeute").then((m) => m.useMeute());
-  void verifierAppartenanceEtCharger(account);
+  // Dynamic import to break the circular dependency (useMeute imports
+  // useWallet for readOnlyContract/signMessage). Only here, never in
+  // tryRestoreConnection(): membership verification asks for a signature,
+  // it must never pop up silently on automatic reconnection at page load,
+  // only on an explicit click on "Connect my wallet". This is also what
+  // unlocks the whole governance page (members-only) — see useMeute.ts.
+  const { verifyMembershipAndLoad } = await import("./useMeute").then((m) => m.useMeute());
+  void verifyMembershipAndLoad(account);
 }
 
-// Sans ça, changer de compte ou de réseau *après* le clic sur "Connecter"
-// laisse le front bloqué sur son ancien état (ex: "mauvais réseau" qui ne
-// se corrige jamais tout seul) — MetaMask ne recharge pas la page pour
-// nous, il faut écouter ses événements explicitement.
+// Without this, changing account or network *after* clicking "Connect"
+// leaves the front stuck on its previous state (e.g. "wrong network" that
+// never corrects itself) — MetaMask doesn't reload the page for us, its
+// events have to be listened to explicitly.
 let listenersAttached = false;
 function attachWalletListeners() {
   if (listenersAttached) return;
@@ -104,24 +103,24 @@ function attachWalletListeners() {
 
   injected.on("accountsChanged", (...args: unknown[]) => {
     const accounts = args[0] as string[];
-    const nouveauCompte = accounts.length > 0 ? (accounts[0] as Address) : null;
-    address.value = nouveauCompte;
+    const newAccount = accounts.length > 0 ? (accounts[0] as Address) : null;
+    address.value = newAccount;
 
-    // La session/l'index vérifiés (useMeute) concernaient l'ancien compte —
-    // à effacer systématiquement, qu'on se déconnecte ou qu'on bascule sur
-    // un autre compte, sans quoi la page restait affichée comme si le
-    // nouveau (ou aucun) compte était toujours un membre authentifié
-    // (constaté : déconnexion sans effet visible sur la page gouvernance).
-    // Import dynamique : même raison qu'en connect() (dépendance
-    // circulaire useMeute <-> useWallet).
+    // The verified session/index (useMeute) related to the old account —
+    // always clear it, whether disconnecting or switching to another
+    // account, otherwise the page stayed displayed as if the new (or no)
+    // account were still an authenticated member (observed: disconnecting
+    // had no visible effect on the governance page).
+    // Dynamic import: same reason as in connect() (useMeute <-> useWallet
+    // circular dependency).
     void import("./useMeute").then((m) => {
-      const { reinitialiserSession, verifierAppartenanceEtCharger } = m.useMeute();
-      reinitialiserSession();
-      // Un changement de compte explicite dans MetaMask (pas une
-      // reconnexion silencieuse au chargement) — redemander une preuve
-      // d'appartenance ici est cohérent avec "une signature par session",
-      // la session change avec le compte.
-      if (nouveauCompte) void verifierAppartenanceEtCharger(nouveauCompte);
+      const { resetSession, verifyMembershipAndLoad } = m.useMeute();
+      resetSession();
+      // An explicit account change in MetaMask (not a silent reconnection
+      // on load) — asking for a new proof of membership here is
+      // consistent with "one signature per session", the session changes
+      // with the account.
+      if (newAccount) void verifyMembershipAndLoad(newAccount);
     });
   });
 
@@ -132,12 +131,12 @@ function attachWalletListeners() {
 }
 attachWalletListeners();
 
-// Sans ça, un rafraîchissement de page affiche "connecter mon wallet" même
-// si MetaMask a déjà autorisé ce site — l'autorisation survit au
-// rechargement côté wallet, mais `address` (un simple ref en mémoire) est
-// remis à zéro à chaque chargement du module. `getAddresses()` (eth_accounts)
-// est silencieux, contrairement à `requestAddresses()` (eth_requestAccounts) :
-// il ne redemande jamais l'autorisation, juste ce qui a déjà été donné.
+// Without this, refreshing the page shows "connect my wallet" even if
+// MetaMask already authorized this site — the authorization survives the
+// reload on the wallet side, but `address` (a plain in-memory ref) resets
+// to null on every module load. `getAddresses()` (eth_accounts) is
+// silent, unlike `requestAddresses()` (eth_requestAccounts): it never asks
+// for authorization again, just returns what was already granted.
 async function tryRestoreConnection() {
   const injected = getInjected();
   if (!injected) return;
@@ -151,18 +150,18 @@ async function tryRestoreConnection() {
     address.value = account;
     wrongNetwork.value = (await walletClient.getChainId()) !== chain.id;
   } catch {
-    // Wallet verrouillé ou autre souci silencieux — l'utilisateur peut
-    // toujours cliquer "Connecter mon wallet" manuellement.
+    // Locked wallet or other silent issue — the user can always click
+    // "Connect my wallet" manually.
   }
 }
 tryRestoreConnection();
 
-/** Contrat en lecture seule (view) : fonctionne sans wallet connecté. */
+/** Read-only (view) contract: works without a connected wallet. */
 function readOnlyContract() {
   return getContract({ address: contractAddress, abi: CONTRACT_ABI, client: publicClient });
 }
 
-/** Contrat signé : nécessite un wallet connecté, pour les fonctions qui écrivent. */
+/** Signed contract: requires a connected wallet, for functions that write. */
 function writableContract() {
   if (!address.value) throw new Error("Wallet non connecté");
   const injected = (window as unknown as { ethereum: unknown }).ethereum;
@@ -174,9 +173,9 @@ function writableContract() {
   return getContract({ address: contractAddress, abi: CONTRACT_ABI, client: walletClient });
 }
 
-/** Signature d'un message arbitraire (pas une transaction) — utilisé pour
- *  prouver la possession d'un wallet sans dépenser de gas, ex: délier un
- *  compte Discord (voir useDiscordLink.ts). */
+/** Signs an arbitrary message (not a transaction) — used to prove
+ *  ownership of a wallet without spending gas, e.g. unlinking a Discord
+ *  account (see useDiscordLink.ts). */
 async function signMessage(message: string): Promise<`0x${string}`> {
   if (!address.value) throw new Error("Wallet non connecté");
   const injected = (window as unknown as { ethereum: unknown }).ethereum;

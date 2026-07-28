@@ -3,15 +3,15 @@ import { computed, ref, watch } from "vue";
 
 export interface PickerOption {
   address: string;
-  pseudo?: string;
+  username?: string;
   avatarUrl?: string;
 }
 
-// Combobox en saisie libre avec suggestions — utilisé pour le bénéficiaire
-// d'une Dépense, qui peut être n'importe quelle adresse (pas forcément un
-// membre) : la liste n'est qu'un confort, jamais une contrainte. Titulariser
-// et Exclure ciblent forcément un membre existant et vivent depuis sur leur
-// propre page (GouvernanceMembres.vue), pas via ce composant.
+// Free-text combobox with suggestions — used for an Expense's
+// beneficiary, which can be any address (not necessarily a member): the
+// list is just a convenience, never a constraint. Confirm and Exclude
+// always target an existing member and have lived on their own page
+// (GovernanceMembers.vue) since, not through this component.
 const props = withDefaults(defineProps<{ modelValue: string; options: PickerOption[]; placeholder?: string }>(), {
   placeholder: "",
 });
@@ -23,7 +23,7 @@ const highlighted = ref(0);
 const inputEl = ref<HTMLInputElement | null>(null);
 
 function labelFor(o: PickerOption): string {
-  return o.pseudo ?? o.address;
+  return o.username ?? o.address;
 }
 function short(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
@@ -35,9 +35,9 @@ const filtered = computed(() => {
   return props.options.filter((o) => labelFor(o).toLowerCase().includes(q) || o.address.toLowerCase().includes(q));
 });
 
-// Reflète modelValue dans le champ texte tant que le panneau est fermé —
-// pendant la frappe (panneau ouvert), on laisse la saisie de l'utilisateur
-// tranquille plutôt que de l'écraser à chaque re-render.
+// Reflects modelValue in the text field as long as the panel is closed —
+// while typing (panel open), we leave the user's input alone rather than
+// overwriting it on every re-render.
 watch(
   () => props.modelValue,
   (v) => {
@@ -66,8 +66,8 @@ function onFocus() {
 }
 
 function onBlur() {
-  // setTimeout : laisse le mousedown sur une option s'exécuter avant que le
-  // blur ne referme le panneau (sinon le clic n'atteint jamais `select`).
+  // setTimeout: lets the mousedown on an option run before blur closes
+  // the panel (otherwise the click never reaches `select`).
   setTimeout(() => {
     open.value = false;
   }, 150);
@@ -138,8 +138,8 @@ function onKeydown(e: KeyboardEvent) {
         <img v-if="o.avatarUrl" class="mp-avatar" :src="o.avatarUrl" alt="" />
         <span v-else class="mp-avatar mp-avatar--placeholder" aria-hidden="true"></span>
         <span class="mp-option-text">
-          <span class="mp-pseudo">{{ o.pseudo ?? short(o.address) }}</span>
-          <span v-if="o.pseudo" class="mp-address mono">{{ short(o.address) }}</span>
+          <span class="mp-username">{{ o.username ?? short(o.address) }}</span>
+          <span v-if="o.username" class="mp-address mono">{{ short(o.address) }}</span>
         </span>
       </li>
     </ul>
@@ -263,7 +263,7 @@ function onKeydown(e: KeyboardEvent) {
   line-height: 1.3;
 }
 
-.mp-pseudo {
+.mp-username {
   font-weight: 600;
   font-size: 0.9rem;
   color: $color-black;

@@ -6,21 +6,22 @@ import { useDiscordLink } from "../../composables/useDiscordLink";
 const props = defineProps<{
   address: string;
   short?: boolean;
-  // Force l'affichage du hash même si un pseudo Discord existe — pour les
-  // endroits (ex: GouvernanceMembres.vue) où le pseudo est déjà affiché
-  // séparément juste au-dessus : sans ça, ce composant le réaffichait une
-  // deuxième fois (constaté par l'utilisateur, doublon visuel).
+  // Forces the hash to display even if a Discord username exists — for
+  // places (e.g. GovernanceMembers.vue) where the username is already
+  // shown separately just above: without this, this component displayed
+  // it a second time (observed by the user, visual duplicate).
   addressOnly?: boolean;
-  // Icônes/texte clairs, pour un usage sur fond sombre (dashboard #111).
+  // Bright icons/text, for use on a dark background (dashboard #111).
   dark?: boolean;
 }>();
 
 const { discordLinkFor } = useDiscordLink();
-// L'identité Discord vérifiée prime sur le hash dès qu'elle existe — plus
-// lisible pour les Loups qui votent, l'adresse reste toujours disponible
-// juste à côté (copier/Etherscan) pour qui veut vérifier. La page entière
-// n'est de toute façon accessible qu'aux membres authentifiés (voir
-// useMeute.ts, estAutorise) : pas besoin d'un mode "masqué" séparé ici.
+// The verified Discord identity takes priority over the hash as soon as
+// it exists — more readable for Wolves who vote, the address always
+// stays available right next to it (copy/Etherscan) for anyone who wants
+// to verify. The whole page is only accessible to authenticated members
+// anyway (see useMeute.ts, isAuthorized): no need for a separate
+// "hidden" mode here.
 const link = computed(() => (props.addressOnly ? null : discordLinkFor(props.address as Address)));
 
 const copied = ref(false);
@@ -41,7 +42,7 @@ async function copy() {
   <span class="addr-chip" :class="{ 'addr-chip--dark': dark }">
     <template v-if="link">
       <img class="addr-avatar" :src="link.avatarUrl" alt="" />
-      <span class="addr-pseudo" :title="address">{{ link.pseudo }}</span>
+      <span class="addr-username" :title="address">{{ link.username }}</span>
     </template>
     <span v-else class="mono">{{ displayed() }}</span>
     <span class="addr-actions">
@@ -109,7 +110,7 @@ async function copy() {
   border-radius: 50%;
 }
 
-.addr-pseudo {
+.addr-username {
   font-weight: 600;
 }
 

@@ -2,10 +2,11 @@
 import { ref, onMounted, onUnmounted, computed, nextTick, watch } from "vue";
 import { useRoute } from "vue-router";
 
-// Réplique le comportement du v2 : la nav est transparente en haut de la
-// page d'accueil (au-dessus du hero), et devient opaque (fond blanc) après
-// un léger scroll. Le dashboard n'a pas de hero sous la nav, donc elle y
-// reste toujours opaque, sinon le fond transparent se superpose au contenu.
+// Replicates the v2 behavior: the nav is transparent at the top of the
+// homepage (above the hero), and becomes opaque (white background) after
+// a slight scroll. The dashboard has no hero under the nav, so it always
+// stays opaque there, otherwise the transparent background would overlap
+// the content.
 const route = useRoute();
 const scrolledByUser = ref(false);
 const menuOpen = ref(false);
@@ -17,11 +18,11 @@ function onScroll() {
   scrolledByUser.value = window.scrollY > 50;
 }
 
-// La hauteur réelle de la nav dépend du contenu Bootstrap (font-size du
-// brand, wrap du menu sur mobile, etc.) — pas une constante fiable. On la
-// mesure et on l'expose en variable CSS pour que tout composant qui doit se
-// positionner sous elle (ex. le sous-menu sticky du dashboard) reste
-// synchronisé au lieu de deviner un nombre de pixels en dur.
+// The nav's actual height depends on Bootstrap content (brand font-size,
+// mobile menu wrap, etc.) — not a reliable constant. We measure it and
+// expose it as a CSS variable so any component that needs to position
+// itself below it (e.g. the dashboard's sticky sub-menu) stays in sync
+// instead of guessing a hardcoded pixel number.
 function updateNavbarHeight() {
   if (navbarEl.value) {
     document.documentElement.style.setProperty("--navbar-height", `${navbarEl.value.offsetHeight}px`);
@@ -34,7 +35,7 @@ onMounted(() => {
   updateNavbarHeight();
 });
 
-// Le menu mobile déplié change la hauteur totale de la nav.
+// The expanded mobile menu changes the nav's total height.
 watch(menuOpen, () => nextTick(updateNavbarHeight));
 onUnmounted(() => {
   window.removeEventListener("scroll", onScroll);

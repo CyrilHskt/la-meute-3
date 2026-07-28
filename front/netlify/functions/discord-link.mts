@@ -1,19 +1,19 @@
-// Lie une adresse de wallet à une identité Discord vérifiée, pour remplacer
-// le pseudo auto-déclaré (et non vérifié) qui vivait autrefois on-chain
-// (voir contracts/Meute.sol, pseudo/definirPseudo supprimés). Le résultat
-// (pseudo de serveur, avatar) est stocké dans le même store Netlify Blobs
-// que le reste (clé "discord-links"), réservé aux membres actuels et lu
-// uniquement via dao-sync.mts (?key=gouvernance) — jamais public.
+// Links a wallet address to a verified Discord identity, to replace the
+// self-declared (and unverified) username that used to live on-chain (see
+// contracts/Meute.sol, pseudo/definirPseudo removed). The result (server
+// username, avatar) is stored in the same Netlify Blobs store as the rest
+// (key "discord-links"), reserved to current members and read only via
+// dao-sync.mts (?key=governance) — never public.
 //
-// GET ?action=start&wallet=0x…   → redirige vers Discord (écran d'autorisation)
-// GET ?code=…&state=…            → callback Discord : échange le code, vérifie
-//                                   l'appartenance au serveur, enregistre le lien,
-//                                   puis redirige vers le front.
+// GET ?action=start&wallet=0x…   → redirects to Discord (authorization screen)
+// GET ?code=…&state=…            → Discord callback: exchanges the code, verifies
+//                                   guild membership, records the link,
+//                                   then redirects to the front.
 //
-// `state` sert à empêcher un tiers de rediriger le callback d'un autre
-// wallet que le sien (CSRF classique sur un flux OAuth) : on y encode
-// l'adresse du wallet demandeur, signée avec DISCORD_STATE_SECRET, jamais
-// transmise par le navigateur en clair sans preuve d'origine.
+// `state` prevents a third party from redirecting another wallet's
+// callback than their own (classic CSRF on an OAuth flow): it encodes the
+// requesting wallet's address, signed with DISCORD_STATE_SECRET, never
+// transmitted by the browser in clear without proof of origin.
 
 import { getStore } from "@netlify/blobs";
 import { createHmac, timingSafeEqual } from "node:crypto";
@@ -40,9 +40,9 @@ function verifyState(state: string): { wallet: string; returnTo: string } | null
   const [payload, sig] = state.split(".");
   if (!payload || !sig) return null;
   const expected = sign(payload);
-  // Longueurs hex identiques (sortie HMAC-SHA256 fixe) — timingSafeEqual
-  // exige des buffers de même taille, jamais garanti face à une entrée
-  // arbitraire côté client sans ce contrôle préalable.
+  // Identical hex lengths (fixed HMAC-SHA256 output) — timingSafeEqual
+  // requires buffers of the same size, never guaranteed against arbitrary
+  // client-side input without this prior check.
   if (sig.length !== expected.length || !timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
   try {
     const { wallet, returnTo, ts } = JSON.parse(Buffer.from(payload, "base64url").toString()) as {
@@ -63,16 +63,16 @@ function redirectUriFor(url: URL): string {
 }
 
 function frontOrigin(url: URL): string {
-  // En local (netlify dev), le front tourne sur le même port que les
-  // functions ; en prod aussi (Netlify sert les deux depuis le même
-  // domaine) — l'origine de la requête suffit dans les deux cas.
+  // Locally (netlify dev), the front runs on the same port as the
+  // functions; in prod too (Netlify serves both from the same domain) —
+  // the request's origin is enough in both cases.
   return `${url.protocol}//${url.host}`;
 }
 
-// Un returnTo forgé pourrait sinon rediriger la victime vers n'importe quel
-// site après une vraie autorisation Discord (open redirect classique) —
-// on n'accepte que la même origine que la requête en cours, jamais une
-// valeur arbitraire fournie par le client.
+// A forged returnTo could otherwise redirect the victim to any site after
+// a real Discord authorization (classic open redirect) — we only accept
+// the same origin as the current request, never an arbitrary value
+// supplied by the client.
 function safeReturnTo(candidate: string | null, fallbackOrigin: string): string {
   if (!candidate) return `${fallbackOrigin}/`;
   try {
@@ -148,7 +148,7 @@ async function handleCallback(req: Request, url: URL): Promise<Response> {
   if (!memberRes.ok) return fallback("error");
   const member = (await memberRes.json()) as { nick: string | null; avatar: string | null };
 
-  const pseudo = member.nick || user.username;
+  const username = member.nick || user.username;
   const avatarUrl = member.avatar
     ? `https://cdn.discordapp.com/guilds/${GUILD_ID}/users/${user.id}/avatars/${member.avatar}.png`
     : user.avatar
@@ -158,18 +158,18 @@ async function handleCallback(req: Request, url: URL): Promise<Response> {
   const store = getStore("dao");
   const links = ((await store.get("discord-links", { type: "json" })) ?? {}) as Record<
     string,
-    { discordId: string; pseudo: string; avatarUrl: string; linkedAt: string }
+    { discordId: string; username: string; avatarUrl: string; linkedAt: string }
   >;
-  links[wallet.toLowerCase()] = { discordId: user.id, pseudo, avatarUrl, linkedAt: new Date().toISOString() };
+  links[wallet.toLowerCase()] = { discordId: user.id, username, avatarUrl, linkedAt: new Date().toISOString() };
   await store.setJSON("discord-links", links);
 
   return Response.redirect(withDiscordParam(returnTo, "linked"), 302);
 }
 
-// Message signé, jamais une simple requête HTTP : sans preuve de possession
-// du wallet, n'importe qui aurait pu délier le compte Discord de n'importe
-// quelle adresse en connaissant juste son adresse (publique par nature).
-function messageADelier(wallet: string): string {
+// Signed message, never a plain HTTP request: without proof of wallet
+// ownership, anyone could have unlinked any address's Discord account
+// just by knowing its address (public by nature).
+function unlinkMessage(wallet: string): string {
   return `Délier mon compte Discord de La Meute (${wallet})`;
 }
 
@@ -184,7 +184,7 @@ async function handleUnlink(req: Request): Promise<Response> {
 
   let recovered: string;
   try {
-    recovered = await recoverMessageAddress({ message: messageADelier(wallet), signature });
+    recovered = await recoverMessageAddress({ message: unlinkMessage(wallet), signature });
   } catch {
     return new Response("Signature invalide", { status: 401 });
   }

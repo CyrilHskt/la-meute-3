@@ -1,8 +1,8 @@
 import { ref } from "vue";
 
-// État module-scope partagé (même pattern que useMeute.ts) : n'importe quel
-// composant peut déclencher un toast, un seul <ToastContainer> (monté une
-// fois dans App.vue) les affiche tous.
+// Shared module-scope state (same pattern as useMeute.ts): any component
+// can trigger a toast, a single <ToastContainer> (mounted once in
+// App.vue) displays them all.
 export interface Toast {
   id: number;
   message: string;

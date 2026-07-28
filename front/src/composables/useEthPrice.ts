@@ -1,8 +1,8 @@
 import { ref } from "vue";
 
-// Affichage front uniquement, jamais consommé par le contrat : un simple
-// appel à une API publique suffit, pas besoin d'oracle on-chain (celui-ci
-// ne serait nécessaire que si le *contrat* devait connaître le cours).
+// Front-end display only, never consumed by the contract: a plain call to
+// a public API is enough, no need for an on-chain oracle (that would only
+// be necessary if the *contract* needed to know the price).
 const eurPerEth = ref<number | null>(null);
 
 let fetched = false;
