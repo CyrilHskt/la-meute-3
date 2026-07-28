@@ -308,6 +308,18 @@ describe("Meute", function () {
       await meute.connect(candidat).candidater({ value: COTISATION });
     });
 
+    it("revert si le remboursement échoue (candidat = contrat sans receive())", async function () {
+      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+      const rejectEther = await ethers.deployContract("RejectEther");
+      await rejectEther.candidaterSurMeute(meute.target, { value: COTISATION });
+
+      await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Rejeter);
+      await meute.connect(fondateurs[1]).voter(0n, ChoixVote.Rejeter);
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+
+      await expect(meute.executer(0n)).to.be.revertedWithCustomError(meute, "TransfertEchoue");
+    });
+
     it("aucun vote exprimé : rejetée par défaut (pas de quorum, pas de majorité)", async function () {
       const { meute, candidat, proposalId } = await ouvrirCandidatureEtVoter(0, 0);
       await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
@@ -512,6 +524,19 @@ describe("Meute", function () {
 
       await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
       await expect(meute.executer(0n)).to.be.revertedWithCustomError(meute, "FondsInsuffisants");
+    });
+
+    it("revert si le versement échoue (bénéficiaire = contrat sans receive())", async function () {
+      const { meute, fondateurs } = await financerTresorerie();
+      const rejectEther = await ethers.deployContract("RejectEther");
+
+      await meute.connect(fondateurs[0]).proposerDepense(rejectEther.target, COTISATION, "va échouer");
+      await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[1]).voter(1n, ChoixVote.Approuver);
+      await meute.connect(fondateurs[2]).voter(1n, ChoixVote.Approuver);
+
+      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await expect(meute.executer(1n)).to.be.revertedWithCustomError(meute, "TransfertEchoue");
     });
 
     it("quorum non atteint (1 voix sur 3 actifs) : un seul votant ne peut plus emporter une dépense seul", async function () {

@@ -179,7 +179,6 @@ contract Meute is ERC721, ReentrancyGuard {
     error CotisationIncorrecte();
     error CandidatureDejaOuverte();
     error DejaMembre();
-    error PasCandidat();
     error PasLouveteau();
     error PasLoup();
     error ProbationNonTerminee();
@@ -256,6 +255,15 @@ contract Meute is ERC721, ReentrancyGuard {
     /// @notice Ouvre un vote de titularisation pour un Louveteau dont la
     ///         probation (initiale ou prolongée par ajournement) est terminée.
     ///         Ouvrable par n'importe quel Loup (§7.3).
+    /// @dev Volontairement aucune notion de "Louveteau dormant" ici, malgré
+    ///      une tentative en ce sens : contrairement à un Loup (qui peut
+    ///      toujours prouver sa présence via {jeSuisLa}), un Louveteau n'a
+    ///      aucune action on-chain pour réinitialiser son horloge lui-même —
+    ///      la bloquer aurait créé un piège permanent (un Louveteau dormant
+    ///      ne pourrait plus jamais rouvrir de vote, donc plus jamais se
+    ///      réveiller). Un Louveteau resté inactif n'est de toute façon
+    ///      jamais forcé : les Loups n'ont qu'à ne pas ouvrir ce vote, ou
+    ///      proposer son exclusion si besoin.
     /// @param louveteau Adresse du Louveteau concerné.
     function ouvrirTitularisation(address louveteau) external {
         if (_cartes[msg.sender].rang != Rang.Loup) revert PasLoup();
@@ -428,7 +436,8 @@ contract Meute is ERC721, ReentrancyGuard {
     /// @notice Indique si une adresse membre est actuellement dormante
     ///         (Loup sans participation depuis DELAI_DORMANCE). Faux pour un
     ///         Louveteau ou une adresse sans carte : la dormance ne concerne
-    ///         que les Loups (§7.5).
+    ///         que les Loups (§7.5) — voir la NatSpec de {ouvrirTitularisation}
+    ///         pour pourquoi ça ne s'étend délibérément pas aux Louveteaux.
     function estDormant(address membre) public view returns (bool) {
         Carte storage c = _cartes[membre];
         return c.rang == Rang.Loup && block.timestamp - c.derniereActivite > DELAI_DORMANCE;
