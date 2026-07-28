@@ -452,7 +452,7 @@ export async function postponeAttemptRefused(ctx) {
     await (await ctx.contracts.get(ctx.founder).vote(ctx.ids.confirmation3, VoteChoice.Postpone)).wait();
     return "Inattendu : le vote Ajourner est passé — le plafond ne s'est pas appliqué (bug ?).";
   } catch {
-    return "Comme prévu : le contrat refuse (ChoixInvalide) — AJOURNEMENTS_MAX est déjà atteint, impossible d'ajourner une 3e fois.";
+    return "Comme prévu : le contrat refuse (InvalidChoice) — AJOURNEMENTS_MAX est déjà atteint, impossible d'ajourner une 3e fois.";
   }
 }
 

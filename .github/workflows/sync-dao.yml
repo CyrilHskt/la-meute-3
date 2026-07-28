@@ -2,28 +2,28 @@ name: Sync DAO
 
 on:
   schedule:
-    # Toutes les 5 minutes (le minimum permis par GitHub Actions) — sert de
-    # filet de secours : la plupart des actions sont déjà répercutées tout
-    # de suite via ?key=patch-proposal (netlify/functions/dao-sync.mts),
-    # ce cron rattrape juste le reste (stats globales, cas où le patch
-    # immédiat aurait échoué). La fréquence réelle peut varier un peu selon
-    # la charge GitHub, mais l'état persisté (dernier bloc traité) garantit
-    # qu'aucun event n'est raté ni traité deux fois.
+    # Every 5 minutes (the minimum GitHub Actions allows) — acts as a
+    # safety net: most actions are already reflected immediately via
+    # ?key=patch-proposal (netlify/functions/dao-sync.mts), this cron just
+    # catches up on the rest (global stats, cases where the immediate
+    # patch failed). The actual frequency can vary a bit depending on
+    # GitHub's load, but the persisted state (last processed block)
+    # guarantees no event is ever missed or processed twice.
     - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-    # Généreux pour le tout premier run : le plan gratuit Alchemy limite
-    # eth_getLogs à 10 blocs/requête et à un débit de compute units par
-    # seconde assez bas (voir scripts/sync-dao.js — délai fixe + retries
-    # avec backoff sur les 429), donc le rattrapage complet depuis le
-    # déploiement représente des centaines de requêtes séquentielles,
-    # chacune espacée. Les runs suivants ne traitent que ~75 blocs
-    # (l'intervalle du cron) et finissent en quelques secondes — l'état
-    # cumulatif (Netlify Blobs, via netlify/functions/dao-sync.mts) évite
-    # de tout rescanner à chaque fois.
+    # Generous for the very first run: Alchemy's free plan caps
+    # eth_getLogs at 10 blocks/request and at a fairly low compute-units-
+    # per-second throughput (see scripts/sync-dao.js — fixed delay +
+    # backoff retries on 429s), so the full catch-up since deployment
+    # means hundreds of sequential, spaced-out requests. Subsequent runs
+    # only process ~75 blocks (the cron interval) and finish in seconds —
+    # the cumulative state (Netlify Blobs, via
+    # netlify/functions/dao-sync.mts) avoids rescanning everything each
+    # time.
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -36,10 +36,9 @@ jobs:
 
       - run: npx hardhat compile
 
-      # Aucune étape de commit ensuite : l'état et l'instantané sont écrits
-      # directement dans Netlify Blobs par le script lui-même (HTTP), pas
-      # dans le dépôt — publier une donnée fraîche ne doit jamais déclencher
-      # un rebuild du site.
+      # No commit step afterward: the state and snapshot are written
+      # directly to Netlify Blobs by the script itself (HTTP), not to the
+      # repo — publishing fresh data must never trigger a site rebuild.
       - run: node scripts/sync-dao.js
         env:
           RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
