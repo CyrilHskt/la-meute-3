@@ -2,7 +2,7 @@
 // mécanisme le plus différenciant du projet. Part d'un contrat vide.
 import * as actions from "../actions.js";
 
-export const ruleIds = ["quorum", "dormance", "reveil", "duree-vote"];
+export const ruleIds = ["quorum", "dormance", "reveil", "conflit", "duree-vote"];
 
 export const steps = [
   {
@@ -17,11 +17,11 @@ export const steps = [
   },
   {
     id: "avancer-un-an",
-    label: "1. On avance le temps d'un an",
-    narration: "366 jours sans aucune activité de personne.",
+    label: "1. On avance le temps de 6 mois",
+    narration: "181 jours sans aucune activité de personne.",
     command: [
-      { type: "code", text: "evm_increaseTime(31622400)" },
-      { type: "comment", text: "366 jours — au-delà du seuil de dormance (365 jours)" },
+      { type: "code", text: "evm_increaseTime(15638400)" },
+      { type: "comment", text: "181 jours — au-delà du seuil de dormance (180 jours)" },
     ],
     run: actions.avancerUnAn,
   },
@@ -48,12 +48,9 @@ export const steps = [
   },
   {
     id: "vote-depense-dormance",
-    label: "4. Les 2 Loups actifs votent",
-    narration: "2 votes sur un snapshot de 2 — ça doit suffire à la majorité stricte.",
-    command: [
-      { type: "code", text: "founder.voter(id, Approuver)" },
-      { type: "code", text: "loup2.voter(id, Approuver)" },
-    ],
+    label: "4. Le fondateur vote",
+    narration: "loup2, bénéficiaire de la dépense, ne peut pas voter sur son propre cas (conflit d'intérêt, §7.4) — retiré du dénominateur, le seul vote du fondateur suffit.",
+    command: [{ type: "code", text: "founder.voter(id, Approuver)" }],
     run: actions.voteDepenseDormance,
   },
   {
