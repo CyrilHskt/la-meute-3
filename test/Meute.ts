@@ -474,6 +474,13 @@ describe("Meute", function () {
       ).to.be.revertedWithCustomError(meute, "InvalidAmount");
     });
 
+    it("reverts if the beneficiary is the zero address", async function () {
+      const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(
+        meute.connect(founders[0]).proposeExpense(ethers.ZeroAddress, 1n, "test"),
+      ).to.be.revertedWithCustomError(meute, "InvalidAddress");
+    });
+
     it("opens an expense proposal with the beneficiary, amount and reason", async function () {
       const { meute, founders, stranger } = await networkHelpers.loadFixture(deployMeuteFixture);
       const amount = ethers.parseEther("0.001");

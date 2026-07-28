@@ -188,6 +188,7 @@ contract Meute is ERC721, ReentrancyGuard {
     error InvalidChoice();
     error TransferForbidden();
     error InvalidAmount();
+    error InvalidAddress();
     error NoFounders();
     error InsufficientFunds();
     error TransferFailed();
@@ -293,6 +294,7 @@ contract Meute is ERC721, ReentrancyGuard {
     /// @param reason Description of the expense.
     function proposeExpense(address beneficiary, uint256 amount, string calldata reason) external {
         if (_cards[msg.sender].rank != Rank.Wolf) revert NotAWolf();
+        if (beneficiary == address(0)) revert InvalidAddress();
         if (amount == 0) revert InvalidAmount();
 
         _openProposal(ProposalType.Expense, beneficiary, amount, reason);
