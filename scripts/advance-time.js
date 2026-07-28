@@ -13,7 +13,7 @@ const RPC_URL = process.env.RPC_URL ?? "http://127.0.0.1:8545";
 function parseDuration(input) {
   const match = /^(\d+)([dhms]?)$/.exec(input);
   if (!match) {
-    throw new Error(`Durée invalide : "${input}" — exemples valides : 7d, 12h, 30m, 3600`);
+    throw new Error(`Invalid duration: "${input}" — valid examples: 7d, 12h, 30m, 3600`);
   }
   const value = Number(match[1]);
   const unit = match[2] || "s";
@@ -28,7 +28,7 @@ async function rpc(method, params = []) {
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
   });
   const body = await res.json();
-  if (body.error) throw new Error(`${method} a échoué : ${body.error.message}`);
+  if (body.error) throw new Error(`${method} failed: ${body.error.message}`);
   return body.result;
 }
 
@@ -39,11 +39,11 @@ async function main() {
   await rpc("evm_increaseTime", [seconds]);
   await rpc("evm_mine", []);
 
-  console.log(`Temps avancé de ${seconds}s (${raw}) sur ${RPC_URL}.`);
+  console.log(`Advanced time by ${seconds}s (${raw}) on ${RPC_URL}.`);
 }
 
 main().catch((e) => {
   console.error(e.message ?? e);
-  console.error("Le nœud local (`npx hardhat node`) tourne-t-il bien sur", RPC_URL, "?");
+  console.error("Is the local node (`npx hardhat node`) running on", RPC_URL, "?");
   process.exitCode = 1;
 });
