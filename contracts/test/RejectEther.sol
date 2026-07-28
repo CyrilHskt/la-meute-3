@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-/// @notice Contrat de test uniquement — jamais déployé en production.
-/// @dev N'a ni `receive()` ni `fallback()` payable : tout ETH entrant
-///      revert. Sert à exercer TransfertEchoue() dans Meute.sol (chemins
-///      remboursement de cotisation et versement de dépense), qu'aucun
-///      compte de test normal (EOA) ne peut jamais déclencher — une EOA
-///      accepte toujours l'ETH qu'on lui envoie.
+/// @notice Test-only contract — never deployed to production.
+/// @dev Has neither a payable `receive()` nor `fallback()`: any incoming ETH
+///      reverts. Used to exercise TransferFailed() in Meute.sol (fee-refund
+///      and expense-payout paths), which no normal test account (EOA) could
+///      ever trigger — an EOA always accepts the ETH sent to it.
 contract RejectEther {
-    /// @dev Relaie l'appel pour que `msg.sender` vu par Meute soit ce
-    ///      contrat (donc l'adresse candidate), pas l'EOA qui a lancé le test.
-    function candidaterSurMeute(address meute) external payable {
-        (bool ok, ) = meute.call{value: msg.value}(abi.encodeWithSignature("candidater()"));
-        require(ok, "candidater() a echoue");
+    /// @dev Relays the call so that the `msg.sender` seen by Meute is this
+    ///      contract (i.e. the applicant address), not the EOA that started the test.
+    function applyOnMeute(address meute) external payable {
+        (bool ok, ) = meute.call{value: msg.value}(abi.encodeWithSignature("applyForMembership()"));
+        require(ok, "applyForMembership() failed");
     }
 }
