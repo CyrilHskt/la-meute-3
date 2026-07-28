@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useLocale } from "../composables/useLocale";
 import {
   SITE_VERSION,
   DASHBOARD_VERSION,
@@ -7,9 +9,16 @@ import {
   SITE_CHANGELOG,
   DASHBOARD_CHANGELOG,
   CONTRACT_CHANGELOG,
+  type ChangelogEntry,
 } from "../changelog";
 
+const { t } = useI18n();
+const { locale } = useLocale();
 const open = ref(false);
+
+function localized(field: ChangelogEntry["date"] | ChangelogEntry["title"]) {
+  return typeof field === "string" ? field : field[locale.value];
+}
 </script>
 
 <template>
@@ -20,57 +29,57 @@ const open = ref(false);
   <div v-if="open" class="vm-overlay" @click.self="open = false">
     <div class="vm-card">
       <div class="vm-head">
-        <button class="vm-close" type="button" title="Fermer" @click="open = false">
+        <button class="vm-close" type="button" :title="t('common.close')" @click="open = false">
           <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
             <path d="M4 4l8 8M12 4l-8 8" />
           </svg>
         </button>
-        <h2>Versions &amp; mises à jour</h2>
+        <h2>{{ t('versionBadge.title') }}</h2>
       </div>
 
       <div class="vm-columns">
         <div class="vm-col">
           <div class="vm-col-head">
-            <p class="vm-col-title">Site</p>
+            <p class="vm-col-title">{{ t('versionBadge.site') }}</p>
             <span class="vm-col-version">v{{ SITE_VERSION }}</span>
           </div>
           <div class="vm-col-scroll">
-            <div v-for="entry in SITE_CHANGELOG" :key="entry.date + entry.title" class="vm-entry">
-              <div class="vm-entry-date">{{ entry.date }}</div>
-              <div class="vm-entry-title">{{ entry.title }}</div>
+            <div v-for="(entry, i) in SITE_CHANGELOG" :key="i" class="vm-entry">
+              <div class="vm-entry-date">{{ localized(entry.date) }}</div>
+              <div class="vm-entry-title">{{ localized(entry.title) }}</div>
             </div>
           </div>
         </div>
 
         <div class="vm-col">
           <div class="vm-col-head">
-            <p class="vm-col-title">Dashboard</p>
+            <p class="vm-col-title">{{ t('versionBadge.dashboard') }}</p>
             <span class="vm-col-version">v{{ DASHBOARD_VERSION }}</span>
           </div>
           <div class="vm-col-scroll">
-            <div v-for="entry in DASHBOARD_CHANGELOG" :key="entry.date + entry.title" class="vm-entry">
-              <div class="vm-entry-date">{{ entry.date }}</div>
-              <div class="vm-entry-title">{{ entry.title }}</div>
+            <div v-for="(entry, i) in DASHBOARD_CHANGELOG" :key="i" class="vm-entry">
+              <div class="vm-entry-date">{{ localized(entry.date) }}</div>
+              <div class="vm-entry-title">{{ localized(entry.title) }}</div>
             </div>
           </div>
         </div>
 
         <div class="vm-col">
           <div class="vm-col-head">
-            <p class="vm-col-title">Contrat</p>
+            <p class="vm-col-title">{{ t('versionBadge.contract') }}</p>
             <span class="vm-col-version">v{{ CONTRACT_DISPLAY_VERSION }}</span>
           </div>
           <div class="vm-col-scroll">
-            <div v-for="entry in CONTRACT_CHANGELOG" :key="entry.date + entry.title" class="vm-entry">
-              <div class="vm-entry-date">{{ entry.date }}</div>
-              <div class="vm-entry-title">{{ entry.title }}</div>
+            <div v-for="(entry, i) in CONTRACT_CHANGELOG" :key="i" class="vm-entry">
+              <div class="vm-entry-date">{{ localized(entry.date) }}</div>
+              <div class="vm-entry-title">{{ localized(entry.title) }}</div>
             </div>
           </div>
         </div>
       </div>
 
       <div class="vm-credit">
-        Construit par
+        {{ t('versionBadge.builtBy') }}
         <a href="https://github.com/CyrilHskt" target="_blank" rel="noopener">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
             <path
@@ -79,6 +88,23 @@ const open = ref(false);
           </svg>
           CyrilHskt
         </a>
+      </div>
+      <div class="vm-credit vm-credit-secondary">
+        <span>{{ t('versionBadge.openSource') }}</span>
+        <div class="vm-pills">
+          <a
+            class="vm-pill"
+            href="https://github.com/CyrilHskt/la-meute-3/issues/new?labels=bug"
+            target="_blank"
+            rel="noopener"
+          >{{ t('versionBadge.reportBug') }}</a>
+          <a
+            class="vm-pill"
+            href="https://github.com/CyrilHskt/la-meute-3/issues/new"
+            target="_blank"
+            rel="noopener"
+          >{{ t('versionBadge.proposeContribution') }}</a>
+        </div>
       </div>
     </div>
   </div>
@@ -247,6 +273,40 @@ const open = ref(false);
     text-decoration: none;
 
     &:hover { color: $color-orange-dark; }
+  }
+}
+
+.vm-credit-secondary {
+  padding-top: 0;
+  border-top: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.vm-pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.vm-pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid $color-border;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-family: $font-mono;
+  font-size: 11px;
+  color: $color-text-dim;
+  text-decoration: none;
+
+  &:hover {
+    border-color: $color-orange;
+    color: $color-orange-dark;
   }
 }
 </style>

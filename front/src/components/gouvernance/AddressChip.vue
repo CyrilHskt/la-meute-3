@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import type { Address } from "viem";
 import { useDiscordLink } from "../../composables/useDiscordLink";
+
+const { t } = useI18n();
 
 const props = defineProps<{
   address: string;
@@ -50,7 +53,7 @@ async function copy() {
         class="icon-btn"
         :class="{ 'icon-btn--success': copied }"
         type="button"
-        :title="copied ? 'Copié !' : 'Copier l\'adresse'"
+        :title="copied ? t('addressChip.copied') : t('addressChip.copy')"
         @click="copy"
       >
         <svg v-if="copied" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -66,7 +69,7 @@ async function copy() {
         :href="`https://sepolia.etherscan.io/address/${address}`"
         target="_blank"
         rel="noopener"
-        title="Voir sur Etherscan"
+        :title="t('addressChip.viewOnEtherscan')"
       >
         <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4">
           <path d="M6.5 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V10.5" />

@@ -14,6 +14,7 @@
     "driver.js": "^1.8.0",
     "viem": "^2.55.4",
     "vue": "^3.5.39",
+    "vue-i18n": "^11.4.8",
     "vue-router": "^5.2.0"
   },
   "devDependencies": {

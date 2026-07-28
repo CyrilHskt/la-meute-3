@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick, watch } from "vue";
 import { useRoute } from "vue-router";
+import { useI18n } from "vue-i18n";
+import { useLocale } from "../composables/useLocale";
+
+const { t } = useI18n();
+const { locale, setLocale } = useLocale();
 
 // Replicates the v2 behavior: the nav is transparent at the top of the
 // homepage (above the hero), and becomes opaque (white background) after
@@ -54,13 +59,43 @@ onUnmounted(() => {
       </div>
       <div class="collapse navbar-collapse navbar-right navbar-main-collapse" :class="{ in: menuOpen }">
         <ul class="nav navbar-nav">
-          <li><router-link :to="{ path: '/', hash: '#page-top' }" @click="menuOpen = false">Accueil</router-link></li>
-          <li><router-link :to="{ path: '/', hash: '#about' }" @click="menuOpen = false">Notre clan</router-link></li>
-          <li><router-link :to="{ path: '/', hash: '#recruit' }" @click="menuOpen = false">Recrutement</router-link></li>
-          <li><router-link :to="{ path: '/', hash: '#contact' }" @click="menuOpen = false">Nous contacter</router-link></li>
-          <li><router-link to="/gouvernance" @click="menuOpen = false">Gouvernance</router-link></li>
+          <li><router-link :to="{ path: '/', hash: '#page-top' }" @click="menuOpen = false">{{ t("nav.home") }}</router-link></li>
+          <li><router-link :to="{ path: '/', hash: '#about' }" @click="menuOpen = false">{{ t("nav.about") }}</router-link></li>
+          <li><router-link :to="{ path: '/', hash: '#recruit' }" @click="menuOpen = false">{{ t("nav.recruit") }}</router-link></li>
+          <li><router-link :to="{ path: '/', hash: '#contact' }" @click="menuOpen = false">{{ t("nav.contact") }}</router-link></li>
+          <li><router-link to="/gouvernance" @click="menuOpen = false">{{ t("nav.governance") }}</router-link></li>
+          <li class="lang-switch">
+            <button type="button" :class="{ active: locale === 'fr' }" @click="setLocale('fr')">FR</button>
+            <span aria-hidden="true">/</span>
+            <button type="button" :class="{ active: locale === 'en' }" @click="setLocale('en')">EN</button>
+          </li>
         </ul>
       </div>
     </div>
   </nav>
 </template>
+
+<style scoped>
+.lang-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 15px;
+}
+.lang-switch button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.6;
+}
+.lang-switch button.active {
+  opacity: 1;
+  font-weight: 700;
+}
+.lang-switch span {
+  opacity: 0.5;
+}
+</style>

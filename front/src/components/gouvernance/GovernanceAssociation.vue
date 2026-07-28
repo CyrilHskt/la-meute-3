@@ -1,34 +1,39 @@
 <script setup lang="ts">
+import { computed } from "vue";
+import { useI18n } from "vue-i18n";
+
+const { t } = useI18n();
+
 // Public association documents — PDFs dropped in public/docs/, no
 // on-chain logic, just a list of links to keep up to date.
-const documents = [
-  { label: "Statuts de l'association", href: "/docs/statuts.pdf" },
-  { label: "Compte-rendu AG — 2026", href: "/docs/cr-ag-2026.pdf" },
-  { label: "Compte-rendu AG — 2025", href: "/docs/cr-ag-2025.pdf" },
-];
+const documents = computed(() => [
+  { label: t('association.documentBylaws'), href: "/docs/statuts.pdf" },
+  { label: t('association.documentMinutes2026'), href: "/docs/cr-ag-2026.pdf" },
+  { label: t('association.documentMinutes2025'), href: "/docs/cr-ag-2025.pdf" },
+]);
 
 // The legal 1901 board and the Wolf rank overlap through people, not
 // through the system: nothing in the contract enforces this link.
-const board = [
-  { role: "Présidence", name: "— nom —", rank: "Loup" },
-  { role: "Trésorerie", name: "— nom —", rank: "Loup" },
-  { role: "Secrétariat", name: "— nom —", rank: "Loup" },
-];
+const board = computed(() => [
+  { role: t('association.boardPresident'), name: t('association.boardNamePlaceholder'), rank: t('association.boardRankWolf') },
+  { role: t('association.boardTreasurer'), name: t('association.boardNamePlaceholder'), rank: t('association.boardRankWolf') },
+  { role: t('association.boardSecretary'), name: t('association.boardNamePlaceholder'), rank: t('association.boardRankWolf') },
+]);
 
-const legal = [
-  { label: "Forme juridique", value: "Association loi 1901" },
-  { label: "Objet", value: "Promotion du jeu vidéo compétitif" },
-  { label: "Siège social", value: "— à compléter —" },
-  { label: "Déclarée le", value: "— à compléter —" },
-  { label: "N° RNA", value: "— à compléter —" },
-];
+const legal = computed(() => [
+  { label: t('association.legalForm'), value: t('association.legalFormValue') },
+  { label: t('association.legalPurpose'), value: t('association.legalPurposeValue') },
+  { label: t('association.legalAddress'), value: t('association.toComplete') },
+  { label: t('association.legalRegisteredOn'), value: t('association.toComplete') },
+  { label: t('association.legalRnaNumber'), value: t('association.toComplete') },
+]);
 </script>
 
 <template>
   <section class="gv-association">
     <div class="gv-assoc-layout">
       <div class="gv-info-card">
-        <h3 class="gv-card-title">Informations légales</h3>
+        <h3 class="gv-card-title">{{ t('association.legalInfoTitle') }}</h3>
         <div v-for="row in legal" :key="row.label" class="gv-legal-row">
           <span class="gv-label">{{ row.label }}</span>
           <span class="gv-value">{{ row.value }}</span>
@@ -36,7 +41,7 @@ const legal = [
       </div>
 
       <div class="gv-info-card">
-        <h3 class="gv-card-title">Documents</h3>
+        <h3 class="gv-card-title">{{ t('association.documentsTitle') }}</h3>
         <div class="gv-doc-list">
           <a v-for="doc in documents" :key="doc.href" class="gv-doc-link" :href="doc.href" target="_blank" rel="noopener">
             <i class="fa fa-file-pdf-o"></i>
@@ -47,7 +52,7 @@ const legal = [
       </div>
 
       <div class="gv-info-card gv-info-card--wide">
-        <h3 class="gv-card-title">Bureau</h3>
+        <h3 class="gv-card-title">{{ t('association.boardTitle') }}</h3>
         <div class="gv-board-grid">
           <div v-for="member in board" :key="member.role" class="gv-board-card">
             <div class="gv-board-role">{{ member.role }}</div>

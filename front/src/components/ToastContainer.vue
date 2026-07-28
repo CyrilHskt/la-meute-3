@@ -1,21 +1,23 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import { useToast } from "../composables/useToast";
 
+const { t } = useI18n();
 const { toasts, dismissToast } = useToast();
 </script>
 
 <template>
   <div class="toast-container">
     <TransitionGroup name="toast">
-      <div v-for="t in toasts" :key="t.id" class="toast" :class="`toast--${t.type}`">
-        <svg v-if="t.type === 'success'" class="toast-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+      <div v-for="toast in toasts" :key="toast.id" class="toast" :class="`toast--${toast.type}`">
+        <svg v-if="toast.type === 'success'" class="toast-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M3 8.5 6.5 12 13 4.5" />
         </svg>
         <svg v-else class="toast-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M4 4l8 8M12 4l-8 8" />
         </svg>
-        <span class="toast-message">{{ t.message }}</span>
-        <button class="toast-close" type="button" title="Fermer" @click="dismissToast(t.id)">
+        <span class="toast-message">{{ toast.message }}</span>
+        <button class="toast-close" type="button" :title="t('common.close')" @click="dismissToast(toast.id)">
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4l8 8M12 4l-8 8" /></svg>
         </button>
       </div>
