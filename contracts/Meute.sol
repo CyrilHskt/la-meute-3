@@ -582,10 +582,17 @@ contract Meute is ERC721, ReentrancyGuard {
     ///      rest of the pack woke up before closing. Also holds for a
     ///      proposal never voted on (0 cast: the quorum already fails, no
     ///      special case to code).
+    /// @dev Shared quorum arithmetic: participation must strictly exceed
+    ///      {QUORUM_NUM}/{QUORUM_DEN} of the active-Wolves snapshot.
+    ///      `castVotes * QUORUM_DEN > activeSnapshot * QUORUM_NUM` avoids
+    ///      division/rounding on the ratio itself.
+    function _quorumReached(uint32 castVotes, uint32 activeSnapshot) private pure returns (bool) {
+        return uint256(castVotes) * QUORUM_DEN > uint256(activeSnapshot) * QUORUM_NUM;
+    }
+
     function _isPassed(Proposal storage prop) private view returns (bool) {
         uint32 castVotes = prop.approveVotes + prop.rejectVotes;
-        bool quorumReached = uint256(castVotes) * QUORUM_DEN > uint256(prop.activeSnapshot) * QUORUM_NUM;
-        return quorumReached && prop.approveVotes > prop.rejectVotes;
+        return _quorumReached(castVotes, prop.activeSnapshot) && prop.approveVotes > prop.rejectVotes;
     }
 
     /// @dev Admission: mints a Cub card if approved, otherwise refunds the
@@ -638,7 +645,7 @@ contract Meute is ERC721, ReentrancyGuard {
         if (!_isMember(prop.target)) return;
 
         uint32 total = prop.approveVotes + prop.rejectVotes + prop.postponeVotes;
-        bool quorumReached = uint256(total) * QUORUM_DEN > uint256(prop.activeSnapshot) * QUORUM_NUM;
+        bool quorumReached = _quorumReached(total, prop.activeSnapshot);
 
         VoteChoice outcome = VoteChoice.Postpone;
         if (quorumReached) {
