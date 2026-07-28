@@ -223,6 +223,10 @@ contract Meute is ERC721, ReentrancyGuard {
 
     /// @notice Deploys the contract and mints the founding members' cards.
     /// @param founders Addresses of the founding members, minted at Wolf rank.
+    ///        Must not contain duplicates: minting the same address twice hits
+    ///        the non-transferability guard in {_update} (the token already
+    ///        has an owner, so the second mint looks like a transfer) and
+    ///        reverts with {TransferForbidden} on the second occurrence.
     /// @param feeAmount Exact amount required for every application.
     constructor(address[] memory founders, uint256 feeAmount) ERC721("Meute Card", "MEUTE") {
         if (founders.length == 0) revert NoFounders();

@@ -28,6 +28,13 @@ describe("Meute", function () {
       );
     });
 
+    it("reverts if a founder address is duplicated", async function () {
+      const [f1, f2] = await ethers.getSigners();
+      await expect(
+        ethers.deployContract("Meute", [[f1.address, f2.address, f1.address], FEE]),
+      ).to.be.revertedWithCustomError(await ethers.getContractFactory("Meute"), "TransferForbidden");
+    });
+
     it("reverts if the fee is zero", async function () {
       const [f1] = await ethers.getSigners();
       await expect(ethers.deployContract("Meute", [[f1.address], 0n])).to.be.revertedWithCustomError(
