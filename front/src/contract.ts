@@ -7,10 +7,10 @@
 // forces their numbers to match. The real compatibility link is this
 // constant: it documents which contract version this front build actually
 // targets, to update on every redeployment.
-export const CONTRACT_VERSION = "0.3.0" as const;
+export const CONTRACT_VERSION = "0.4.0" as const;
 
 // PLACEHOLDER — replace with the real address once Meute.sol (renamed to
-// English, VERSION 0.3.0) is redeployed to Sepolia. The previous address
+// English, VERSION 0.4.0) is redeployed to Sepolia. The previous address
 // pointed at a contract compiled from the old French-named ABI and is no
 // longer compatible with CONTRACT_ABI below.
 export const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
