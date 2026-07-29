@@ -33,6 +33,7 @@ import { ethers } from "ethers";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { loadAbi } from "./lib/abi.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONTRACT_TS_PATH = join(__dirname, "..", "front", "src", "contract.ts");
@@ -64,15 +65,6 @@ if (!RPC_URL || !DISCORD_WEBHOOK_URL || !SYNC_ENDPOINT || !SYNC_SECRET) {
 const TYPE_LABELS = ["Admission", "Confirmation", "Exclusion", "Expense"];
 const Rank = { Cub: 0, Wolf: 1 };
 const VoteChoice = { Approve: 0, Reject: 1, Postpone: 2 };
-
-function loadAbi() {
-  const artifactPath = join(__dirname, "..", "artifacts", "contracts", "Meute.sol", "Meute.json");
-  try {
-    return JSON.parse(readFileSync(artifactPath, "utf8")).abi;
-  } catch {
-    throw new Error(`ABI not found (${artifactPath}) — run \`npx hardhat compile\` first.`);
-  }
-}
 
 async function loadState() {
   const res = await fetch(`${SYNC_ENDPOINT}?key=state`, {
@@ -172,7 +164,7 @@ async function main() {
   const fetchRequest = new ethers.FetchRequest(RPC_URL);
   fetchRequest.timeout = 15_000;
   const provider = new ethers.JsonRpcProvider(fetchRequest);
-  const abi = loadAbi();
+  const abi = loadAbi(import.meta.url);
   const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, provider);
 
   const state = await loadState();
