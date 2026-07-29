@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref, useId, watch } from "vue";
 import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
+
+const listboxId = useId();
 
 export interface PickerOption {
   address: string;
@@ -15,9 +17,13 @@ export interface PickerOption {
 // list is just a convenience, never a constraint. Confirm and Exclude
 // always target an existing member and have lived on their own page
 // (GovernanceMembers.vue) since, not through this component.
-const props = withDefaults(defineProps<{ modelValue: string; options: PickerOption[]; placeholder?: string }>(), {
-  placeholder: "",
-});
+const props = withDefaults(
+  defineProps<{ modelValue: string; options: PickerOption[]; placeholder?: string; ariaLabel?: string }>(),
+  {
+    placeholder: "",
+    ariaLabel: "",
+  },
+);
 const emit = defineEmits<{ "update:modelValue": [string] }>();
 
 const query = ref("");
@@ -113,13 +119,26 @@ function onKeydown(e: KeyboardEvent) {
       class="mp-input"
       type="text"
       :placeholder="placeholder"
+      :aria-label="ariaLabel || undefined"
       autocomplete="off"
+      role="combobox"
+      :aria-expanded="open"
+      :aria-controls="listboxId"
+      aria-autocomplete="list"
+      :aria-activedescendant="open && filtered.length ? `${listboxId}-option-${highlighted}` : undefined"
       @input="onInput"
       @focus="onFocus"
       @blur="onBlur"
       @keydown="onKeydown"
     />
-    <button v-if="modelValue" type="button" class="mp-clear" :title="t('common.clear')" @mousedown.prevent="clear">
+    <button
+      v-if="modelValue"
+      type="button"
+      class="mp-clear"
+      :title="t('common.clear')"
+      :aria-label="t('common.clear')"
+      @mousedown.prevent="clear"
+    >
       <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
         <path d="M4 4l8 8M12 4l-8 8" stroke-linecap="round" />
       </svg>
@@ -128,13 +147,16 @@ function onKeydown(e: KeyboardEvent) {
       <circle cx="7" cy="7" r="4.5" />
       <path d="M13.5 13.5 10.6 10.6" stroke-linecap="round" />
     </svg>
-    <ul v-if="open" class="mp-panel">
-      <li v-if="!filtered.length" class="mp-empty">{{ t('memberPicker.noMatch') }}</li>
+    <ul v-if="open" class="mp-panel" role="listbox" :id="listboxId">
+      <li v-if="!filtered.length" class="mp-empty" role="status" aria-live="polite">{{ t('memberPicker.noMatch') }}</li>
       <li
         v-for="(o, i) in filtered"
         :key="o.address"
         class="mp-option"
         :class="{ 'mp-option--active': i === highlighted }"
+        role="option"
+        :id="`${listboxId}-option-${i}`"
+        :aria-selected="i === highlighted"
         @mousedown.prevent="select(o)"
         @mouseenter="highlighted = i"
       >
