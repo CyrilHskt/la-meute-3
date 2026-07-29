@@ -32,6 +32,7 @@ const {
   loading,
   error,
   isAuthorized,
+  membershipError,
   loadAll,
   verifyMembershipAndLoad,
   refreshProposal,
@@ -663,7 +664,14 @@ function startTour() {
     <WalletInstallModal />
     <DiscordConsentModal />
 
-    <div v-if="!isAuthorized" class="gv-gate">
+    <div v-if="!isAuthorized && membershipError === 'network'" class="gv-gate">
+      <p class="gv-gate-text">{{ t('governance.dao.gateNetworkErrorText') }}</p>
+      <button class="btn btn-outline" type="button" @click="address && verifyMembershipAndLoad(address)">
+        {{ t('governance.dao.gateRetry') }}
+      </button>
+    </div>
+
+    <div v-else-if="!isAuthorized" class="gv-gate">
       <p class="gv-gate-text">{{ t('governance.dao.gateText') }}</p>
     </div>
 

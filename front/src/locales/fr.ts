@@ -190,6 +190,8 @@ export default {
       remainingDaysHours: "{days}j {hours}h restantes",
       remainingHoursMinutes: "{hours}h {minutes}min restantes",
       gateText: "Les statistiques et propositions de la Meute sont réservées aux membres — connecte le wallet que tu utilises pour voter afin d'y accéder. Sans wallet membre, tu peux toujours candidater ci-dessous.",
+      gateNetworkErrorText: "Impossible de vérifier ton adhésion pour l'instant — vérifie ta connexion et réessaie.",
+      gateRetry: "Réessayer",
       treasury: "Trésor",
       activeWolves: "Loups actifs",
       dormantWolves: "Loups dormants",

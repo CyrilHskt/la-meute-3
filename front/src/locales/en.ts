@@ -188,6 +188,8 @@ const en: typeof fr = {
       remainingDaysHours: "{days}d {hours}h remaining",
       remainingHoursMinutes: "{hours}h {minutes}min remaining",
       gateText: "The Meute's stats and proposals are restricted to members — connect the wallet you vote with to access them. Without a member wallet, you can still apply below.",
+      gateNetworkErrorText: "We couldn't verify your membership right now — check your connection and try again.",
+      gateRetry: "Retry",
       treasury: "Treasury",
       activeWolves: "Active Wolves",
       dormantWolves: "Dormant Wolves",

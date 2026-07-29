@@ -134,6 +134,7 @@ const INDEX_URL = isLocal ? "http://127.0.0.1:4100/api/index" : "/.netlify/funct
 // session" choice.
 const session = ref<string | null>(null);
 const isAuthorized = ref(false);
+const membershipError = ref<"network" | null>(null);
 
 // connect() (explicit click) AND MetaMask's `accountsChanged` event
 // (triggered by that same click, right on the very first authorization)
@@ -185,6 +186,7 @@ export function useMeute() {
   function resetSession() {
     verificationGeneration++;
     isAuthorized.value = false;
+    membershipError.value = null;
     session.value = null;
     stats.value = null;
     proposals.value = [];
@@ -225,6 +227,7 @@ export function useMeute() {
     // would overwrite the state already updated for the wallet currently
     // displayed with this old wallet's stale result.
     const isStale = () => generation !== verificationGeneration;
+    membershipError.value = null;
 
     try {
       const balance = (await readOnlyContract().read.balanceOf([address])) as bigint;
@@ -234,7 +237,10 @@ export function useMeute() {
         return;
       }
     } catch {
-      if (!isStale()) isAuthorized.value = false;
+      if (!isStale()) {
+        membershipError.value = "network";
+        isAuthorized.value = false;
+      }
       return;
     }
 
@@ -249,7 +255,10 @@ export function useMeute() {
       ({ nonce } = (await nonceRes.json()) as { nonce: string });
       if (isStale()) return;
     } catch {
-      if (!isStale()) isAuthorized.value = false;
+      if (!isStale()) {
+        membershipError.value = "network";
+        isAuthorized.value = false;
+      }
       return;
     }
 
@@ -282,7 +291,10 @@ export function useMeute() {
       setLinks(body.discordLinks as Parameters<typeof setLinks>[0]);
       isAuthorized.value = true;
     } catch {
-      if (!isStale()) isAuthorized.value = false;
+      if (!isStale()) {
+        membershipError.value = "network";
+        isAuthorized.value = false;
+      }
     }
   }
 
@@ -359,6 +371,7 @@ export function useMeute() {
     loading: readonly(loading),
     error: readonly(error),
     isAuthorized: readonly(isAuthorized),
+    membershipError: readonly(membershipError),
     verifyMembershipAndLoad,
     resetSession,
     loadAll,
