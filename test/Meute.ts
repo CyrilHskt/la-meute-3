@@ -289,7 +289,9 @@ describe("Meute", function () {
       const { meute, applicant, proposalId } = await openApplicationAndVote(2, 1);
       await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
 
-      await expect(meute.execute(proposalId)).to.emit(meute, "ProposalExecuted").withArgs(proposalId);
+      await expect(meute.execute(proposalId))
+        .to.emit(meute, "ProposalExecuted")
+        .withArgs(proposalId, VoteChoice.Approve);
 
       const c = await meute.card(applicant.address);
       assert.equal(c.rank, 0n); // Rank.Cub

@@ -213,7 +213,7 @@ contract Meute is ERC721, ReentrancyGuard {
         ProposalType proposalType
     );
     event VoteCast(uint256 indexed proposalId, address indexed voter);
-    event ProposalExecuted(uint256 indexed proposalId);
+    event ProposalExecuted(uint256 indexed proposalId, VoteChoice outcome);
     event MemberWokenUp(address indexed member);
     event DonationReceived(address indexed donor, uint256 amount, uint256 totalDonated);
 
@@ -391,17 +391,18 @@ contract Meute is ERC721, ReentrancyGuard {
         // checks-effects-interactions, on top of the nonReentrant modifier.
         prop.executed = true;
 
+        VoteChoice outcome;
         if (prop.proposalType == ProposalType.Admission) {
-            _executeAdmission(prop);
+            outcome = _executeAdmission(prop);
         } else if (prop.proposalType == ProposalType.Confirmation) {
-            _executeConfirmation(prop);
+            outcome = _executeConfirmation(prop);
         } else if (prop.proposalType == ProposalType.Exclusion) {
-            _executeExclusion(prop);
+            outcome = _executeExclusion(prop);
         } else {
-            _executeExpense(prop);
+            outcome = _executeExpense(prop);
         }
 
-        emit ProposalExecuted(proposalId);
+        emit ProposalExecuted(proposalId, outcome);
     }
 
     /// @notice Explicitly reactivates the caller without waiting for a
@@ -603,34 +604,40 @@ contract Meute is ERC721, ReentrancyGuard {
 
     /// @dev Admission: mints a Cub card if approved, otherwise refunds the
     ///      escrowed fee (§7.2).
-    function _executeAdmission(Proposal storage prop) private {
+    function _executeAdmission(Proposal storage prop) private returns (VoteChoice) {
         address applicantAddr = prop.target;
         _applicationOpen[applicantAddr] = false;
 
         if (_isPassed(prop)) {
             _mintCard(applicantAddr, Rank.Cub);
+            return VoteChoice.Approve;
         } else {
             _refund(applicantAddr);
+            return VoteChoice.Reject;
         }
     }
 
     /// @dev Exclusion: burns the card if approved, does nothing otherwise
     ///      (§7.4). No-op if the target has already resigned between opening
     ///      and execution: there's no more card to burn.
-    function _executeExclusion(Proposal storage prop) private {
-        if (!_isMember(prop.target)) return;
+    function _executeExclusion(Proposal storage prop) private returns (VoteChoice) {
+        if (!_isMember(prop.target)) return VoteChoice.Reject;
         if (_isPassed(prop)) {
             _burnCard(prop.target);
+            return VoteChoice.Approve;
         }
+        return VoteChoice.Reject;
     }
 
     /// @dev Expense: transfers the amount if approved, does nothing otherwise (§7.6).
-    function _executeExpense(Proposal storage prop) private {
+    function _executeExpense(Proposal storage prop) private returns (VoteChoice) {
         if (_isPassed(prop)) {
             if (address(this).balance < prop.amount) revert InsufficientFunds();
             (bool ok, ) = prop.target.call{value: prop.amount}("");
             if (!ok) revert TransferFailed();
+            return VoteChoice.Approve;
         }
+        return VoteChoice.Reject;
     }
 
     /// @dev Confirmation: three-way relative-majority vote, but postponement
@@ -644,11 +651,11 @@ contract Meute is ERC721, ReentrancyGuard {
     ///      neither confirm nor exclude. Reuses {VoteChoice} to designate the
     ///      outcome: Approve = confirm, Reject = turn down, Postpone =
     ///      postpone — same enum as for voting, no extra type to maintain.
-    function _executeConfirmation(Proposal storage prop) private {
+    function _executeConfirmation(Proposal storage prop) private returns (VoteChoice) {
         _confirmationOpen[prop.target] = false;
         // The Cub resigned between opening and execution: nothing left to
         // confirm, turn down or postpone.
-        if (!_isMember(prop.target)) return;
+        if (!_isMember(prop.target)) return VoteChoice.Postpone;
 
         uint32 total = prop.approveVotes + prop.rejectVotes + prop.postponeVotes;
         bool quorumReached = _quorumReached(total, prop.activeSnapshot);
@@ -680,6 +687,7 @@ contract Meute is ERC721, ReentrancyGuard {
             }
             target.lastActivity = uint40(block.timestamp);
         }
+        return outcome;
     }
 
     /// @dev Burns a member's card, regardless of rank.
