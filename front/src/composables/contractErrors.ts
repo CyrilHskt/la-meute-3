@@ -1,31 +1,34 @@
-// Traduit les erreurs Solidity personnalisées (contracts/Meute.sol) en
-// messages lisibles, plutôt que d'afficher le dump technique brut de viem —
-// utile en particulier quand l'estimation de gas échoue avant que la vraie
-// raison du revert ne remonte (le message affiché est alors un message RPC
-// générique sans rapport, ex: "Transaction gas limit exceeds cap").
-const MESSAGES: Record<string, string> = {
-  DejaVote: "Tu as déjà voté sur cette proposition.",
-  PasLoup: "Seuls les Loups peuvent effectuer cette action.",
-  PasLouveteau: "Cette action ne concerne que les Louveteaux.",
-  PasMembre: "Cette adresse n'est pas membre de la Meute.",
-  PasCandidat: "Cette adresse n'a pas de candidature en cours.",
-  DejaMembre: "Cette adresse est déjà membre.",
-  VoteFerme: "Le vote est clos pour cette proposition.",
-  VoteEncoreOuvert: "Le vote est encore en cours, impossible d'exécuter pour l'instant.",
-  DejaExecutee: "Cette proposition a déjà été exécutée.",
-  ProbationNonTerminee: "La période de probation de ce Louveteau n'est pas encore terminée.",
-  CotisationIncorrecte: "Le montant envoyé ne correspond pas exactement à la cotisation.",
-  CandidatureDejaOuverte: "Une candidature est déjà ouverte pour cette adresse.",
-  TitularisationDejaOuverte: "Un vote de titularisation est déjà ouvert pour ce Louveteau.",
-  ChoixInvalide: "Ce choix de vote n'est pas valide pour ce type de proposition.",
-  FondsInsuffisants: "La trésorerie ne dispose pas de fonds suffisants pour cette dépense.",
-  MontantInvalide: "Le montant indiqué n'est pas valide.",
-  ProposalInconnue: "Cette proposition n'existe pas.",
-  TransfertInterdit: "Les cartes de membre ne sont pas transférables.",
-  AucunFondateur: "Aucun fondateur fourni.",
+// Translates custom Solidity errors (contracts/Meute.sol) into readable
+// messages, rather than showing viem's raw technical dump — useful
+// especially when gas estimation fails before the real revert reason
+// surfaces (the displayed message is then an unrelated generic RPC
+// message, e.g. "Transaction gas limit exceeds cap").
+//
+// Maps to i18n keys rather than final strings: the actual text lives in
+// locales/{fr,en}.ts under `errors.*`, translated via the `t` passed in by
+// the caller (every caller is a component that already has `useI18n()`).
+const MESSAGE_KEYS: Record<string, string> = {
+  AlreadyVoted: "errors.alreadyVoted",
+  NotAWolf: "errors.notAWolf",
+  NotACub: "errors.notACub",
+  NotAMember: "errors.notAMember",
+  AlreadyMember: "errors.alreadyMember",
+  VoteClosed: "errors.voteClosed",
+  VoteStillOpen: "errors.voteStillOpen",
+  AlreadyExecuted: "errors.alreadyExecuted",
+  ProbationNotOver: "errors.probationNotOver",
+  IncorrectFee: "errors.incorrectFee",
+  ApplicationAlreadyOpen: "errors.applicationAlreadyOpen",
+  ConfirmationAlreadyOpen: "errors.confirmationAlreadyOpen",
+  InvalidChoice: "errors.invalidChoice",
+  InsufficientFunds: "errors.insufficientFunds",
+  InvalidAmount: "errors.invalidAmount",
+  UnknownProposal: "errors.unknownProposal",
+  TransferForbidden: "errors.transferForbidden",
+  NoFounders: "errors.noFounders",
 };
 
-/** Cherche error.cause.cause...data.errorName dans la chaîne d'erreurs viem. */
+/** Looks up error.cause.cause...data.errorName through the viem error chain. */
 function findErrorName(e: unknown): string | undefined {
   let current = e as { data?: { errorName?: string }; cause?: unknown } | undefined;
   let depth = 0;
@@ -37,11 +40,15 @@ function findErrorName(e: unknown): string | undefined {
   return undefined;
 }
 
-export function friendlyContractError(e: unknown): string {
-  const errorName = findErrorName(e);
-  if (errorName && MESSAGES[errorName]) return MESSAGES[errorName];
-  if (errorName) return `Le contrat a refusé l'opération (${errorName}).`;
+type Translate = (key: string, params?: Record<string, unknown>) => string;
 
+export function friendlyContractError(e: unknown, t: Translate): string {
+  const errorName = findErrorName(e);
+  if (errorName && MESSAGE_KEYS[errorName]) return t(MESSAGE_KEYS[errorName]);
+  if (errorName) return t("errors.unknownError", { errorName });
+
+  // Raw viem/JS error text — not ours to translate, comes from the
+  // library/RPC as-is regardless of the active site language.
   const err = e as { shortMessage?: string } | undefined;
   if (err?.shortMessage) return err.shortMessage;
   return e instanceof Error ? e.message : String(e);

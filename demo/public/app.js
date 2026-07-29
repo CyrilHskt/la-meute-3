@@ -5,20 +5,21 @@ const resetInfoBtn = document.getElementById("reset-info");
 const resetCommandEl = document.getElementById("reset-command");
 const titleEl = document.getElementById("scenario-title");
 const menuCertificationEl = document.getElementById("menu-certification");
+const menuSoutenanceEl = document.getElementById("menu-soutenance");
 const menuTestEl = document.getElementById("menu-test");
 const rulesListEl = document.getElementById("rules-list");
 
-// Quelles cartes ont leur bloc "commande" déplié — survit aux re-rendus
-// (chaque runStep()/refresh() reconstruit le DOM des étapes).
+// Which cards have their "command" block expanded — survives re-renders
+// (each runStep()/refresh() rebuilds the steps' DOM).
 const openCommands = new Set();
 
-// Id de l'étape en cours d'exécution (le temps d'un POST /api/step), pour
-// afficher sa barre de progression et désactiver son bouton pendant que le
-// job tourne réellement côté serveur (mise en place ≈ 15-20s).
+// Id of the step currently running (for the duration of a POST
+// /api/step), to show its progress bar and disable its button while the
+// job actually runs server-side (setup ≈ 15-20s).
 let runningStepId = null;
 
-/** `lines` : [{ type: "title"|"comment"|"code", text }] -> un <div> par
- *  ligne, avec une classe par type pour que la CSS distingue les trois. */
+/** `lines`: [{ type: "title"|"comment"|"code", text }] -> one <div> per
+ *  line, with a class per type so the CSS can distinguish the three. */
 function renderCommandLines(container, lines) {
   container.innerHTML = "";
   (lines ?? []).forEach((line) => {
@@ -46,6 +47,7 @@ function renderMenu(state) {
       });
   };
   build(menuCertificationEl, "certification");
+  build(menuSoutenanceEl, "soutenance");
   build(menuTestEl, "test");
 
   const active = state.scenarios.find((s) => s.id === state.activeScenarioId);
@@ -146,9 +148,9 @@ async function refresh() {
   render(await res.json());
 }
 
-/** Poll /api/progress pendant qu'une requête /api/step est en vol, et met
- *  à jour uniquement la largeur de la barre — pas de re-render complet,
- *  pour ne pas saccader l'animation. */
+/** Polls /api/progress while an /api/step request is in flight, and only
+ *  updates the bar's width — no full re-render, to keep the animation
+ *  smooth. */
 function pollProgress(stepId) {
   return setInterval(async () => {
     try {
@@ -158,18 +160,24 @@ function pollProgress(stepId) {
       const fill = stepsEl.querySelector(`.step-progress[data-step-id="${stepId}"] .step-progress-fill`);
       if (fill) fill.style.width = `${pct}%`;
     } catch {
-      // Pas grave si un poll échoue — le suivant réessaiera.
+      // No big deal if a poll fails — the next one will retry.
     }
   }, 300);
 }
 
 async function runStep(stepId) {
   runningStepId = stepId;
-  await refresh(); // réaffiche immédiatement avec la barre à 0% et le bouton désactivé
+  await refresh(); // re-renders immediately with the bar at 0% and the button disabled
   const interval = pollProgress(stepId);
   try {
     const res = await fetch("/api/step", { method: "POST" });
-    render(await res.json());
+    const nextState = await res.json();
+    // Reset to null BEFORE rendering: otherwise this render still sees the
+    // step that just finished as "running" (its button stays stuck on
+    // "En cours..." until the next full render, which might never happen
+    // — observed in testing).
+    runningStepId = null;
+    render(nextState);
   } finally {
     clearInterval(interval);
     runningStepId = null;

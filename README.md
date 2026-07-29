@@ -1,79 +1,78 @@
 # La Meute 3.0
 
-Prototype de gouvernance décentralisée pour une association loi 1901.
-Projet de certification Alyra — RS6515.
+Decentralized governance prototype for a French non-profit (loi 1901 association).
+Alyra certification project — RS6515.
 
-## Le problème
+## The problem
 
-La Meute 2.0 est une association de joueurs, vieille de 25 ans, forte d'une quinzaine
-de membres. Elle s'endort : la participation aux votes s'effondre et le président doit
-relancer les membres un par un pour atteindre le quorum. Or une association dont les
-membres ne votent plus est paralysée — plus aucune décision ne peut être prise, pas
-même celles qui feraient entrer du sang neuf.
+La Meute 2.0 is a 25-year-old gaming association with about fifteen members. It's
+falling asleep: voting turnout keeps dropping, and the president has to chase members
+down one by one to reach quorum. An association whose members no longer vote is
+paralyzed — no decision can be made anymore, not even the ones that would bring in
+fresh blood.
 
-L'absence n'est pourtant pas un refus. Mais dans un quorum calculé sur les inscrits,
-le silence d'un membre pèse autant que son opposition, et bloque les autres sans
-l'avoir voulu.
+Yet absence isn't refusal. In a quorum computed on registered members, a member's
+silence weighs as much as their opposition, and blocks everyone else without meaning to.
 
-Et la même fragilité se lit à l'envers : que devient la Meute si son président
-disparaît, ou veut simplement passer la main ? Personne d'autre ne convoque les votes,
-la caisse est un compte bancaire au nom du trésorier, et transmettre suppose de refaire
-les statuts, la préfecture et le mandat bancaire. Les deux problèmes n'en font qu'un :
-**tout repose sur une personne.**
+The same fragility shows up in reverse: what becomes of the Meute if its president
+disappears, or simply wants to step down? No one else can call a vote, the treasury is
+a bank account in the treasurer's name, and handing it over means redoing the bylaws,
+the prefecture paperwork, and the bank mandate. The two problems are really one:
+**everything rests on a single person.**
 
-## Le prototype
+## The prototype
 
-La Meute 3.0 porte la gouvernance de l'association sur une blockchain publique :
+La Meute 3.0 moves the association's governance onto a public blockchain:
 
-- **Une carte de membre** — un ERC-721 non transférable, qui porte le rang de son
-  détenteur et constitue à lui seul le registre des adhérents.
-- **Un cycle d'adhésion à deux étages**, repris des usages réels de l'association :
-  candidat → Louveteau (probatoire, trois mois) → Loup (définitif), la titularisation
-  se jouant sur un vote à trois issues : titulariser, ajourner, refuser.
-- **La dormance** — un Loup qui n'a pas voté depuis un an sort du quorum sans rien
-  perdre ni être sanctionné, et le moindre vote le réveille. Le quorum se répare de
-  lui-même : la meute ne se mesure qu'à ceux qui sont présents.
-- **Aucun bureau.** Passé le déploiement, le contrat n'a plus ni propriétaire, ni
-  pause, ni fonction d'urgence. Le président n'a aucun pouvoir technique.
+- **A membership card** — a non-transferable ERC-721 that carries its holder's rank
+  and is itself the entire membership registry.
+- **A two-tier membership cycle**, drawn from the association's real practices:
+  applicant → Cub (probationary, three months) → Wolf (permanent), with confirmation
+  decided by a three-outcome vote: confirm, postpone, or reject.
+- **Dormancy** — a Wolf who hasn't voted in a year drops out of quorum without losing
+  anything or being penalized, and a single vote wakes them back up. Quorum
+  self-repairs: the pack only measures itself against those who are present.
+- **No board.** Once deployed, the contract has no owner, no pause, no emergency
+  function. The president holds no technical power at all.
 
-Le périmètre s'arrête là : les tournois, les inscriptions et les classements restent
-hors-chaîne. Le prototype gère la gouvernance, pas l'activité.
+The scope stops there: tournaments, sign-ups, and rankings stay off-chain. The
+prototype handles governance, not activity.
 
-Il s'agit d'un exercice de pensée — « et si l'on transformait la Meute en DAO ? » — et
-non d'un projet de mise en production. La coquille juridique loi 1901 demeure ; seule
-la mécanique de gouvernance est portée on-chain.
+This is a thought experiment — "what if we turned the Meute into a DAO?" — not a
+production project. The loi 1901 legal shell remains; only the governance mechanics
+are moved on-chain.
 
 ## Documentation
 
-- [Cahier des charges](docs/cahier-des-charges.md) — contexte, périmètre, machine à
-  états, justification du jeton, sécurité, limites assumées.
+- [Cahier des charges](docs/cahier-des-charges.md) — context, scope, state machine,
+  token rationale, security, accepted limitations.
 
 ## Stack
 
 Solidity 0.8.28 · Hardhat 3 · OpenZeppelin 5.6 · ethers v6 · mocha
-Déploiement via Hardhat Ignition sur testnet public (Sepolia). Aucun ETH réel engagé.
+Deployed via Hardhat Ignition on a public testnet (Sepolia). No real ETH involved.
 
-## Commandes
+## Commands
 
 ### Tests
 
 ```shell
-npx hardhat test            # tous les tests
-npx hardhat test solidity   # tests unitaires Solidity
-npx hardhat test mocha      # tests d'intégration TypeScript
+npx hardhat test            # all tests
+npx hardhat test solidity   # Solidity unit tests
+npx hardhat test mocha      # TypeScript integration tests
 ```
 
-### Déploiement
+### Deployment
 
-Sur une chaîne locale simulée :
+On a local simulated chain:
 
 ```shell
 npx hardhat ignition deploy ignition/modules/<Module>.ts
 ```
 
-Sur Sepolia, il faut un compte approvisionné en ETH de test. La clé privée est lue
-depuis la variable de configuration `SEPOLIA_PRIVATE_KEY`, à renseigner via le plugin
-`hardhat-keystore` (elle n'est jamais écrite en clair dans le dépôt) :
+On Sepolia, you need an account funded with test ETH. The private key is read from
+the `SEPOLIA_PRIVATE_KEY` configuration variable, set via the `hardhat-keystore`
+plugin (it's never written in plaintext to the repo):
 
 ```shell
 npx hardhat keystore set SEPOLIA_PRIVATE_KEY

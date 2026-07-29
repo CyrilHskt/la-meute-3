@@ -7,516 +7,517 @@ import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-/// @title La Meute 3.0 — carte de membre et gouvernance
-/// @notice Contrat unique : ERC-721 non transférable (registre des membres) et
-///         mécanique de gouvernance (candidature, vote, exécution). Voir
-///         docs/cahier-des-charges.md et docs/recap-conception.md §9 pour la
-///         justification du choix d'un contrat unique plutôt que deux contrats
-///         séparés.
-/// @dev Aucun rôle privilégié après déploiement : pas d'owner, pas de pause,
-///      pas d'upgrade. Le constructeur mint les cartes des fondateurs, seul
-///      moment où une carte apparaît sans vote (§9 du cahier des charges).
+/// @title La Meute 3.0 — membership card and governance
+/// @notice Single contract: non-transferable ERC-721 (membership registry) and
+///         governance mechanics (application, vote, execution). See
+///         docs/cahier-des-charges.md and docs/recap-conception.md §9 for the
+///         rationale behind a single contract rather than two separate
+///         contracts.
+/// @dev No privileged role after deployment: no owner, no pause, no upgrade.
+///      The constructor mints the founders' cards, the only moment a card
+///      appears without a vote (§9 of the cahier des charges).
 contract Meute is ERC721, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.AddressSet;
     using Strings for address;
 
-    /// @notice Version du contrat déployé (semver), indépendante du nom de
-    ///         génération "La Meute 3.0" — celui-ci ne change qu'à la
-    ///         prochaine refonte majeure, cette version-ci à chaque
-    ///         redéploiement. Immuable : le contrat n'étant pas upgradable
-    ///         (§9), c'est le seul moyen de savoir, depuis Etherscan ou le
-    ///         front, à quel commit une adresse déployée correspond.
-    string public constant VERSION = "0.3.0";
+    /// @notice Version of the deployed contract (semver), independent of the
+    ///         generation name "La Meute 3.0" — that only changes at the next
+    ///         major redesign, this version changes on every redeployment.
+    ///         Immutable: since the contract isn't upgradable (§9), this is
+    ///         the only way to know, from Etherscan or the front, which
+    ///         commit a deployed address corresponds to.
+    string public constant VERSION = "0.5.0";
 
     // ---------------------------------------------------------------------
     // Types
     // ---------------------------------------------------------------------
 
-    /// @notice Rang porté par une carte.
-    enum Rang {
-        Louveteau,
-        Loup
+    /// @notice Rank carried by a card.
+    enum Rank {
+        Cub,
+        Wolf
     }
 
-    /// @notice Type d'une proposition. Les quatre partagent une seule mécanique
-    ///         de vote (§7.0 du cahier des charges) ; seule l'exécution
-    ///         consulte le type pour décider quoi appliquer.
-    enum TypeProposition {
+    /// @notice Type of a proposal. All four share a single voting mechanic
+    ///         (§7.0 of the cahier des charges); only execution consults the
+    ///         type to decide what to apply.
+    enum ProposalType {
         Admission,
-        Titularisation,
+        Confirmation,
         Exclusion,
-        Depense
+        Expense
     }
 
-    /// @notice Choix exprimé par un votant. Sémantique fixe, valable pour
-    ///         tous les types de proposition :
-    ///         - Approuver = favorable (pour une titularisation : titulariser)
-    ///         - Rejeter   = défavorable (pour une titularisation : refuser)
-    ///         - Ajourner  = report ; n'a de sens que pour une titularisation,
-    ///                       rejeté par {voter} pour tout autre type (§7.3).
-    enum ChoixVote {
-        Approuver,
-        Rejeter,
-        Ajourner
+    /// @notice Choice expressed by a voter. Fixed semantics, valid for every
+    ///         proposal type:
+    ///         - Approve  = in favor (for a confirmation: confirm)
+    ///         - Reject   = against (for a confirmation: turn down)
+    ///         - Postpone = deferral; only meaningful for a confirmation,
+    ///                      rejected by {vote} for any other type (§7.3).
+    enum VoteChoice {
+        Approve,
+        Reject,
+        Postpone
     }
 
-    /// @notice Données portées par une carte. Rang et horodatage compacté en
-    ///         un seul slot de stockage (§10 du cahier des charges, poste "Gas").
-    /// @dev `derniereActivite` a un sens différent selon le rang, jamais les
-    ///      deux à la fois : pour un Loup, c'est la dormance (§7.5) — mis à
-    ///      jour à chaque vote. Pour un Louveteau, qui ne vote jamais, c'est
-    ///      le point de départ de la probation en cours — mis à jour au mint
-    ///      et à chaque ajournement (§7.3). Un seul champ, deux usages
-    ///      mutuellement exclusifs plutôt qu'un champ par rang.
-    struct Carte {
-        Rang rang;
-        uint40 derniereActivite;
-        uint8 ajournements; // nombre d'ajournements déjà consommés (max AJOURNEMENTS_MAX)
+    /// @notice Data carried by a card. Rank and timestamp packed into a
+    ///         single storage slot (§10 of the cahier des charges, "Gas"
+    ///         section).
+    /// @dev `lastActivity` means something different depending on rank, never
+    ///      both at once: for a Wolf, it's dormancy tracking (§7.5) —
+    ///      updated on every vote. For a Cub, who never votes, it's the start
+    ///      of the current probation period — updated on mint and on every
+    ///      postponement (§7.3). One field, two mutually exclusive uses
+    ///      rather than one field per rank.
+    struct Card {
+        Rank rank;
+        uint40 lastActivity;
+        uint8 postponements; // number of postponements already used (max MAX_POSTPONEMENTS)
     }
 
-    /// @notice Une proposition en cours ou terminée.
-    struct Proposition {
-        TypeProposition typeProp;
-        address cible; // candidat / membre visé / bénéficiaire de dépense (selon typeProp)
-        uint64 echeance; // timestamp de clôture du vote (ouverture + 7 jours)
-        uint32 snapshotActifs; // dénominateur figé — voir snapshotFige
-        bool snapshotFige; // true dès que le snapshot a été pris (première voix ou ouverture)
-        bool executee;
-        // Un compteur par valeur de {ChoixVote}, quel que soit le type de la
-        // proposition. votesAjourner reste à 0 pour les propositions binaires,
-        // puisque {voter} rejette ce choix pour elles (voir ChoixVote).
-        uint32 votesApprouver;
-        uint32 votesRejeter;
-        uint32 votesAjourner;
-        // paramètres propres au type Depense
-        uint256 montant;
-        string motif;
+    /// @notice An ongoing or finished proposal.
+    struct Proposal {
+        ProposalType proposalType;
+        address target; // applicant / targeted member / expense beneficiary (depending on proposalType)
+        uint64 deadline; // vote closing timestamp (opening + 7 days)
+        uint32 activeSnapshot; // frozen denominator — see snapshotFrozen
+        bool snapshotFrozen; // true as soon as the snapshot has been taken (first vote or opening)
+        bool executed;
+        // One counter per {VoteChoice} value, regardless of the proposal's
+        // type. postponeVotes stays at 0 for binary proposals, since {vote}
+        // rejects that choice for them (see VoteChoice).
+        uint32 approveVotes;
+        uint32 rejectVotes;
+        uint32 postponeVotes;
+        // parameters specific to the Expense type
+        uint256 amount;
+        string reason;
     }
 
     // ---------------------------------------------------------------------
-    // Stockage
+    // Storage
     // ---------------------------------------------------------------------
 
-    /// @notice Cotisation exacte due à la candidature, non modifiable.
-    uint256 public immutable cotisation;
+    /// @notice Exact fee due on application, not modifiable.
+    uint256 public immutable fee;
 
-    /// @notice Durée de la période probatoire avant qu'un vote de
-    ///         titularisation puisse être ouvert.
-    uint256 public constant DUREE_PROBATION = 90 days;
+    /// @notice Duration of the probation period before a confirmation vote
+    ///         can be opened.
+    uint256 public constant PROBATION_DURATION = 90 days;
 
-    /// @notice Nombre maximum d'ajournements avant qu'un Louveteau ne puisse
-    ///         plus qu'être titularisé ou refusé.
-    uint8 public constant AJOURNEMENTS_MAX = 2;
+    /// @notice Maximum number of postponements before a Cub can only be
+    ///         confirmed or turned down.
+    uint8 public constant MAX_POSTPONEMENTS = 2;
 
-    /// @notice Délai d'inactivité au-delà duquel un Loup devient dormant.
-    /// @dev 6 mois plutôt que 1 an : le quorum de participation
-    ///      ({QUORUM_NUM}/{QUORUM_DEN}) se calcule sur les Loups actifs, un
-    ///      groupe trop large (1 an) rendrait un quorum à 75% en 7 jours
-    ///      irréaliste pour une association qui ne vote pas chaque semaine.
-    uint256 public constant DELAI_DORMANCE = 180 days;
+    /// @notice Inactivity delay beyond which a Wolf becomes dormant.
+    /// @dev 6 months rather than 1 year: the participation quorum
+    ///      ({QUORUM_NUM}/{QUORUM_DEN}) is computed over active Wolves, too
+    ///      large a group (1 year) would make a 75% quorum in 7 days
+    ///      unrealistic for an association that doesn't vote every week.
+    uint256 public constant DORMANCY_DELAY = 180 days;
 
-    /// @notice Durée pendant laquelle une proposition reste ouverte au vote.
-    uint256 public constant DUREE_VOTE = 7 days;
+    /// @notice Duration during which a proposal stays open to voting.
+    uint256 public constant VOTE_DURATION = 7 days;
 
-    /// @notice Numérateur/dénominateur du quorum de participation requis
-    ///         (Loups actifs au moment du snapshot qui doivent s'être
-    ///         exprimés, oui ou non, pour qu'un vote soit valide) — 75%.
-    /// @dev Fraction plutôt qu'un pourcentage direct pour rester en
-    ///      arithmétique entière exacte (Solidity ne fait que de la
-    ///      division tronquée) : `exprimes * QUORUM_DEN > actifs *
-    ///      QUORUM_NUM` équivaut à `exprimes / actifs > 75%` sans jamais
-    ///      arrondir.
+    /// @notice Numerator/denominator of the required participation quorum
+    ///         (active Wolves at snapshot time who must have voted, yes or
+    ///         no, for a vote to be valid) — 75%.
+    /// @dev A fraction rather than a direct percentage to stay in exact
+    ///      integer arithmetic (Solidity only does truncated division):
+    ///      `cast * QUORUM_DEN > active * QUORUM_NUM` is equivalent to
+    ///      `cast / active > 75%` without ever rounding.
     uint8 public constant QUORUM_NUM = 3;
     uint8 public constant QUORUM_DEN = 4;
 
-    /// @dev Carte de chaque membre, indexée directement par adresse. Une carte
-    ///      n'existe (au sens ERC-721) que si {_estMembre} est vrai — voir
-    ///      cette fonction pour la condition exacte.
-    ///      @dev Le tokenId ERC-721 correspondant à une adresse n'est jamais
-    ///      choisi ni compté : c'est l'adresse elle-même, réinterprétée comme
-    ///      un entier ({_tokenId}). Une carte, une adresse, toute la vie du
-    ///      membre — un identifiant arbitraire n'apporterait rien et
-    ///      obligerait à maintenir un compteur et un mapping supplémentaires.
-    mapping(address membre => Carte) private _cartes;
+    /// @dev Each member's card, indexed directly by address. A card only
+    ///      exists (in the ERC-721 sense) if {_isMember} is true — see that
+    ///      function for the exact condition.
+    ///      @dev The ERC-721 tokenId matching an address is never chosen nor
+    ///      counted: it's the address itself, reinterpreted as an integer
+    ///      ({_tokenId}). One card, one address, for a member's entire life —
+    ///      an arbitrary identifier would add nothing and would require
+    ///      maintaining an extra counter and mapping.
+    mapping(address member => Card) private _cards;
 
-    /// @dev Ensemble des adresses actuellement au rang Loup (dormants inclus).
-    ///      Sa taille n'est pas contrôlable par un attaquant : devenir Loup
-    ///      exige de passer un vote réel, pas un spam gratuit (§10 du cahier
-    ///      des charges, poste "DoS") — la boucle sur cet ensemble dans
-    ///      {loupsActifs} reste donc bornée par la croissance réelle de la
-    ///      meute, pas par un tableau arbitraire.
-    EnumerableSet.AddressSet private _loups;
+    /// @dev Set of addresses currently at Wolf rank (dormant ones included).
+    ///      Its size can't be controlled by an attacker: becoming a Wolf
+    ///      requires passing a real vote, not free spam (§10 of the cahier
+    ///      des charges, "DoS" section) — the loop over this set in
+    ///      {activeWolves} therefore stays bounded by the pack's actual
+    ///      growth, not by an arbitrary array.
+    EnumerableSet.AddressSet private _wolves;
 
-    /// @dev Propositions par identifiant.
-    mapping(uint256 proposalId => Proposition) private _propositions;
+    /// @dev Proposals by identifier.
+    mapping(uint256 proposalId => Proposal) private _proposals;
 
-    /// @dev Registre des votes déjà exprimés, pour empêcher le double vote.
-    mapping(uint256 proposalId => mapping(address votant => bool)) private _aVote;
+    /// @dev Registry of votes already cast, to prevent double voting.
+    mapping(uint256 proposalId => mapping(address voter => bool)) private _hasVoted;
 
-    /// @dev Empêche une seconde candidature ouverte simultanément pour la même adresse.
-    mapping(address candidat => bool) private _candidatureOuverte;
+    /// @dev Prevents a second application from being open simultaneously for the same address.
+    mapping(address applicant => bool) private _applicationOpen;
 
-    /// @dev Empêche deux Loups d'ouvrir simultanément deux votes de
-    ///      titularisation pour le même Louveteau. Symétrique à
-    ///      {_candidatureOuverte}.
-    mapping(address louveteau => bool) private _titularisationOuverte;
+    /// @dev Prevents two Wolves from simultaneously opening two confirmation
+    ///      votes for the same Cub. Symmetric to {_applicationOpen}.
+    mapping(address cub => bool) private _confirmationOpen;
 
-    uint256 private _prochainProposalId;
+    uint256 private _nextProposalId;
 
-    /// @notice Pseudo lisible associé à une adresse, en libre-service.
-    /// @dev Volontairement découplé de {Carte} : ouvert à n'importe quelle
-    ///      adresse (même un candidat pas encore admis), pas seulement aux
-    ///      membres — chacun ne modifie que le sien, aucun rôle privilégié.
-    ///      Alternative à une table en dur côté front (nécessiterait un
-    ///      commit/PR pour chaque changement) ou une base de données
-    ///      externe (réintroduit hébergement + login, contraire à la
-    ///      philosophie "pas de serveur, le wallet est l'identité").
-    mapping(address compte => string) public pseudo;
-
-    /// @notice Total cumulé donné par une adresse, membre ou non — un don
-    ///         est ouvert à quiconque, contrairement à la cotisation. Lecture
-    ///         O(1) par adresse volontairement : le classement des
-    ///         meilleurs contributeurs (potentiellement non bornés,
-    ///         contrairement à la meute) se construit hors-chaîne à partir
-    ///         de {DonRecu}, jamais par une boucle on-chain sur les
-    ///         donateurs (§10, "DoS par boucle non bornée").
-    mapping(address donateur => uint256) public donsCumules;
+    /// @notice Total amount donated by an address, member or not — a
+    ///         donation is open to anyone, unlike the fee. Deliberately O(1)
+    ///         read per address: the leaderboard of top contributors
+    ///         (potentially unbounded, unlike the pack) is built off-chain
+    ///         from {DonationReceived}, never through an on-chain loop over
+    ///         donors (§10, "DoS via unbounded loop").
+    mapping(address donor => uint256) public totalDonations;
 
     // ---------------------------------------------------------------------
-    // Erreurs
+    // Errors
     // ---------------------------------------------------------------------
 
-    error CotisationIncorrecte();
-    error CandidatureDejaOuverte();
-    error DejaMembre();
-    error PasCandidat();
-    error PasLouveteau();
-    error PasLoup();
-    error ProbationNonTerminee();
-    error VoteFerme();
-    error VoteEncoreOuvert();
-    error DejaVote();
-    error ProposalInconnue();
-    error DejaExecutee();
-    error ChoixInvalide();
-    error TransfertInterdit();
-    error MontantInvalide();
-    error AucunFondateur();
-    error FondsInsuffisants();
-    error TransfertEchoue();
-    error PasMembre();
-    error TitularisationDejaOuverte();
-    error PseudoTropLong();
-    error ConflitInteret();
+    error IncorrectFee();
+    error ApplicationAlreadyOpen();
+    error AlreadyMember();
+    error NotACub();
+    error NotAWolf();
+    error ProbationNotOver();
+    error VoteClosed();
+    error VoteStillOpen();
+    error AlreadyVoted();
+    error UnknownProposal();
+    error AlreadyExecuted();
+    error InvalidChoice();
+    error TransferForbidden();
+    error InvalidAmount();
+    error InvalidAddress();
+    error NoFounders();
+    error InsufficientFunds();
+    error TransferFailed();
+    error NotAMember();
+    error ConfirmationAlreadyOpen();
+    error ConflictOfInterest();
+    error NotDormant();
 
     // ---------------------------------------------------------------------
-    // Événements
+    // Events
     // ---------------------------------------------------------------------
 
-    /// @dev Un event ne peut indexer que 3 paramètres au maximum : `auteur`
-    ///      (nouveau, pour retrouver les propositions ouvertes par une
-    ///      adresse — impossible avant, `cible` ne s'y prête pas puisque
-    ///      pour une exclusion ou une dépense elle désigne la victime/le
-    ///      bénéficiaire, pas l'auteur) prend la place laissée par
-    ///      `typeProp`, qui reste lisible dans le log, juste non filtrable
-    ///      par topic.
-    event PropositionOuverte(
+    /// @dev An event can index at most 3 parameters: `author` (new, to look
+    ///      up proposals opened by an address — impossible before, `target`
+    ///      doesn't work for that since for an exclusion or an expense it
+    ///      designates the victim/beneficiary, not the author) takes the slot
+    ///      left by `proposalType`, which stays readable in the log, just not
+    ///      filterable by topic.
+    event ProposalOpened(
         uint256 indexed proposalId,
-        address indexed cible,
-        address indexed auteur,
-        TypeProposition typeProp
+        address indexed target,
+        address indexed author,
+        ProposalType proposalType
     );
-    event VoteExprime(uint256 indexed proposalId, address indexed votant);
-    event PropositionExecutee(uint256 indexed proposalId);
-    event MembreReveille(address indexed membre);
-    event PseudoModifie(address indexed compte, string pseudo);
-    event DonRecu(address indexed donateur, uint256 montant, uint256 totalCumule);
+    event VoteCast(uint256 indexed proposalId, address indexed voter, VoteChoice choice);
+    event ProposalExecuted(uint256 indexed proposalId, VoteChoice outcome);
+    event MemberWokenUp(address indexed member);
+    event DonationReceived(address indexed donor, uint256 amount, uint256 totalDonated);
 
     // ---------------------------------------------------------------------
     // Construction
     // ---------------------------------------------------------------------
 
-    /// @notice Déploie le contrat et mint les cartes des membres fondateurs.
-    /// @param fondateurs Adresses des membres fondateurs, mintées au rang Loup.
-    /// @param montantCotisation Montant exact exigé à chaque candidature.
-    constructor(address[] memory fondateurs, uint256 montantCotisation) ERC721("Carte de Meute", "MEUTE") {
-        if (fondateurs.length == 0) revert AucunFondateur();
-        if (montantCotisation == 0) revert MontantInvalide();
+    /// @notice Deploys the contract and mints the founding members' cards.
+    /// @param founders Addresses of the founding members, minted at Wolf rank.
+    ///        Must not contain duplicates: minting the same address twice hits
+    ///        the non-transferability guard in {_update} (the token already
+    ///        has an owner, so the second mint looks like a transfer) and
+    ///        reverts with {TransferForbidden} on the second occurrence.
+    /// @param feeAmount Exact amount required for every application.
+    constructor(address[] memory founders, uint256 feeAmount) ERC721("Meute Card", "MEUTE") {
+        if (founders.length == 0) revert NoFounders();
+        if (feeAmount == 0) revert InvalidAmount();
 
-        cotisation = montantCotisation;
+        fee = feeAmount;
 
-        for (uint256 i = 0; i < fondateurs.length; i++) {
-            _minterCarte(fondateurs[i], Rang.Loup);
+        for (uint256 i = 0; i < founders.length; i++) {
+            _mintCard(founders[i], Rank.Wolf);
         }
     }
 
     // ---------------------------------------------------------------------
-    // Cycle de vie d'une proposition — ouverture (§7.0-7.4)
+    // Proposal lifecycle — opening (§7.0-7.4)
     // ---------------------------------------------------------------------
 
-    /// @notice Ouvre une candidature. Le candidat lui-même l'ouvre, en versant
-    ///         la cotisation exacte (§7.1). Une seule candidature ouverte par adresse.
-    function candidater() external payable {
-        if (msg.value != cotisation) revert CotisationIncorrecte();
-        if (_estMembre(msg.sender)) revert DejaMembre();
-        if (_candidatureOuverte[msg.sender]) revert CandidatureDejaOuverte();
+    /// @notice Opens an application. The applicant opens it themselves, by
+    ///         paying the exact fee (§7.1). Only one open application per
+    ///         address.
+    function applyForMembership() external payable {
+        if (msg.value != fee) revert IncorrectFee();
+        if (_isMember(msg.sender)) revert AlreadyMember();
+        if (_applicationOpen[msg.sender]) revert ApplicationAlreadyOpen();
 
-        _candidatureOuverte[msg.sender] = true;
-        _ouvrirProposition(TypeProposition.Admission, msg.sender, 0, "");
+        _applicationOpen[msg.sender] = true;
+        _openProposal(ProposalType.Admission, msg.sender, 0, "");
     }
 
-    /// @notice Ouvre un vote de titularisation pour un Louveteau dont la
-    ///         probation (initiale ou prolongée par ajournement) est terminée.
-    ///         Ouvrable par n'importe quel Loup (§7.3).
-    /// @param louveteau Adresse du Louveteau concerné.
-    function ouvrirTitularisation(address louveteau) external {
-        if (_cartes[msg.sender].rang != Rang.Loup) revert PasLoup();
-        // rang == Louveteau vaut aussi par défaut pour une adresse sans
-        // carte : _estMembre lève l'ambiguïté (voir sa NatSpec).
-        if (!_estMembre(louveteau) || _cartes[louveteau].rang != Rang.Louveteau) revert PasLouveteau();
-        if (block.timestamp < _cartes[louveteau].derniereActivite + DUREE_PROBATION) revert ProbationNonTerminee();
-        if (_titularisationOuverte[louveteau]) revert TitularisationDejaOuverte();
+    /// @notice Opens a confirmation vote for a Cub whose probation (initial
+    ///         or extended by a postponement) is over. Can be opened by any
+    ///         Wolf (§7.3).
+    /// @dev Deliberately no notion of a "dormant Cub" here, despite an
+    ///      attempt in that direction: unlike a Wolf (who can always prove
+    ///      their presence via {imHere}), a Cub has no on-chain action to
+    ///      reset their own clock — blocking it would have created a
+    ///      permanent trap (a dormant Cub could never reopen a vote again,
+    ///      so could never wake up again). An inactive Cub is never forced
+    ///      anyway: Wolves simply don't have to open this vote, or can
+    ///      propose their exclusion if needed.
+    /// @param cub Address of the Cub concerned.
+    function openConfirmationVote(address cub) external {
+        if (_cards[msg.sender].rank != Rank.Wolf) revert NotAWolf();
+        // rank == Cub also holds by default for an address without a card:
+        // _isMember lifts the ambiguity (see its NatSpec).
+        if (!_isMember(cub) || _cards[cub].rank != Rank.Cub) revert NotACub();
+        if (block.timestamp < _cards[cub].lastActivity + PROBATION_DURATION) revert ProbationNotOver();
+        if (_confirmationOpen[cub]) revert ConfirmationAlreadyOpen();
 
-        _titularisationOuverte[louveteau] = true;
-        _ouvrirProposition(TypeProposition.Titularisation, louveteau, 0, "");
+        _confirmationOpen[cub] = true;
+        _openProposal(ProposalType.Confirmation, cub, 0, "");
     }
 
-    /// @notice Ouvre un vote d'exclusion visant un Loup ou un Louveteau (§7.4).
-    ///         Ouvrable par n'importe quel Loup.
-    /// @param membre Adresse du membre visé.
-    function proposerExclusion(address membre) external {
-        if (_cartes[msg.sender].rang != Rang.Loup) revert PasLoup();
-        if (!_estMembre(membre)) revert PasMembre();
+    /// @notice Opens an exclusion vote targeting a Wolf or a Cub (§7.4). Can
+    ///         be opened by any Wolf.
+    /// @param member Address of the targeted member.
+    function proposeExclusion(address member) external {
+        if (_cards[msg.sender].rank != Rank.Wolf) revert NotAWolf();
+        if (!_isMember(member)) revert NotAMember();
 
-        _ouvrirProposition(TypeProposition.Exclusion, membre, 0, "");
+        _openProposal(ProposalType.Exclusion, member, 0, "");
     }
 
-    /// @notice Ouvre un vote de dépense de trésorerie (§7.6). Ouvrable par
-    ///         n'importe quel Loup. Le solde n'est vérifié qu'à l'exécution
-    ///         (FondsInsuffisants) : il peut changer entre l'ouverture et
-    ///         l'exécution si d'autres dépenses sont votées entre-temps.
-    /// @param beneficiaire Destinataire du transfert si la dépense est votée.
-    /// @param montant Montant en wei à transférer.
-    /// @param motif Description de la dépense.
-    function proposerDepense(address beneficiaire, uint256 montant, string calldata motif) external {
-        if (_cartes[msg.sender].rang != Rang.Loup) revert PasLoup();
-        if (montant == 0) revert MontantInvalide();
+    /// @notice Opens a treasury expense vote (§7.6). Can be opened by any
+    ///         Wolf. The balance is only checked at execution
+    ///         (InsufficientFunds): it can change between opening and
+    ///         execution if other expenses are voted in the meantime.
+    /// @param beneficiary Recipient of the transfer if the expense passes.
+    /// @param amount Amount in wei to transfer.
+    /// @param reason Description of the expense.
+    function proposeExpense(address beneficiary, uint256 amount, string calldata reason) external {
+        if (_cards[msg.sender].rank != Rank.Wolf) revert NotAWolf();
+        if (beneficiary == address(0)) revert InvalidAddress();
+        if (amount == 0) revert InvalidAmount();
 
-        _ouvrirProposition(TypeProposition.Depense, beneficiaire, montant, motif);
+        _openProposal(ProposalType.Expense, beneficiary, amount, reason);
     }
 
-    /// @notice Fait un don libre à la trésorerie — ouvert à n'importe quelle
-    ///         adresse, membre ou non (§7.6bis) : contrairement à la
-    ///         cotisation, ce n'est ni un acte de candidature ni séquestré,
-    ///         l'ETH rejoint directement le solde du contrat, immédiatement
-    ///         disponible pour une future `proposerDepense`.
-    function donner() external payable {
-        if (msg.value == 0) revert MontantInvalide();
-        donsCumules[msg.sender] += msg.value;
-        emit DonRecu(msg.sender, msg.value, donsCumules[msg.sender]);
+    /// @notice Makes a free donation to the treasury — open to any address,
+    ///         member or not (§7.6bis): unlike the fee, this is neither an
+    ///         act of application nor escrowed, the ETH joins the contract's
+    ///         balance directly, immediately available for a future
+    ///         `proposeExpense`.
+    function donate() external payable {
+        if (msg.value == 0) revert InvalidAmount();
+        totalDonations[msg.sender] += msg.value;
+        emit DonationReceived(msg.sender, msg.value, totalDonations[msg.sender]);
     }
 
     // ---------------------------------------------------------------------
-    // Cycle de vie d'une proposition — vote et exécution (§7.0)
+    // Proposal lifecycle — vote and execution (§7.0)
     // ---------------------------------------------------------------------
 
-    /// @notice Vote unique, quel que soit le type de proposition. Réveille le
-    ///         votant s'il était dormant (§7.5).
-    /// @dev Rejette (ChoixInvalide) un choix Ajourner sur toute proposition
-    ///      dont le type n'est pas Titularisation, ainsi que sur une
-    ///      titularisation dont la cible a déjà consommé AJOURNEMENTS_MAX
-    ///      ajournements — "on ne peut pas être louveteau à vie" (§7.3).
-    /// @param proposalId Identifiant de la proposition.
-    /// @param choix Voir {ChoixVote} pour la sémantique.
-    function voter(uint256 proposalId, ChoixVote choix) external {
-        if (proposalId >= _prochainProposalId) revert ProposalInconnue();
-        Proposition storage prop = _propositions[proposalId];
+    /// @notice Single vote, regardless of the proposal type. Wakes up the
+    ///         voter if they were dormant (§7.5).
+    /// @dev Rejects (InvalidChoice) a Postpone choice on any proposal whose
+    ///      type isn't Confirmation, as well as on a confirmation whose
+    ///      target has already used MAX_POSTPONEMENTS postponements — "you
+    ///      can't be a Cub for life" (§7.3).
+    /// @param proposalId Proposal identifier.
+    /// @param choice See {VoteChoice} for the semantics.
+    function vote(uint256 proposalId, VoteChoice choice) external {
+        if (proposalId >= _nextProposalId) revert UnknownProposal();
+        Proposal storage prop = _proposals[proposalId];
 
-        if (block.timestamp >= prop.echeance) revert VoteFerme();
-        if (_cartes[msg.sender].rang != Rang.Loup) revert PasLoup();
-        if (_aVote[proposalId][msg.sender]) revert DejaVote();
-        // Conflit d'intérêt : la cible d'une exclusion ou d'une dépense ne
-        // vote pas sur son propre cas (§7.4/§7.6). Sans objet pour
-        // Admission (le candidat n'est pas encore Loup) et Titularisation
-        // (le Louveteau visé ne vote jamais, quel que soit le contexte).
+        if (block.timestamp >= prop.deadline) revert VoteClosed();
+        if (_cards[msg.sender].rank != Rank.Wolf) revert NotAWolf();
+        if (_hasVoted[proposalId][msg.sender]) revert AlreadyVoted();
+        // Conflict of interest: the target of an exclusion or an expense
+        // doesn't vote on their own case (§7.4/§7.6). Not applicable to
+        // Admission (the applicant isn't a Wolf yet) and Confirmation (the
+        // targeted Cub never votes, regardless of context).
         if (
-            msg.sender == prop.cible &&
-            (prop.typeProp == TypeProposition.Exclusion || prop.typeProp == TypeProposition.Depense)
-        ) revert ConflitInteret();
-        if (choix == ChoixVote.Ajourner) {
-            if (prop.typeProp != TypeProposition.Titularisation) revert ChoixInvalide();
-            if (_cartes[prop.cible].ajournements >= AJOURNEMENTS_MAX) revert ChoixInvalide();
+            msg.sender == prop.target &&
+            (prop.proposalType == ProposalType.Exclusion || prop.proposalType == ProposalType.Expense)
+        ) revert ConflictOfInterest();
+        if (choice == VoteChoice.Postpone) {
+            if (prop.proposalType != ProposalType.Confirmation) revert InvalidChoice();
+            if (_cards[prop.target].postponements >= MAX_POSTPONEMENTS) revert InvalidChoice();
         }
 
-        if (prop.snapshotFige) {
-            // Cas normal : le dénominateur est figé depuis l'ouverture. Se
-            // réveiller ici ne l'agrandit pas — neutralise le front-running
-            // du réveil (§10 du cahier des charges).
-            _reveiller(msg.sender);
+        if (prop.snapshotFrozen) {
+            // Normal case: the denominator has been frozen since opening.
+            // Waking up here doesn't grow it — this neutralizes front-running
+            // of the wake-up (§10 of the cahier des charges).
+            _wakeUp(msg.sender);
         } else {
-            // Cas limite §7.5 : la meute était totalement dormante à
-            // l'ouverture, donc le snapshot a été laissé en attente. Ce
-            // premier votant se réveille d'abord, puis le snapshot est pris
-            // juste après : il devient lui-même le dénominateur qu'il vient
-            // de reconstituer, et non un simple numérateur en plus d'un
-            // dénominateur qui l'ignorerait.
-            _reveiller(msg.sender);
-            prop.snapshotActifs = uint32(_actifsPourQuorum(prop.typeProp, prop.cible));
-            prop.snapshotFige = true;
+            // Edge case §7.5: the pack was fully dormant at opening, so the
+            // snapshot was left pending. This first voter wakes up first,
+            // then the snapshot is taken right after: they become the very
+            // denominator they just rebuilt, rather than a simple numerator
+            // added to a denominator that would ignore them.
+            _wakeUp(msg.sender);
+            prop.activeSnapshot = uint32(_activeForQuorum(prop.proposalType, prop.target));
+            prop.snapshotFrozen = true;
         }
 
-        _aVote[proposalId][msg.sender] = true;
+        _hasVoted[proposalId][msg.sender] = true;
 
-        if (choix == ChoixVote.Approuver) {
-            prop.votesApprouver++;
-        } else if (choix == ChoixVote.Rejeter) {
-            prop.votesRejeter++;
+        if (choice == VoteChoice.Approve) {
+            prop.approveVotes++;
+        } else if (choice == VoteChoice.Reject) {
+            prop.rejectVotes++;
         } else {
-            prop.votesAjourner++;
+            prop.postponeVotes++;
         }
 
-        emit VoteExprime(proposalId, msg.sender);
+        emit VoteCast(proposalId, msg.sender, choice);
     }
 
-    /// @notice Applique le résultat d'une proposition dont le délai est
-    ///         écoulé. Appelable par n'importe qui, membre ou non (§7.0) —
-    ///         c'est une simple corvée mécanique, pas une décision.
-    /// @param proposalId Identifiant de la proposition à exécuter.
-    function executer(uint256 proposalId) external nonReentrant {
-        if (proposalId >= _prochainProposalId) revert ProposalInconnue();
-        Proposition storage prop = _propositions[proposalId];
+    /// @notice Applies the outcome of a proposal whose deadline has passed.
+    ///         Callable by anyone, member or not (§7.0) — it's a simple
+    ///         mechanical chore, not a decision.
+    /// @param proposalId Identifier of the proposal to execute.
+    function execute(uint256 proposalId) external nonReentrant {
+        if (proposalId >= _nextProposalId) revert UnknownProposal();
+        Proposal storage prop = _proposals[proposalId];
 
-        if (prop.executee) revert DejaExecutee();
-        if (block.timestamp < prop.echeance) revert VoteEncoreOuvert();
+        if (prop.executed) revert AlreadyExecuted();
+        if (block.timestamp < prop.deadline) revert VoteStillOpen();
 
-        // Marqué avant tout transfert externe (remboursement, dépense) —
-        // checks-effects-interactions, en plus du modifier nonReentrant.
-        prop.executee = true;
+        // Marked before any external transfer (refund, expense) —
+        // checks-effects-interactions, on top of the nonReentrant modifier.
+        prop.executed = true;
 
-        if (prop.typeProp == TypeProposition.Admission) {
-            _executerAdmission(prop);
-        } else if (prop.typeProp == TypeProposition.Titularisation) {
-            _executerTitularisation(prop);
-        } else if (prop.typeProp == TypeProposition.Exclusion) {
-            _executerExclusion(prop);
+        VoteChoice outcome;
+        if (prop.proposalType == ProposalType.Admission) {
+            outcome = _executeAdmission(prop);
+        } else if (prop.proposalType == ProposalType.Confirmation) {
+            outcome = _executeConfirmation(prop);
+        } else if (prop.proposalType == ProposalType.Exclusion) {
+            outcome = _executeExclusion(prop);
         } else {
-            _executerDepense(prop);
+            outcome = _executeExpense(prop);
         }
 
-        emit PropositionExecutee(proposalId);
+        emit ProposalExecuted(proposalId, outcome);
     }
 
-    /// @notice Réactive explicitement l'appelant sans attendre qu'une
-    ///         proposition passe, afin d'être recompté dans le quorum avant
-    ///         qu'une décision ne s'ouvre (§7.5).
-    function jeSuisLa() external {
-        if (_cartes[msg.sender].rang != Rang.Loup) revert PasLoup();
-        _reveiller(msg.sender);
+    /// @notice Explicitly reactivates the caller without waiting for a
+    ///         proposal to pass, so as to be recounted in the quorum before a
+    ///         decision opens (§7.5).
+    function imHere() external {
+        if (_cards[msg.sender].rank != Rank.Wolf) revert NotAWolf();
+        _wakeUp(msg.sender);
     }
 
-    /// @notice Démission volontaire, immédiate, sans vote (§7.4). Brûle la
-    ///         carte, qu'elle soit au rang Louveteau ou Loup.
-    function demissionner() external {
-        if (!_estMembre(msg.sender)) revert PasMembre();
-        _titularisationOuverte[msg.sender] = false;
-        _bruler(msg.sender);
-    }
-
-    /// @notice Définit ou change le pseudo associé à l'appelant. Ouvert à
-    ///         n'importe quelle adresse, pas seulement aux membres — voir
-    ///         {pseudo}. Une chaîne vide efface le pseudo.
-    /// @param nouveau Pseudo souhaité, 32 octets maximum.
-    function definirPseudo(string calldata nouveau) external {
-        if (bytes(nouveau).length > 32) revert PseudoTropLong();
-        pseudo[msg.sender] = nouveau;
-        emit PseudoModifie(msg.sender, nouveau);
+    /// @notice Voluntary resignation, immediate, without a vote (§7.4). Burns
+    ///         the card, whether at Cub or Wolf rank.
+    function resign() external {
+        if (!_isMember(msg.sender)) revert NotAMember();
+        _confirmationOpen[msg.sender] = false;
+        _burnCard(msg.sender);
     }
 
     // ---------------------------------------------------------------------
-    // Lecture — propositions, quorum et dormance
+    // Reads — proposals, quorum and dormancy
     // ---------------------------------------------------------------------
 
-    /// @notice Lecture d'une proposition. Utile aux tests et au front (C7).
-    function proposition(uint256 proposalId) external view returns (Proposition memory) {
-        return _propositions[proposalId];
+    /// @notice Reads a proposal. Useful for tests and the front (C7).
+    function proposal(uint256 proposalId) external view returns (Proposal memory) {
+        return _proposals[proposalId];
     }
 
-    /// @notice Lecture de la carte d'un membre. Rang par défaut (Louveteau)
-    ///         et champs nuls si l'adresse n'est pas membre — voir {_estMembre}.
-    function carte(address membre) external view returns (Carte memory) {
-        return _cartes[membre];
+    /// @notice Reads a member's card. Default rank (Cub) and null fields if
+    ///         the address isn't a member — see {_isMember}.
+    function card(address member) external view returns (Card memory) {
+        return _cards[member];
     }
 
-    /// @notice Indique si une adresse membre est actuellement dormante
-    ///         (Loup sans participation depuis DELAI_DORMANCE). Faux pour un
-    ///         Louveteau ou une adresse sans carte : la dormance ne concerne
-    ///         que les Loups (§7.5).
-    function estDormant(address membre) public view returns (bool) {
-        Carte storage c = _cartes[membre];
-        return c.rang == Rang.Loup && block.timestamp - c.derniereActivite > DELAI_DORMANCE;
+    /// @notice Whether a member address is currently dormant (a Wolf with no
+    ///         participation since DORMANCY_DELAY). False for a Cub or an
+    ///         address without a card: dormancy only concerns Wolves (§7.5)
+    ///         — see {openConfirmationVote}'s NatSpec for why this
+    ///         deliberately doesn't extend to Cubs.
+    function isDormant(address member) public view returns (bool) {
+        Card storage c = _cards[member];
+        return c.rank == Rank.Wolf && block.timestamp - c.lastActivity > DORMANCY_DELAY;
     }
 
-    /// @notice Nombre de Loups actifs au moment de l'appel (hors dormants).
-    /// @dev Recalculé à chaque appel en parcourant {_loups} — voir la
-    ///      justification de la boucle bornée sur ce champ. C'est ce qui
-    ///      rend la dormance réellement passive : aucune transaction n'est
-    ///      nécessaire pour qu'un Loup sorte de ce décompte (§7.5).
-    function loupsActifs() public view returns (uint256 actifs) {
-        uint256 n = _loups.length();
+    /// @notice Number of active Wolves at call time (dormant ones excluded).
+    /// @dev Recomputed on every call by iterating over {_wolves} — see the
+    ///      justification for the bounded loop on this field. This is what
+    ///      makes dormancy genuinely passive: no transaction is needed for a
+    ///      Wolf to drop out of this count (§7.5).
+    function activeWolves() public view returns (uint256 active) {
+        uint256 n = _wolves.length();
         for (uint256 i = 0; i < n; i++) {
-            if (!estDormant(_loups.at(i))) {
-                actifs++;
+            if (!isDormant(_wolves.at(i))) {
+                active++;
             }
         }
     }
 
-    /// @dev Dénominateur de quorum à retenir pour une proposition donnée :
-    ///      {loupsActifs} moins la cible elle-même si elle y est comptée
-    ///      (Loup actif) et que ce type de proposition lui interdit de voter
-    ///      ({voter} — conflit d'intérêt sur Exclusion/Dépense). Une cible
-    ///      déjà dormante ne comptait de toute façon pas dans {loupsActifs} :
-    ///      rien à retirer dans ce cas, pas de double correction.
-    function _actifsPourQuorum(TypeProposition typeProp, address cible) private view returns (uint256) {
-        uint256 actifs = loupsActifs();
-        bool cibleExclueDuVote = (typeProp == TypeProposition.Exclusion || typeProp == TypeProposition.Depense) &&
-            _cartes[cible].rang == Rang.Loup &&
-            !estDormant(cible);
-        return cibleExclueDuVote ? actifs - 1 : actifs;
+    /// @notice Permissionless housekeeping: removes a verified-dormant Wolf
+    ///         from the iterated {_wolves} set. Purely a gas optimization —
+    ///         doesn't touch rank, Card, or voting eligibility (a dormant
+    ///         Wolf wasn't counted or votable anyway).
+    function pruneDormant(address wolf) external {
+        if (!isDormant(wolf)) revert NotDormant();
+        _wolves.remove(wolf);
+    }
+
+    /// @dev Quorum denominator to use for a given proposal: {activeWolves}
+    ///      minus the target itself if it's counted there (an active Wolf)
+    ///      and this proposal type forbids it from voting ({vote} — conflict
+    ///      of interest on Exclusion/Expense). A target already dormant
+    ///      wasn't counted in {activeWolves} anyway: nothing to subtract in
+    ///      that case, no double correction.
+    function _activeForQuorum(ProposalType proposalType, address target) private view returns (uint256) {
+        uint256 active = activeWolves();
+        bool targetExcludedFromVote = (proposalType == ProposalType.Exclusion || proposalType == ProposalType.Expense) &&
+            _cards[target].rank == Rank.Wolf &&
+            !isDormant(target);
+        return targetExcludedFromVote ? active - 1 : active;
     }
 
     // ---------------------------------------------------------------------
-    // ERC-721 — non-transférabilité et métadonnées on-chain (§6)
+    // ERC-721 — non-transferability and on-chain metadata (§6)
     // ---------------------------------------------------------------------
 
-    /// @dev Bloque tout transfert entre deux détenteurs tout en laissant
-    ///      passer le mint (from == 0) et le burn (to == 0). Voir
-    ///      docs/recap-conception.md pour le piège à éviter : ne pas bloquer
-    ///      mint/burn en même temps que le transfert.
+    /// @dev Blocks any transfer between two holders while letting mint
+    ///      (from == 0) and burn (to == 0) through. See
+    ///      docs/recap-conception.md for the pitfall to avoid: not blocking
+    ///      mint/burn at the same time as transfer.
     function _update(address to, uint256 tokenId, address auth) internal override returns (address) {
         address from = _ownerOf(tokenId);
-        if (from != address(0) && to != address(0)) revert TransfertInterdit();
+        if (from != address(0) && to != address(0)) revert TransferForbidden();
         return super._update(to, tokenId, auth);
     }
 
-    /// @notice Métadonnées 100% on-chain : JSON + SVG encodés en Base64,
-    ///         générés par le contrat, sans dépendance à un serveur ou IPFS (§6).
+    /// @notice 100% on-chain metadata: JSON + SVG encoded in Base64,
+    ///         generated by the contract, with no dependency on a server or
+    ///         IPFS (§6).
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         _requireOwned(tokenId);
 
-        address membre = address(uint160(tokenId));
-        Rang rang = _cartes[membre].rang;
-        string memory rangNom = rang == Rang.Loup ? "Loup" : "Louveteau";
+        address member = address(uint160(tokenId));
+        Rank rank = _cards[member].rank;
+        string memory rankName = rank == Rank.Wolf ? "Wolf" : "Cub";
 
         string memory json = string.concat(
-            '{"name":"Carte de Meute - ',
-            rangNom,
-            '","description":"Carte de membre non transferable de La Meute. ',
-            "Detenteur : ",
-            membre.toHexString(),
-            '.","attributes":[{"trait_type":"Rang","value":"',
-            rangNom,
+            '{"name":"Meute Card - ',
+            rankName,
+            '","description":"Non-transferable membership card of La Meute. ',
+            "Holder: ",
+            member.toHexString(),
+            '.","attributes":[{"trait_type":"Rank","value":"',
+            rankName,
             '"}],"image":"data:image/svg+xml;base64,',
-            Base64.encode(bytes(_svg(rang))),
+            Base64.encode(bytes(_svg(rank))),
             '"}'
         );
 
@@ -524,221 +525,237 @@ contract Meute is ERC721, ReentrancyGuard {
     }
 
     // ---------------------------------------------------------------------
-    // Interne
+    // Internal
     // ---------------------------------------------------------------------
 
-    /// @dev tokenId associé à une adresse : l'adresse elle-même, réinterprétée
-    ///      comme un entier. Déterministe, jamais stocké ni compté.
-    function _tokenId(address membre) private pure returns (uint256) {
-        return uint256(uint160(membre));
+    /// @dev tokenId associated with an address: the address itself,
+    ///      reinterpreted as an integer. Deterministic, never stored or
+    ///      counted.
+    function _tokenId(address member) private pure returns (uint256) {
+        return uint256(uint160(member));
     }
 
-    /// @dev Un membre "existe" (candidat exclu) tant que sa carte n'a pas été
-    ///      brûlée. `derniereActivite` sert de marqueur : nul avant mint et
-    ///      après burn, toujours non nul entre les deux (mis à jour à chaque
-    ///      vote, jamais remis à zéro tant que la carte vit).
-    function _estMembre(address membre) private view returns (bool) {
-        return _cartes[membre].derniereActivite != 0;
+    /// @dev A member "exists" (excluding applicants) as long as their card
+    ///      hasn't been burned. `lastActivity` acts as the marker: zero
+    ///      before mint and after burn, always non-zero in between (updated
+    ///      on every vote, never reset to zero while the card is alive).
+    function _isMember(address member) private view returns (bool) {
+        return _cards[member].lastActivity != 0;
     }
 
-    /// @dev Crée une proposition et l'ouvre pour {DUREE_VOTE}. Partagée par
-    ///      les quatre fonctions d'ouverture (§7.0 : une seule mécanique,
-    ///      quel que soit le type). Fige le snapshot de quorum immédiatement
-    ///      si la meute a au moins un Loup actif ; sinon le laisse en attente
-    ///      pour le premier vote (cas limite §7.5, voir {voter}).
-    /// @param montant Pertinent seulement pour TypeProposition.Depense ; 0 sinon.
-    /// @param motif Pertinent seulement pour TypeProposition.Depense ; "" sinon.
-    function _ouvrirProposition(
-        TypeProposition typeProp,
-        address cible,
-        uint256 montant,
-        string memory motif
+    /// @dev Creates a proposal and opens it for {VOTE_DURATION}. Shared by
+    ///      the four opening functions (§7.0: a single mechanic, regardless
+    ///      of type). Freezes the quorum snapshot immediately if the pack has
+    ///      at least one active Wolf; otherwise leaves it pending for the
+    ///      first vote (edge case §7.5, see {vote}).
+    /// @param amount Only relevant for ProposalType.Expense; 0 otherwise.
+    /// @param reason Only relevant for ProposalType.Expense; "" otherwise.
+    function _openProposal(
+        ProposalType proposalType,
+        address target,
+        uint256 amount,
+        string memory reason
     ) private returns (uint256 proposalId) {
-        proposalId = _prochainProposalId++;
+        proposalId = _nextProposalId++;
 
-        // Exclut la cible elle-même du dénominateur si elle ne peut pas
-        // voter sur son propre cas (voir {_actifsPourQuorum}). Si elle
-        // était la seule active, ça retombe sur 0 : le snapshot est alors
-        // différé au premier vote éligible, exactement comme le cas "meute
-        // totalement dormante" ci-dessous (voir {voter}) — même mécanisme,
-        // pas un cas particulier de plus à maintenir.
-        uint256 actifs = _actifsPourQuorum(typeProp, cible);
-        bool snapshotFige = actifs != 0;
+        // Excludes the target itself from the denominator if it can't vote
+        // on its own case (see {_activeForQuorum}). If it was the only
+        // active one, this falls to 0: the snapshot is then deferred to the
+        // first eligible vote, exactly like the "fully dormant pack" case
+        // below (see {vote}) — the same mechanism, not one more special case
+        // to maintain.
+        uint256 active = _activeForQuorum(proposalType, target);
+        bool snapshotFrozen = active != 0;
 
-        _propositions[proposalId] = Proposition({
-            typeProp: typeProp,
-            cible: cible,
-            echeance: uint64(block.timestamp + DUREE_VOTE),
-            snapshotActifs: snapshotFige ? uint32(actifs) : 0,
-            snapshotFige: snapshotFige,
-            executee: false,
-            votesApprouver: 0,
-            votesRejeter: 0,
-            votesAjourner: 0,
-            montant: montant,
-            motif: motif
+        _proposals[proposalId] = Proposal({
+            proposalType: proposalType,
+            target: target,
+            deadline: uint64(block.timestamp + VOTE_DURATION),
+            activeSnapshot: snapshotFrozen ? uint32(active) : 0,
+            snapshotFrozen: snapshotFrozen,
+            executed: false,
+            approveVotes: 0,
+            rejectVotes: 0,
+            postponeVotes: 0,
+            amount: amount,
+            reason: reason
         });
 
-        // msg.sender ici est bien l'appelant externe d'origine (candidater,
-        // ouvrirTitularisation, proposerExclusion ou proposerDepense) :
-        // _ouvrirProposition est un appel interne, pas externe, donc
-        // msg.sender n'est jamais réécrit entre les deux.
-        emit PropositionOuverte(proposalId, cible, msg.sender, typeProp);
+        // msg.sender here is indeed the original external caller
+        // (applyForMembership, openConfirmationVote, proposeExclusion or
+        // proposeExpense):
+        // _openProposal is an internal call, not external, so msg.sender is
+        // never rewritten between the two.
+        emit ProposalOpened(proposalId, target, msg.sender, proposalType);
     }
 
-    /// @dev Deux conditions, pas une seule : (1) un quorum de participation
-    ///      — au moins {QUORUM_NUM}/{QUORUM_DEN} des Loups actifs au moment
-    ///      du snapshot doivent s'être exprimés (oui ou non), sinon le vote
-    ///      n'est pas valide, quel qu'en soit le résultat ; (2) parmi les
-    ///      votes exprimés, "oui" doit strictement dépasser "non" (une
-    ///      égalité échoue). Avant, seul "oui" face au snapshot comptait —
-    ///      un unique votant pouvait emporter une dépense ou une exclusion
-    ///      sans qu'aucun retour de vote "non" ne puisse jamais l'arrêter,
-    ///      même si le reste de la meute se réveillait avant la clôture.
-    ///      Vaut aussi pour une proposition jamais votée (0 exprimé : le
-    ///      quorum échoue déjà, pas de cas particulier à coder).
-    function _approuvee(Proposition storage prop) private view returns (bool) {
-        uint32 exprimes = prop.votesApprouver + prop.votesRejeter;
-        bool quorumAtteint = uint256(exprimes) * QUORUM_DEN > uint256(prop.snapshotActifs) * QUORUM_NUM;
-        return quorumAtteint && prop.votesApprouver > prop.votesRejeter;
+    /// @dev Two conditions, not one: (1) a participation quorum — at least
+    ///      {QUORUM_NUM}/{QUORUM_DEN} of the active Wolves at snapshot time
+    ///      must have voted (yes or no), otherwise the vote isn't valid,
+    ///      regardless of the outcome; (2) among the votes cast, "yes" must
+    ///      strictly exceed "no" (a tie fails). Previously, only "yes" versus
+    ///      the snapshot counted — a single voter could carry an expense or
+    ///      an exclusion with no "no" vote ever able to stop it, even if the
+    ///      rest of the pack woke up before closing. Also holds for a
+    ///      proposal never voted on (0 cast: the quorum already fails, no
+    ///      special case to code).
+    /// @dev Shared quorum arithmetic: participation must strictly exceed
+    ///      {QUORUM_NUM}/{QUORUM_DEN} of the active-Wolves snapshot.
+    ///      `castVotes * QUORUM_DEN > activeSnapshot * QUORUM_NUM` avoids
+    ///      division/rounding on the ratio itself.
+    function _quorumReached(uint32 castVotes, uint32 activeSnapshot) private pure returns (bool) {
+        return uint256(castVotes) * QUORUM_DEN > uint256(activeSnapshot) * QUORUM_NUM;
     }
 
-    /// @dev Admission : mint une carte Louveteau si approuvée, sinon
-    ///      rembourse la cotisation séquestrée (§7.2).
-    function _executerAdmission(Proposition storage prop) private {
-        address candidatAddr = prop.cible;
-        _candidatureOuverte[candidatAddr] = false;
+    function _isPassed(Proposal storage prop) private view returns (bool) {
+        uint32 castVotes = prop.approveVotes + prop.rejectVotes;
+        return _quorumReached(castVotes, prop.activeSnapshot) && prop.approveVotes > prop.rejectVotes;
+    }
 
-        if (_approuvee(prop)) {
-            _minterCarte(candidatAddr, Rang.Louveteau);
+    /// @dev Admission: mints a Cub card if approved, otherwise refunds the
+    ///      escrowed fee (§7.2).
+    function _executeAdmission(Proposal storage prop) private returns (VoteChoice) {
+        address applicantAddr = prop.target;
+        _applicationOpen[applicantAddr] = false;
+
+        if (_isPassed(prop)) {
+            _mintCard(applicantAddr, Rank.Cub);
+            return VoteChoice.Approve;
         } else {
-            _rembourser(candidatAddr);
+            _refund(applicantAddr);
+            return VoteChoice.Reject;
         }
     }
 
-    /// @dev Exclusion : brûle la carte si approuvée, ne fait rien sinon (§7.4).
-    ///      No-op si la cible a déjà démissionné entre l'ouverture et
-    ///      l'exécution : il n'y a plus de carte à brûler.
-    function _executerExclusion(Proposition storage prop) private {
-        if (!_estMembre(prop.cible)) return;
-        if (_approuvee(prop)) {
-            _bruler(prop.cible);
+    /// @dev Exclusion: burns the card if approved, does nothing otherwise
+    ///      (§7.4). No-op if the target has already resigned between opening
+    ///      and execution: there's no more card to burn.
+    function _executeExclusion(Proposal storage prop) private returns (VoteChoice) {
+        if (!_isMember(prop.target)) return VoteChoice.Reject;
+        if (_isPassed(prop)) {
+            _burnCard(prop.target);
+            return VoteChoice.Approve;
         }
+        return VoteChoice.Reject;
     }
 
-    /// @dev Dépense : transfère le montant si approuvée, ne fait rien sinon (§7.6).
-    function _executerDepense(Proposition storage prop) private {
-        if (_approuvee(prop)) {
-            if (address(this).balance < prop.montant) revert FondsInsuffisants();
-            (bool ok, ) = prop.cible.call{value: prop.montant}("");
-            if (!ok) revert TransfertEchoue();
+    /// @dev Expense: transfers the amount if approved, does nothing otherwise (§7.6).
+    function _executeExpense(Proposal storage prop) private returns (VoteChoice) {
+        if (_isPassed(prop)) {
+            if (address(this).balance < prop.amount) revert InsufficientFunds();
+            (bool ok, ) = prop.target.call{value: prop.amount}("");
+            if (!ok) revert TransferFailed();
+            return VoteChoice.Approve;
         }
+        return VoteChoice.Reject;
     }
 
-    /// @dev Titularisation : vote ternaire à majorité relative, mais
-    ///      l'ajournement est l'issue par défaut si le quorum (participation
-    ///      >= {QUORUM_NUM}/{QUORUM_DEN} du snapshot) n'est pas atteint — la
-    ///      seule issue qui ne
-    ///      lèse personne quand la meute est restée silencieuse (§7.3). Ce
-    ///      défaut passif reste possible même une fois AJOURNEMENTS_MAX
-    ///      atteint (seul le choix *actif* Ajourner est barré par {voter}) :
-    ///      un vote sans quorum n'est pas une décision de la meute de
-    ///      prolonger, c'est l'absence de décision, qui ne doit ni
-    ///      titulariser ni exclure. Réutilise {ChoixVote} pour désigner
-    ///      l'issue : Approuver = titulariser, Rejeter = refuser, Ajourner =
-    ///      ajourner — même enum que pour voter, pas de type supplémentaire
-    ///      à maintenir.
-    function _executerTitularisation(Proposition storage prop) private {
-        _titularisationOuverte[prop.cible] = false;
-        // Le Louveteau a démissionné entre l'ouverture et l'exécution : plus
-        // rien à titulariser, refuser ou ajourner.
-        if (!_estMembre(prop.cible)) return;
+    /// @dev Confirmation: three-way relative-majority vote, but postponement
+    ///      is the default outcome if the quorum (participation >=
+    ///      {QUORUM_NUM}/{QUORUM_DEN} of the snapshot) isn't reached — the
+    ///      only outcome that harms no one when the pack stayed silent
+    ///      (§7.3). This passive default remains possible even once
+    ///      MAX_POSTPONEMENTS is reached (only the *active* Postpone choice
+    ///      is blocked by {vote}): a vote without quorum isn't a pack
+    ///      decision to extend, it's the absence of a decision, which must
+    ///      neither confirm nor exclude. Reuses {VoteChoice} to designate the
+    ///      outcome: Approve = confirm, Reject = turn down, Postpone =
+    ///      postpone — same enum as for voting, no extra type to maintain.
+    function _executeConfirmation(Proposal storage prop) private returns (VoteChoice) {
+        _confirmationOpen[prop.target] = false;
+        // The Cub resigned between opening and execution: nothing left to
+        // confirm, turn down or postpone.
+        if (!_isMember(prop.target)) return VoteChoice.Postpone;
 
-        uint32 total = prop.votesApprouver + prop.votesRejeter + prop.votesAjourner;
-        bool quorumAtteint = uint256(total) * QUORUM_DEN > uint256(prop.snapshotActifs) * QUORUM_NUM;
+        uint32 total = prop.approveVotes + prop.rejectVotes + prop.postponeVotes;
+        bool quorumReached = _quorumReached(total, prop.activeSnapshot);
 
-        ChoixVote issue = ChoixVote.Ajourner;
-        if (quorumAtteint) {
-            if (prop.votesApprouver > prop.votesRejeter && prop.votesApprouver > prop.votesAjourner) {
-                issue = ChoixVote.Approuver;
-            } else if (prop.votesRejeter > prop.votesApprouver && prop.votesRejeter > prop.votesAjourner) {
-                issue = ChoixVote.Rejeter;
+        VoteChoice outcome = VoteChoice.Postpone;
+        if (quorumReached) {
+            if (prop.approveVotes > prop.rejectVotes && prop.approveVotes > prop.postponeVotes) {
+                outcome = VoteChoice.Approve;
+            } else if (prop.rejectVotes > prop.approveVotes && prop.rejectVotes > prop.postponeVotes) {
+                outcome = VoteChoice.Reject;
             }
-            // Égalité entre les trois issues, ou Ajourner déjà majoritaire :
-            // issue reste Ajourner, pour la même raison que le défaut sans quorum.
+            // Tie between the three outcomes, or Postpone already the
+            // majority: outcome stays Postpone, for the same reason as the
+            // no-quorum default.
         }
 
-        if (issue == ChoixVote.Approuver) {
-            _cartes[prop.cible].rang = Rang.Loup;
-            _cartes[prop.cible].derniereActivite = uint40(block.timestamp);
-            _loups.add(prop.cible);
-        } else if (issue == ChoixVote.Rejeter) {
-            _bruler(prop.cible);
+        if (outcome == VoteChoice.Approve) {
+            _cards[prop.target].rank = Rank.Wolf;
+            _cards[prop.target].lastActivity = uint40(block.timestamp);
+            _wolves.add(prop.target);
+        } else if (outcome == VoteChoice.Reject) {
+            _burnCard(prop.target);
         } else {
-            Carte storage cible = _cartes[prop.cible];
-            // Saturé à AJOURNEMENTS_MAX : le défaut passif peut se répéter
-            // sans jamais faire déborder le compteur ni fausser {voter}.
-            if (cible.ajournements < AJOURNEMENTS_MAX) {
-                cible.ajournements++;
+            Card storage target = _cards[prop.target];
+            // Saturated at MAX_POSTPONEMENTS: the passive default can repeat
+            // without ever overflowing the counter or throwing off {vote}.
+            if (target.postponements < MAX_POSTPONEMENTS) {
+                target.postponements++;
             }
-            cible.derniereActivite = uint40(block.timestamp);
+            target.lastActivity = uint40(block.timestamp);
         }
+        return outcome;
     }
 
-    /// @dev Brûle la carte d'un membre, quel que soit son rang.
-    function _bruler(address membre) private {
-        if (_cartes[membre].rang == Rang.Loup) {
-            _loups.remove(membre);
+    /// @dev Burns a member's card, regardless of rank.
+    function _burnCard(address member) private {
+        if (_cards[member].rank == Rank.Wolf) {
+            _wolves.remove(member);
         }
-        uint256 tokenId = _tokenId(membre);
-        delete _cartes[membre];
+        uint256 tokenId = _tokenId(member);
+        delete _cards[member];
         _burn(tokenId);
     }
 
-    /// @dev Rembourse la cotisation à un candidat refusé.
-    function _rembourser(address candidatAddr) private {
-        (bool ok, ) = candidatAddr.call{value: cotisation}("");
-        if (!ok) revert TransfertEchoue();
+    /// @dev Refunds the fee to a rejected applicant.
+    function _refund(address applicantAddr) private {
+        (bool ok, ) = applicantAddr.call{value: fee}("");
+        if (!ok) revert TransferFailed();
     }
 
-    /// @dev Mint une carte au rang donné. Utilisé pour les fondateurs (rang
-    ///      Loup, au déploiement) et pour un candidat admis (rang Louveteau,
-    ///      depuis {_executerAdmission}).
-    function _minterCarte(address membre, Rang rang) private {
-        _cartes[membre] = Carte({rang: rang, derniereActivite: uint40(block.timestamp), ajournements: 0});
+    /// @dev Mints a card at the given rank. Used for founders (Wolf rank, at
+    ///      deployment) and for an admitted applicant (Cub rank, from
+    ///      {_executeAdmission}).
+    function _mintCard(address member, Rank rank) private {
+        _cards[member] = Card({rank: rank, lastActivity: uint40(block.timestamp), postponements: 0});
 
-        if (rang == Rang.Loup) {
-            _loups.add(membre);
+        if (rank == Rank.Wolf) {
+            _wolves.add(member);
         }
 
-        _mint(membre, _tokenId(membre));
+        _mint(member, _tokenId(member));
     }
 
-    /// @dev Met à jour l'horodatage de dernière activité. Si le membre
-    ///      sortait de dormance, ne touche à aucun compteur — {loupsActifs}
-    ///      le recomptera de lui-même au prochain appel — mais émet
-    ///      l'événement pour la traçabilité.
-    function _reveiller(address membre) private {
-        if (estDormant(membre)) {
-            emit MembreReveille(membre);
+    /// @dev Updates the last-activity timestamp. If the member was coming
+    ///      out of dormancy, doesn't touch any counter — {activeWolves} will
+    ///      recount them on its own on the next call — but emits the event
+    ///      for traceability.
+    function _wakeUp(address member) private {
+        if (isDormant(member)) {
+            emit MemberWokenUp(member);
         }
-        _cartes[membre].derniereActivite = uint40(block.timestamp);
+        if (!_wolves.contains(member)) {
+            _wolves.add(member);
+        }
+        _cards[member].lastActivity = uint40(block.timestamp);
     }
 
-    /// @dev Génère le SVG on-chain correspondant à un rang : une empreinte
-    ///      de patte (coussinet + 4 doigts + 4 griffes), en contour pour
-    ///      Louveteau et en silhouette pleine pour Loup — même jeu de
-    ///      formes dans les deux cas, seul l'habillage change. Tracé
-    ///      original, dessiné pour ce projet.
-    function _svg(Rang rang) private pure returns (string memory) {
-        string memory habillage = rang == Rang.Loup
+    /// @dev Generates the on-chain SVG for a rank: a paw print (pad + 4 toes
+    ///      + 4 claws), outlined for Cub and solid silhouette for Wolf — same
+    ///      set of shapes in both cases, only the styling changes. Original
+    ///      artwork, drawn for this project.
+    function _svg(Rank rank) private pure returns (string memory) {
+        string memory style = rank == Rank.Wolf
             ? 'fill="#161311"'
             : 'fill="none" stroke="#161311" stroke-width="10" stroke-linejoin="round"';
 
         return
             string.concat(
                 '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><g ',
-                habillage,
+                style,
                 ">",
                 '<path d="M256 258 L325 330 L350 420 L290 470 L256 452 L222 470 L162 420 L187 330 Z"/>',
                 '<path d="M182 118 L210 86 L244 112 L252 178 L222 228 L176 206 L158 162 Z"/>',

@@ -1,47 +1,51 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import GouvernancePresentation from "../components/gouvernance/GouvernancePresentation.vue";
-import GouvernanceAssociation from "../components/gouvernance/GouvernanceAssociation.vue";
-import GouvernanceDao from "../components/gouvernance/GouvernanceDao.vue";
-import GouvernanceDons from "../components/gouvernance/GouvernanceDons.vue";
+import GovernancePresentation from "../components/gouvernance/GovernancePresentation.vue";
+import GovernanceAssociation from "../components/gouvernance/GovernanceAssociation.vue";
+import GovernanceMembers from "../components/gouvernance/GovernanceMembers.vue";
+import GovernanceDao from "../components/gouvernance/GovernanceDao.vue";
+import GovernanceDonations from "../components/gouvernance/GovernanceDonations.vue";
 import { useGuidedTour } from "../composables/useGuidedTour";
 
-type PageTab = "presentation" | "association" | "dao" | "dons";
+type PageTab = "presentation" | "association" | "members" | "dao" | "donations";
 
-const tabs: { id: PageTab; label: string }[] = [
-  { id: "presentation", label: "Présentation" },
-  { id: "association", label: "Association 1901" },
-  { id: "dao", label: "Gouvernance DAO" },
-  { id: "dons", label: "Dons" },
-];
+const { t } = useI18n();
+const tabs = computed<{ id: PageTab; label: string }[]>(() => [
+  { id: "presentation", label: t('dashboard.tabPresentation') },
+  { id: "association", label: t('dashboard.tabAssociation') },
+  { id: "members", label: t('dashboard.tabMembers') },
+  { id: "dao", label: t('dashboard.tabDao') },
+  { id: "donations", label: t('dashboard.tabDonations') },
+]);
 
-// L'onglet actif vit dans l'URL (?onglet=dao), pas seulement en mémoire —
-// sinon un rafraîchissement (ou un lien partagé) ramène toujours sur
-// "Présentation", même quand on était sur la DAO.
+// The active tab lives in the URL (?tab=dao), not just in memory —
+// otherwise a refresh (or a shared link) always lands back on the
+// presentation tab, even when you were on the DAO.
 const route = useRoute();
 const router = useRouter();
-const tabIds = tabs.map((t) => t.id);
+const tabIds: PageTab[] = ["presentation", "association", "members", "dao", "donations"];
 
 function tabFromQuery(): PageTab {
-  const q = route.query.onglet;
+  const q = route.query.tab;
   return typeof q === "string" && (tabIds as string[]).includes(q) ? (q as PageTab) : "presentation";
 }
 
 const activeTab = ref<PageTab>(tabFromQuery());
 
-// `replace` plutôt que `push` : changer d'onglet ne doit pas empiler
-// d'entrées dans l'historique de navigation (le bouton "retour" ne doit
-// pas avoir à défiler tous les onglets visités un par un).
+// `replace` rather than `push`: switching tabs must not stack entries in
+// the navigation history (the "back" button shouldn't have to scroll
+// through every visited tab one by one).
 watch(activeTab, (tab) => {
-  router.replace({ query: { ...route.query, onglet: tab } });
+  router.replace({ query: { ...route.query, tab } });
 });
 
 const { showTourPulse, requestTour, highlightTourButton } = useGuidedTour();
 
-// À la première ouverture de l'onglet DAO, on met en avant le bouton
-// "Visite guidée" — le tour ne se lance jamais tout seul, mais sa
-// visibilité l'est, une seule fois (cf. useGuidedTour.ts).
+// The first time the DAO tab opens, we highlight the "Guided tour"
+// button — the tour never launches on its own, but its visibility does,
+// once (see useGuidedTour.ts).
 watch(
   activeTab,
   async (tab) => {
@@ -68,24 +72,26 @@ watch(
       </button>
     </div>
     <button v-if="activeTab === 'dao'" class="gv-tour-trigger" type="button" @click="requestTour">
-      Visite guidée
+      {{ t('dashboard.guidedTour') }}
       <span v-if="showTourPulse" class="gv-tour-pulse" aria-hidden="true"></span>
     </button>
   </nav>
 
-  <GouvernancePresentation v-show="activeTab === 'presentation'" @go-to-dao="activeTab = 'dao'" />
-  <GouvernanceAssociation v-show="activeTab === 'association'" />
-  <GouvernanceDao v-show="activeTab === 'dao'" />
-  <GouvernanceDons v-show="activeTab === 'dons'" />
+  <GovernancePresentation v-show="activeTab === 'presentation'" @go-to-dao="activeTab = 'dao'" />
+  <GovernanceAssociation v-show="activeTab === 'association'" />
+  <GovernanceMembers v-show="activeTab === 'members'" />
+  <GovernanceDao v-show="activeTab === 'dao'" />
+  <GovernanceDonations v-show="activeTab === 'donations'" />
   </div>
 </template>
 
 <style lang="scss" scoped>
-/* La nav v2 est fixed-top et reste opaque sur cette page (cf NavBar.vue) :
-   il faut pousser tout le contenu sous elle, sinon elle capte les clics
-   et masque le début de la page. Sa hauteur réelle varie (police du brand,
-   menu mobile déplié...), donc on suit --navbar-height (mesurée en JS dans
-   NavBar.vue) plutôt qu'un nombre en dur qui se désynchronise. */
+/* The v2 nav is fixed-top and stays opaque on this page (see NavBar.vue):
+   all content must be pushed below it, otherwise it captures clicks and
+   hides the top of the page. Its actual height varies (brand font,
+   expanded mobile menu...), so we follow --navbar-height (measured in JS
+   in NavBar.vue) rather than a hardcoded number that could drift out of
+   sync. */
 .gv-dashboard {
   padding-top: var(--navbar-height, 80px);
 }

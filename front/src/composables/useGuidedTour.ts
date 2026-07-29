@@ -1,26 +1,29 @@
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { driver, type Driver } from "driver.js";
 import "driver.js/dist/driver.css";
 import "./driver-overrides.css";
 
-// État partagé entre le bouton (dans la barre d'onglets, Dashboard.vue) et
-// la logique du tour elle-même (driver.js + sélecteurs DOM, GouvernanceDao.vue)
-// puisque les deux ne sont pas dans une relation parent-direct/props simple.
-// Même pattern singleton que les refs module-scope de useMeute.ts.
+// State shared between the button (in the tab bar, Dashboard.vue) and the
+// tour logic itself (driver.js + DOM selectors, GovernanceDao.vue) since
+// the two aren't in a simple direct parent/props relationship. Same
+// singleton pattern as the module-scope refs in useMeute.ts.
 const TOUR_HIGHLIGHTED_KEY = "meute-tour-highlighted";
 const TOUR_TAKEN_KEY = "meute-tour-taken";
 
 const tourHighlighted = ref(localStorage.getItem(TOUR_HIGHLIGHTED_KEY) === "1");
 const showTourPulse = ref(localStorage.getItem(TOUR_TAKEN_KEY) !== "1");
-// Incrémenté à chaque demande de lancement — GouvernanceDao.vue observe ce
-// compteur pour déclencher driver.js au bon moment.
+// Incremented on every launch request — GovernanceDao.vue watches this
+// counter to trigger driver.js at the right time.
 const tourRequestId = ref(0);
-// Instance active du popover de mise en avant, pour pouvoir la fermer si
-// le vrai tour démarre pendant qu'elle est encore ouverte (sinon les deux
-// popovers driver.js se superposent).
+// Active instance of the highlight popover, so it can be closed if the
+// real tour starts while it's still open (otherwise the two driver.js
+// popovers stack on top of each other).
 let highlightInstance: Driver | null = null;
 
 export function useGuidedTour() {
+  const { t } = useI18n();
+
   function requestTour() {
     highlightInstance?.destroy();
     highlightInstance = null;
@@ -29,9 +32,9 @@ export function useGuidedTour() {
     tourRequestId.value++;
   }
 
-  // Le tour ne se lance jamais tout seul, mais on peut mettre en avant le
-  // bouton qui le déclenche — une seule fois, avec l'outil du tour
-  // lui-même (un unique step driver.js) plutôt qu'un bandeau custom.
+  // The tour never starts on its own, but we can highlight the button
+  // that triggers it — once only, using the tour's own tool (a single
+  // driver.js step) rather than a custom banner.
   function highlightTourButton(selector: string) {
     if (tourHighlighted.value) return;
     tourHighlighted.value = true;
@@ -48,8 +51,8 @@ export function useGuidedTour() {
         {
           element: selector,
           popover: {
-            title: "Nouveau ici ?",
-            description: "Une visite guidée de 2 minutes te montre comment lire ta carte, voter et suivre les propositions.",
+            title: t('guidedTour.newHereTitle'),
+            description: t('guidedTour.newHereText'),
           },
         },
       ],

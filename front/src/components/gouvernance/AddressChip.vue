@@ -1,7 +1,31 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import type { Address } from "viem";
+import { useDiscordLink } from "../../composables/useDiscordLink";
 
-const props = defineProps<{ address: string; short?: boolean }>();
+const { t } = useI18n();
+
+const props = defineProps<{
+  address: string;
+  short?: boolean;
+  // Forces the hash to display even if a Discord username exists — for
+  // places (e.g. GovernanceMembers.vue) where the username is already
+  // shown separately just above: without this, this component displayed
+  // it a second time (observed by the user, visual duplicate).
+  addressOnly?: boolean;
+  // Bright icons/text, for use on a dark background (dashboard #111).
+  dark?: boolean;
+}>();
+
+const { discordLinkFor } = useDiscordLink();
+// The verified Discord identity takes priority over the hash as soon as
+// it exists — more readable for Wolves who vote, the address always
+// stays available right next to it (copy/Etherscan) for anyone who wants
+// to verify. The whole page is only accessible to authenticated members
+// anyway (see useMeute.ts, isAuthorized): no need for a separate
+// "hidden" mode here.
+const link = computed(() => (props.addressOnly ? null : discordLinkFor(props.address as Address)));
 
 const copied = ref(false);
 
@@ -18,14 +42,18 @@ async function copy() {
 </script>
 
 <template>
-  <span class="addr-chip mono">
-    {{ displayed() }}
+  <span class="addr-chip" :class="{ 'addr-chip--dark': dark }">
+    <template v-if="link">
+      <img class="addr-avatar" :src="link.avatarUrl" alt="" />
+      <span class="addr-username" :title="address">{{ link.username }}</span>
+    </template>
+    <span v-else class="mono">{{ displayed() }}</span>
     <span class="addr-actions">
       <button
         class="icon-btn"
         :class="{ 'icon-btn--success': copied }"
         type="button"
-        :title="copied ? 'Copié !' : 'Copier l\'adresse'"
+        :title="copied ? t('addressChip.copied') : t('addressChip.copy')"
         @click="copy"
       >
         <svg v-if="copied" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -41,7 +69,7 @@ async function copy() {
         :href="`https://sepolia.etherscan.io/address/${address}`"
         target="_blank"
         rel="noopener"
-        title="Voir sur Etherscan"
+        :title="t('addressChip.viewOnEtherscan')"
       >
         <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4">
           <path d="M6.5 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V10.5" />
@@ -60,10 +88,33 @@ async function copy() {
   font-size: $fs-caption;
 }
 
+.addr-chip--dark {
+  color: rgba(255, 255, 255, 0.5);
+
+  .icon-btn {
+    color: rgba(255, 255, 255, 0.5);
+
+    &:hover {
+      color: $color-orange;
+      background: rgba(249, 174, 60, 0.16);
+    }
+  }
+}
+
 .addr-actions {
   display: inline-flex;
   align-items: center;
   gap: 0.15rem;
+}
+
+.addr-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+}
+
+.addr-username {
+  font-weight: 600;
 }
 
 .icon-btn {

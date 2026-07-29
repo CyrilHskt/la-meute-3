@@ -12,6 +12,21 @@
     <h1>🐺 La Meute</h1>
     <p class="sidebar-eyebrow">Certification</p>
     <ul id="menu-certification" class="menu"></ul>
+
+    <p class="sidebar-eyebrow">Soutenance (C6/C7)</p>
+    <!-- A isn't a clickable scenario: `npx hardhat test` runs in a
+         terminal, not in this panel — see docs/local/soutenance-prep.md
+         for the full breakdown of the 3 demos against the RS6515
+         framework. Shown here just as a cheat sheet during the
+         presentation. -->
+    <div class="scenario-a-note">
+      <p class="scenario-a-title">A. Tests en direct (C6)</p>
+      <code>npx hardhat test --grep "dormancy"</code>
+      <code>npx hardhat test --grep "proposeExclusion"</code>
+      <code>npx hardhat test --grep "openConfirmationVote"</code>
+    </div>
+    <ul id="menu-soutenance" class="menu"></ul>
+
     <p class="sidebar-eyebrow">Scénarios de test</p>
     <ul id="menu-test" class="menu"></ul>
   </nav>

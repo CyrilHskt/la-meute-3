@@ -11,8 +11,8 @@ const router = createRouter({
     return { top: 0 };
   },
   routes: [
-    { path: "/", name: "accueil", component: Home },
-    { path: "/gouvernance", name: "gouvernance", component: Dashboard },
+    { path: "/", name: "home", component: Home },
+    { path: "/gouvernance", name: "governance", component: Dashboard },
   ],
 });
 

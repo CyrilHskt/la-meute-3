@@ -1,122 +1,200 @@
-// Annonces "grand public" des mises à jour — à tenir à la main, pas
-// généré depuis les commits. On ne veut pas montrer aux visiteurs des
-// messages de commit techniques, juste ce qui vaut la peine d'être annoncé.
-// Mettre à jour ce fichier à chaque nouvelle version qu'on veut annoncer.
+// "General public" update announcements — kept by hand, not generated from
+// commits. We don't want to show visitors technical commit messages, just
+// what's worth announcing. Update this file for every new version we want
+// to announce.
 //
-// Ces numéros de version sont propres à cette popup ("informative"),
-// tenus à la main indépendamment de package.json ou du contrat déployé —
-// Site, Dashboard et Contrat ont chacun leur propre historique.
+// These version numbers are specific to this popup ("informative"), kept
+// by hand independently of package.json or the deployed contract — Site,
+// Dashboard and Contract each have their own history.
+//
+// `date`/`title` accept either a plain string (renders as-is regardless of
+// locale — fine for a quick entry) or a { fr, en } pair for full bilingual
+// display. All existing entries below are bilingual for consistency; new
+// entries can stay French-only if you're in a hurry.
 
 export interface ChangelogEntry {
-  date: string;
-  title: string;
+  date: string | { fr: string; en: string };
+  title: string | { fr: string; en: string };
 }
 
-export const SITE_VERSION = "3.1.0";
+export const SITE_VERSION = "3.2.0";
 export const DASHBOARD_VERSION = "1.4.0";
 export const CONTRACT_DISPLAY_VERSION = "1.2.0";
 
 export const SITE_CHANGELOG: ChangelogEntry[] = [
   {
-    date: "25 juillet 2026",
-    title: "Widget Discord intégré directement sur la page d'accueil",
+    date: { fr: "28 juillet 2026", en: "July 28, 2026" },
+    title: {
+      fr: "Le site est désormais disponible en anglais, avec un sélecteur FR/EN dans le menu",
+      en: "The site is now available in English, with an FR/EN switcher in the menu",
+    },
   },
   {
-    date: "24 juillet 2026",
-    title: "Correction d'un bug d'accès direct aux pages via un lien partagé",
+    date: { fr: "25 juillet 2026", en: "July 25, 2026" },
+    title: {
+      fr: "Widget Discord intégré directement sur la page d'accueil",
+      en: "Discord widget embedded directly on the homepage",
+    },
   },
   {
-    date: "18 juillet 2026",
-    title: "Fusion du site vitrine et du dashboard en un seul site",
+    date: { fr: "24 juillet 2026", en: "July 24, 2026" },
+    title: {
+      fr: "Correction d'un bug d'accès direct aux pages via un lien partagé",
+      en: "Fixed a bug preventing direct access to pages via a shared link",
+    },
   },
   {
-    date: "Juillet 2026",
-    title: "Passage en version 3.0",
+    date: { fr: "18 juillet 2026", en: "July 18, 2026" },
+    title: {
+      fr: "Fusion du site vitrine et du dashboard en un seul site",
+      en: "Merged the showcase site and the dashboard into a single site",
+    },
   },
   {
-    date: "2011",
-    title: "La Meute devient une association loi 1901",
+    date: { fr: "Juillet 2026", en: "July 2026" },
+    title: { fr: "Passage en version 3.0", en: "Upgraded to version 3.0" },
   },
   {
-    date: "Août 2010",
-    title: "Passage en version 2.0",
+    date: { fr: "2011", en: "2011" },
+    title: {
+      fr: "La Meute devient une association loi 1901",
+      en: "La Meute becomes a registered French non-profit (loi 1901)",
+    },
   },
   {
-    date: "Décembre 2007",
-    title: "Création de La Meute sur Call of Duty 4",
+    date: { fr: "Août 2010", en: "August 2010" },
+    title: { fr: "Passage en version 2.0", en: "Upgraded to version 2.0" },
+  },
+  {
+    date: { fr: "Décembre 2007", en: "December 2007" },
+    title: {
+      fr: "Création de La Meute sur Call of Duty 4",
+      en: "La Meute founded on Call of Duty 4",
+    },
   },
 ];
 
 export const DASHBOARD_CHANGELOG: ChangelogEntry[] = [
   {
-    date: "26 juillet 2026",
-    title: "Nouvel onglet « Dons », ouvert à tous — avec classement des contributeurs",
+    date: { fr: "26 juillet 2026", en: "July 26, 2026" },
+    title: {
+      fr: "Nouvel onglet « Dons », ouvert à tous — avec classement des contributeurs",
+      en: "New \"Donations\" tab, open to everyone — with a contributor leaderboard",
+    },
   },
   {
-    date: "25 juillet 2026",
-    title: "Le wallet reste connecté après un rafraîchissement de la page",
+    date: { fr: "25 juillet 2026", en: "July 25, 2026" },
+    title: {
+      fr: "Le wallet reste connecté après un rafraîchissement de la page",
+      en: "The wallet now stays connected after a page refresh",
+    },
   },
   {
-    date: "25 juillet 2026",
-    title: "Chaque proposition affiche désormais qui l'a ouverte",
+    date: { fr: "25 juillet 2026", en: "July 25, 2026" },
+    title: {
+      fr: "Chaque proposition affiche désormais qui l'a ouverte",
+      en: "Each proposal now shows who opened it",
+    },
   },
   {
-    date: "25 juillet 2026",
-    title: "Un message de confirmation s'affiche après chaque action (vote, candidature, dépense...)",
+    date: { fr: "25 juillet 2026", en: "July 25, 2026" },
+    title: {
+      fr: "Un message de confirmation s'affiche après chaque action (vote, candidature, dépense...)",
+      en: "A confirmation message now appears after every action (vote, application, expense...)",
+    },
   },
   {
-    date: "25 juillet 2026",
-    title: "L'onglet de gouvernance reste affiché après un rafraîchissement de la page",
+    date: { fr: "25 juillet 2026", en: "July 25, 2026" },
+    title: {
+      fr: "L'onglet de gouvernance reste affiché après un rafraîchissement de la page",
+      en: "The governance tab now stays selected after a page refresh",
+    },
   },
   {
-    date: "25 juillet 2026",
-    title: "Les propositions et votes s'affichent désormais instantanément, sans attendre",
+    date: { fr: "25 juillet 2026", en: "July 25, 2026" },
+    title: {
+      fr: "Les propositions et votes s'affichent désormais instantanément, sans attendre",
+      en: "Proposals and votes now appear instantly, no more waiting",
+    },
   },
   {
-    date: "24 juillet 2026",
-    title: "Fiabilité largement améliorée de l'affichage des données de la DAO",
+    date: { fr: "24 juillet 2026", en: "July 24, 2026" },
+    title: {
+      fr: "Fiabilité largement améliorée de l'affichage des données de la DAO",
+      en: "Significantly improved reliability of DAO data display",
+    },
   },
   {
-    date: "23 juillet 2026",
-    title: "Nouvelle présentation de l'évolution de La Meute (V1 → V2 → V3) avec repères historiques",
+    date: { fr: "23 juillet 2026", en: "July 23, 2026" },
+    title: {
+      fr: "Nouvelle présentation de l'évolution de La Meute (V1 → V2 → V3) avec repères historiques",
+      en: "New timeline showing La Meute's evolution (V1 → V2 → V3) with historical milestones",
+    },
   },
   {
-    date: "21 juillet 2026",
-    title: "Nouveau tableau de bord de gouvernance : carte de membre, vote en direct, historique des propositions",
+    date: { fr: "21 juillet 2026", en: "July 21, 2026" },
+    title: {
+      fr: "Nouveau tableau de bord de gouvernance : carte de membre, vote en direct, historique des propositions",
+      en: "New governance dashboard: member card, live voting, proposal history",
+    },
   },
   {
-    date: "21 juillet 2026",
-    title: "Chaque membre peut choisir un pseudo affiché sur sa carte",
+    date: { fr: "21 juillet 2026", en: "July 21, 2026" },
+    title: {
+      fr: "Chaque membre peut choisir un pseudo affiché sur sa carte",
+      en: "Each member can now choose a nickname shown on their card",
+    },
   },
   {
-    date: "20 juillet 2026",
-    title: "Visite guidée interactive pour découvrir la gouvernance",
+    date: { fr: "20 juillet 2026", en: "July 20, 2026" },
+    title: {
+      fr: "Visite guidée interactive pour découvrir la gouvernance",
+      en: "Interactive guided tour to discover governance",
+    },
   },
 ];
 
 export const CONTRACT_CHANGELOG: ChangelogEntry[] = [
   {
-    date: "26 juillet 2026",
-    title: "Ajout des dons — ouverts à tous, sans rapport avec la cotisation d'adhésion",
+    date: { fr: "26 juillet 2026", en: "July 26, 2026" },
+    title: {
+      fr: "Ajout des dons — ouverts à tous, sans rapport avec la cotisation d'adhésion",
+      en: "Added donations — open to everyone, unrelated to membership dues",
+    },
   },
   {
-    date: "25 juillet 2026",
-    title: "Renforcement de la règle de vote : un quorum de participation est désormais requis en plus de la majorité",
+    date: { fr: "25 juillet 2026", en: "July 25, 2026" },
+    title: {
+      fr: "Renforcement de la règle de vote : un quorum de participation est désormais requis en plus de la majorité",
+      en: "Strengthened the voting rule: a participation quorum is now required in addition to the majority",
+    },
   },
   {
-    date: "25 juillet 2026",
-    title: "Un membre visé par une exclusion ou une dépense ne peut plus voter sur son propre cas",
+    date: { fr: "25 juillet 2026", en: "July 25, 2026" },
+    title: {
+      fr: "Un membre visé par une exclusion ou une dépense ne peut plus voter sur son propre cas",
+      en: "A member targeted by an exclusion or expense proposal can no longer vote on their own case",
+    },
   },
   {
-    date: "25 juillet 2026",
-    title: "Délai avant qu'un membre inactif soit considéré comme dormant réduit de 12 à 6 mois",
+    date: { fr: "25 juillet 2026", en: "July 25, 2026" },
+    title: {
+      fr: "Délai avant qu'un membre inactif soit considéré comme dormant réduit de 12 à 6 mois",
+      en: "Reduced the delay before an inactive member is considered dormant, from 12 to 6 months",
+    },
   },
   {
-    date: "21 juillet 2026",
-    title: "Ajout du pseudo personnalisable, stocké directement sur la blockchain",
+    date: { fr: "21 juillet 2026", en: "July 21, 2026" },
+    title: {
+      fr: "Ajout du pseudo personnalisable, stocké directement sur la blockchain",
+      en: "Added a customizable nickname, stored directly on the blockchain",
+    },
   },
   {
-    date: "18 juillet 2026",
-    title: "Premier déploiement public sur le testnet Sepolia",
+    date: { fr: "18 juillet 2026", en: "July 18, 2026" },
+    title: {
+      fr: "Premier déploiement public sur le testnet Sepolia",
+      en: "First public deployment on the Sepolia testnet",
+    },
   },
 ];

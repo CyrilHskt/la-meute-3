@@ -1,10 +1,10 @@
-// Actions rejouables du scénario de démo, une par étape de demo/scenario.js.
-// Séparé de scripts/seed-local.js volontairement : seed-local pose un état
-// final varié en une fois (utile pour explorer le front), ce module raconte
-// une histoire pas à pas (utile pour la piloter en direct devant un jury).
+// Replayable demo scenario actions, one per demo/scenario.js step.
+// Deliberately separate from scripts/seed-local.js: seed-local sets up a
+// varied final state in one go (useful to explore the front), this module
+// tells a step-by-step story (useful to drive live in front of a jury).
 //
-// N'a de sens que sur un nœud Hardhat local (utilise hardhat_reset,
-// evm_increaseTime — inexistants sur un vrai réseau).
+// Only makes sense on a local Hardhat node (uses hardhat_reset,
+// evm_increaseTime — nonexistent on a real network).
 
 import { ethers } from "ethers";
 import { readFileSync } from "node:fs";
@@ -23,8 +23,8 @@ export const RESET_COMMAND = [
   { type: "comment", text: "lit l'adresse déployée dans ignition/deployments/chain-31337/deployed_addresses.json" },
 ];
 
-const ChoixVote = { Approuver: 0, Rejeter: 1, Ajourner: 2 };
-const JOUR = 24 * 60 * 60;
+const VoteChoice = { Approve: 0, Reject: 1, Postpone: 2 };
+const DAY = 24 * 60 * 60;
 
 function loadAbi() {
   const artifactPath = join(__dirname, "..", "artifacts", "contracts", "Meute.sol", "Meute.json");
@@ -35,11 +35,11 @@ function loadAbi() {
   }
 }
 
-/** Récupère l'id de la proposition depuis l'event PropositionOuverte, et en
- *  profite pour enregistrer son auteur (aussi dans l'event, pas dans la
- *  struct on-chain) dans ctx.auteurs — sinon buildIndex n'a aucun moyen de
- *  savoir qui a ouvert quoi. */
-async function ouvrirEtRecupererId(ctx, contract, txPromise) {
+/** Gets the proposal's id from the ProposalOpened event, and takes the
+ *  opportunity to record its author (also in the event, not in the
+ *  on-chain struct) into ctx.authors — otherwise buildIndex has no way of
+ *  knowing who opened what. */
+async function openAndGetId(ctx, contract, txPromise) {
   const receipt = await (await txPromise).wait();
   for (const log of receipt.logs) {
     let parsed;
@@ -48,17 +48,17 @@ async function ouvrirEtRecupererId(ctx, contract, txPromise) {
     } catch {
       continue;
     }
-    if (parsed?.name === "PropositionOuverte") {
-      ctx.auteurs[parsed.args.proposalId.toString()] = parsed.args.auteur;
+    if (parsed?.name === "ProposalOpened") {
+      ctx.authors[parsed.args.proposalId.toString()] = parsed.args.author;
       return parsed.args.proposalId;
     }
   }
-  throw new Error("PropositionOuverte introuvable dans les logs de la transaction.");
+  throw new Error("ProposalOpened introuvable dans les logs de la transaction.");
 }
 
-/** État partagé entre les étapes d'une même partie (remis à zéro par reset()). */
+/** State shared between the steps of a single run (reset by reset()). */
 export function createContext() {
-  return { provider: null, contracts: null, founder: null, loups: [], candidat: null, ids: {}, auteurs: {} };
+  return { provider: null, contracts: null, founder: null, wolves: [], applicant: null, ids: {}, authors: {} };
 }
 
 async function connect(ctx, contractAddress) {
@@ -70,24 +70,23 @@ async function connect(ctx, contractAddress) {
   const founderSigner = new ethers.JsonRpcSigner(provider, ethers.getAddress(FOUNDER));
 
   const nodeAccounts = await provider.send("eth_accounts", []);
-  if (nodeAccounts.length < 19) throw new Error("Pas assez de comptes de test sur le nœud (besoin d'au moins 19).");
+  // 5: the highest role index used (wolf4 = nodeAccounts[4]) — a generic
+  // safety net, early, before even picking a scenario.
+  if (nodeAccounts.length < 5) throw new Error("Pas assez de comptes de test sur le nœud (besoin d'au moins 5).");
 
-  // Rôles fixes parmi les comptes du nœud, distincts du fondateur — utilisés
-  // par les scénarios de test isolés (exclusion, ajournement, dormance).
+  // Fixed roles among the node's accounts, distinct from the founder —
+  // used by the isolated test scenarios (exclusion, postponement,
+  // dormancy).
   const roleAddrs = {
-    loup2: nodeAccounts[0],
-    candidat: nodeAccounts[1],
-    loup3: nodeAccounts[3],
-    loup4: nodeAccounts[4],
-    louveteauA: nodeAccounts[5],
-    louveteauB: nodeAccounts[6],
-    boosterA: nodeAccounts[7],
-    boosterB: nodeAccounts[8],
+    wolf2: nodeAccounts[0],
+    applicant: nodeAccounts[1],
+    wolf3: nodeAccounts[3],
+    wolf4: nodeAccounts[4],
   };
 
-  // Tous les comptes ont un signer prêt, pas seulement les rôles nommés —
-  // le scénario de certification (mise en place riche) a besoin de bien
-  // plus d'adresses que les scénarios de test isolés.
+  // Every account has a signer ready, not just the named roles — the
+  // certification scenario (rich setup) needs far more addresses than
+  // the isolated test scenarios.
   const signers = new Map([[FOUNDER.toLowerCase(), founderSigner]]);
   for (const addr of nodeAccounts) {
     signers.set(addr.toLowerCase(), await provider.getSigner(addr));
@@ -96,59 +95,58 @@ async function connect(ctx, contractAddress) {
   ctx.provider = provider;
   ctx.contractAddress = contractAddress;
   ctx.founder = FOUNDER;
-  ctx.candidat = roleAddrs.candidat;
+  ctx.applicant = roleAddrs.applicant;
   ctx.roles = roleAddrs;
   ctx.nodeAccounts = nodeAccounts;
-  ctx.loups = [FOUNDER]; // grandit au fil des admissions/titularisations
-  ctx.knownAddresses = [FOUNDER, roleAddrs.candidat];
+  ctx.wolves = [FOUNDER]; // grows as admissions/confirmations happen
+  ctx.knownAddresses = [FOUNDER, roleAddrs.applicant];
   ctx.contracts = {
     get(addr) {
       return new ethers.Contract(contractAddress, abi, signers.get(addr.toLowerCase()));
     },
   };
   ctx.ids = {};
-  ctx.auteurs = {};
+  ctx.authors = {};
 }
 
-async function avancerTemps(ctx, seconds) {
+async function advanceTime(ctx, seconds) {
   await ctx.provider.send("evm_increaseTime", [seconds]);
   await ctx.provider.send("evm_mine", []);
 }
 
-async function tousVotent(ctx, id, choix = ChoixVote.Approuver) {
-  for (const v of ctx.loups) {
-    await (await ctx.contracts.get(v).voter(id, choix)).wait();
+async function allVote(ctx, id, choice = VoteChoice.Approve) {
+  for (const v of ctx.wolves) {
+    await (await ctx.contracts.get(v).vote(id, choice)).wait();
   }
 }
 
-/** Candidature -> vote (tous les Loups actuels) -> 7j -> exécution.
- *  Ajoute l'adresse à ctx.loups si `titulariser` (probation + 2e vote),
- *  sinon elle reste Louveteau. Enregistre les ids dans ctx.ids pour
- *  qu'elles apparaissent dans la liste des propositions passées, pas
- *  seulement dans les compteurs agrégés. */
-async function faireRejoindre(ctx, addr, { titulariser }) {
+/** Application -> vote (all current Wolves) -> 7d -> execution. Adds the
+ *  address to ctx.wolves if `confirm` (probation + 2nd vote), otherwise
+ *  it stays a Cub. Records the ids in ctx.ids so they show up in the list
+ *  of past proposals, not just in the aggregated counters. */
+async function makeJoin(ctx, addr, { confirm }) {
   const founder = ctx.contracts.get(ctx.founder);
   const c = ctx.contracts.get(addr);
-  const id = await ouvrirEtRecupererId(ctx, c, c.candidater({ value: await founder.cotisation() }));
-  await tousVotent(ctx, id);
-  await avancerTemps(ctx, 7 * JOUR + 1);
-  await (await c.executer(id)).wait();
+  const id = await openAndGetId(ctx, c, c.applyForMembership({ value: await founder.fee() }));
+  await allVote(ctx, id);
+  await advanceTime(ctx, 7 * DAY + 1);
+  await (await c.execute(id)).wait();
   ctx.ids[`admission_${addr}`] = id;
 
-  if (!titulariser) return;
+  if (!confirm) return;
 
-  await avancerTemps(ctx, 90 * JOUR + 1);
-  const titId = await ouvrirEtRecupererId(ctx, founder, founder.ouvrirTitularisation(addr));
-  await tousVotent(ctx, titId);
-  await avancerTemps(ctx, 7 * JOUR + 1);
-  await (await c.executer(titId)).wait();
-  ctx.ids[`titularisation_${addr}`] = titId;
-  ctx.loups.push(addr);
+  await advanceTime(ctx, 90 * DAY + 1);
+  const confirmId = await openAndGetId(ctx, founder, founder.openConfirmationVote(addr));
+  await allVote(ctx, confirmId);
+  await advanceTime(ctx, 7 * DAY + 1);
+  await (await c.execute(confirmId)).wait();
+  ctx.ids[`confirmation_${addr}`] = confirmId;
+  ctx.wolves.push(addr);
 }
 
-/** Redéploie un contrat Meute tout neuf (`--reset` ignore le déploiement
- *  précédent d'Ignition) — pas besoin de remettre la chaîne à zéro, une
- *  nouvelle instance vide du contrat suffit à repartir de rien. */
+/** Redeploys a brand-new Meute contract (`--reset` ignores Ignition's
+ *  previous deployment) — no need to reset the chain, a fresh empty
+ *  contract instance is enough to start over. */
 export async function reset(ctx) {
   await new Promise((resolve, reject) => {
     const child = spawn(
@@ -165,483 +163,518 @@ export async function reset(ctx) {
   return `Contrat redéployé à ${contractAddress}.`;
 }
 
-/** Mise en place : la meute a déjà une vraie activité avant même que
- *  l'histoire commence — 3 Loups de plus, 2 Louveteaux, de la trésorerie,
- *  plusieurs propositions déjà passées, et une encore ouverte. */
-// Nombre de Loups actifs / dormants visés dans l'état initial de la
-// certification (2026-07-25, sur demande de Cyril) — au-delà de la
-// trésorerie/propositions, ça donne un vrai volume à montrer côté front.
-const LOUPS_ACTIFS_CIBLE = 10; // fondateur inclus
-const LOUPS_DORMANTS_CIBLE = 5;
+/** Light setup (replaces the old 14-Wolf setup, made useless once the
+ *  A/B/C scenarios dedicated to the defense were created — see
+ *  docs/local/soutenance-prep.md): 5 accounts reused across the steps,
+ *  maximum visible variety of statuses for a minimum of transactions,
+ *  rather than a realistic volume (that's scripts/seed-local.js's job).
+ *  Designed with a "scenario writer" agent (visible variety at the lowest
+ *  cost) and a "code expert" agent (exact quorum formula on the Meute.sol
+ *  side: cast*4 > active*3 — see _isPassed) to stay correct on edge cases
+ *  (e.g. with 3 active Wolves, NOTHING reaches quorum unless ALL vote).
+ *
+ *  Reused roles (same names as the isolated test scenarios — no risk,
+ *  only one scenario runs at a time on a brand-new contract): wolf2 →
+ *  1st confirmed Wolf, wolf3 → 2nd confirmed Wolf then left dormant,
+ *  wolf4 → stays a Cub (never confirmed), applicant → rejected once then
+ *  free to donate again (no on-chain state prevents it, see
+ *  _executeAdmission which refunds and recloses the application). */
+export async function setup(ctx) {
+  const { wolf2: l1, wolf3: l2, wolf4: l3, applicant: d } = ctx.roles;
+  ctx.knownAddresses.push(l1, l2, l3, d);
+  ctx.progress?.setTotal(7);
 
-export async function miseEnPlace(ctx) {
-  const { louveteauA, louveteauB, boosterA, boosterB } = ctx.roles;
+  // 1. L1 applies and is confirmed — only the founder votes (1 active):
+  //    the most trivial quorum possible, just to kick off the pack.
+  await makeJoin(ctx, l1, { confirm: true });
+  ctx.progress?.tick();
 
-  // Un pool d'adresses dédié à cette mise en place, distinct des rôles
-  // utilisés plus loin dans cette même fonction (candidat, louveteauA/B,
-  // boosterA/B) — sinon une même adresse se retrouverait candidater() deux
-  // fois (DejaMembre). loup2/loup3/loup4 ne servent qu'aux scénarios de
-  // test isolés (jamais dans la même session que la certification), donc
-  // libres de réutilisation ici.
-  const reserves = new Set([ctx.candidat, louveteauA, louveteauB, boosterA, boosterB].map((a) => a.toLowerCase()));
-  const pool = ctx.nodeAccounts.filter((a) => !reserves.has(a.toLowerCase()));
-  const nbLoupsATitulariser = LOUPS_ACTIFS_CIBLE - 1 + LOUPS_DORMANTS_CIBLE;
-  const nouveauxLoups = pool.slice(0, nbLoupsATitulariser);
+  // 2. L2 applies and is confirmed — F+L1 vote (2 active).
+  await makeJoin(ctx, l2, { confirm: true });
+  ctx.progress?.tick();
 
-  // Une unité de progression par Loup admis + 1 pour le réveil partiel + 1
-  // par Louveteau + 1 par booster + 1 pour la proposition finale.
-  ctx.progress?.setTotal(nouveauxLoups.length + 1 + 2 + 2 + 1);
+  // 3. L3 applies but stays a Cub (never confirmed) — F+L1+L2 vote (3
+  //    active): first non-trivial quorum (100% participation required
+  //    with only 3 active, see _isPassed).
+  await makeJoin(ctx, l3, { confirm: false });
+  ctx.progress?.tick();
 
-  // Chaque admission/titularisation fait voter tous les Loups déjà présents
-  // (faireRejoindre → tousVotent) : leur activité est donc rafraîchie à
-  // chaque tour, personne ne devient dormant pendant cette phase.
-  for (const addr of nouveauxLoups) {
-    await faireRejoindre(ctx, addr, { titulariser: true });
+  // 4. Dormancy: we advance 181 days (no one has acted in a while), then
+  //    only F and L1 confirm their presence — L2 stays dormant with no
+  //    dedicated transaction (just the absence of action).
+  await advanceTime(ctx, 181 * DAY);
+  await (await ctx.contracts.get(ctx.founder).imHere()).wait();
+  await (await ctx.contracts.get(l1).imHere()).wait();
+  ctx.progress?.tick();
+
+  // 5. D applies and is clearly rejected — F+L1 vote Reject (L2 dormant,
+  //    excluded from the count; 2 active, quorum reached since both
+  //    vote). Fee automatically refunded by the contract, so D stays
+  //    free to donate again later (donations, step 7).
+  {
+    const c = ctx.contracts.get(d);
+    const id = await openAndGetId(ctx, c, c.applyForMembership({ value: await ctx.contracts.get(ctx.founder).fee() }));
+    await (await ctx.contracts.get(ctx.founder).vote(id, VoteChoice.Reject)).wait();
+    await (await ctx.contracts.get(l1).vote(id, VoteChoice.Reject)).wait();
+    await advanceTime(ctx, 7 * DAY + 1);
+    await (await c.execute(id)).wait();
+    ctx.ids.rejectedAdmission = id;
     ctx.progress?.tick();
   }
-  ctx.knownAddresses.push(...nouveauxLoups);
 
-  // On endort volontairement LOUPS_DORMANTS_CIBLE d'entre eux : on avance
-  // le temps au-delà du délai de dormance, puis seuls les autres confirment
-  // leur présence — les silencieux restent dormants pour de vrai.
-  const loupsAReveiller = [ctx.founder, ...nouveauxLoups.slice(0, LOUPS_ACTIFS_CIBLE - 1)];
-  const loupsLaissesDormants = nouveauxLoups.slice(LOUPS_ACTIFS_CIBLE - 1);
-  await avancerTemps(ctx, 180 * JOUR + 1);
-  for (const addr of loupsAReveiller) {
-    await (await ctx.contracts.get(addr).jeSuisLa()).wait();
-  }
-  ctx.progress?.tick();
-  // Seuls les réveillés continuent de voter à partir d'ici — voter avec un
-  // dormant le réveillerait, ce qui ruinerait l'état qu'on vient de figer.
-  ctx.loups = loupsAReveiller;
-
-  await faireRejoindre(ctx, louveteauA, { titulariser: false });
-  ctx.progress?.tick();
-  await faireRejoindre(ctx, louveteauB, { titulariser: false });
-  ctx.progress?.tick();
-  ctx.knownAddresses.push(louveteauA, louveteauB);
-
-  // Deux candidats admis puis démissionnaires : gonflent la trésorerie
-  // (cotisation non remboursée) sans compter dans les effectifs actuels.
-  for (const addr of [boosterA, boosterB]) {
-    const c = ctx.contracts.get(addr);
+  // 6. An expense that never reaches quorum — only F votes (L1 abstains,
+  //    L2 dormant): 1 voter out of 2 active, below the 75% required.
+  {
     const founder = ctx.contracts.get(ctx.founder);
-    const id = await ouvrirEtRecupererId(ctx, c, c.candidater({ value: await founder.cotisation() }));
-    await tousVotent(ctx, id);
-    await avancerTemps(ctx, 7 * JOUR + 1);
-    await (await c.executer(id)).wait();
-    ctx.ids[`admission_${addr}`] = id;
-    await (await c.demissionner()).wait();
+    const id = await openAndGetId(ctx, founder, founder.proposeExpense(l3, ethers.parseEther("0.001"), "Rachat de goodies (jamais assez voté)"));
+    await (await founder.vote(id, VoteChoice.Approve)).wait();
+    await advanceTime(ctx, 7 * DAY + 1);
+    await (await founder.execute(id)).wait();
+    ctx.ids.expenseQuorumMissed = id;
     ctx.progress?.tick();
   }
 
-  // Une proposition de dépense laissée ouverte, jamais votée — pour
-  // démarrer avec "1 proposition en cours" plutôt qu'un tableau vide.
+  // 7. An expense left open, never voted on (an "ongoing" proposal
+  //    visible right away) + a few donations for a small leaderboard
+  //    (3 entries) on the Donations page.
   const founder = ctx.contracts.get(ctx.founder);
-  ctx.ids.depenseInitiale = await ouvrirEtRecupererId(ctx, 
-    founder,
-    founder.proposerDepense(louveteauA, ethers.parseEther("0.002"), "Achat d'un nom de domaine"),
-  );
+  ctx.ids.openExpense = await openAndGetId(ctx, founder, founder.proposeExpense(d, ethers.parseEther("0.002"), "Achat d'un nom de domaine"));
+  await (await founder.donate({ value: ethers.parseEther("0.5") })).wait();
+  await (await ctx.contracts.get(d).donate({ value: ethers.parseEther("0.3") })).wait();
+  await (await ctx.contracts.get(l3).donate({ value: ethers.parseEther("0.1") })).wait();
   ctx.progress?.tick();
 
-  return `Meute mise en place : ${ctx.loups.length} Loups actifs, ${loupsLaissesDormants.length} Loups dormants, 2 Louveteaux, trésorerie alimentée, plusieurs propositions passées et une en cours.`;
+  return (
+    `Meute mise en place : ${ctx.wolves.length} Loups actifs (dont 1 dormant), 1 Louveteau, ` +
+    "1 candidature refusée et 1 dépense sans quorum dans l'historique, 0.9 ETH reçus en dons, " +
+    "une dépense encore en cours."
+  );
 }
 
-export async function candidatPostule(ctx) {
-  const cotisation = await ctx.contracts.get(ctx.founder).cotisation();
-  const c = ctx.contracts.get(ctx.candidat);
-  ctx.ids.admission = await ouvrirEtRecupererId(ctx, c, c.candidater({ value: cotisation }));
+export async function applicantApplies(ctx) {
+  const fee = await ctx.contracts.get(ctx.founder).fee();
+  const c = ctx.contracts.get(ctx.applicant);
+  ctx.ids.admission = await openAndGetId(ctx, c, c.applyForMembership({ value: fee }));
   return `Candidature ouverte (id ${ctx.ids.admission}), cotisation versée à la trésorerie.`;
 }
 
-export async function voteAdmission(ctx) {
-  await tousVotent(ctx, ctx.ids.admission);
-  return `Les ${ctx.loups.length} Loups actifs votent Approuver.`;
+export async function voteOnAdmission(ctx) {
+  await allVote(ctx, ctx.ids.admission);
+  return `Les ${ctx.wolves.length} Loups actifs votent Approuver.`;
 }
 
-export async function tempsVoteAdmission(ctx) {
-  await avancerTemps(ctx, 7 * JOUR + 1);
+export async function admissionVoteTime(ctx) {
+  await advanceTime(ctx, 7 * DAY + 1);
   return "7 jours plus tard : la fenêtre de vote est close.";
 }
 
-export async function executionAdmission(ctx) {
-  await (await ctx.contracts.get(ctx.candidat).executer(ctx.ids.admission)).wait();
+export async function executeAdmission(ctx) {
+  await (await ctx.contracts.get(ctx.applicant).execute(ctx.ids.admission)).wait();
   return "Candidature exécutée : le candidat devient Louveteau.";
 }
 
-export async function tempsProbation(ctx) {
-  await avancerTemps(ctx, 90 * JOUR + 1);
+export async function probationTime(ctx) {
+  await advanceTime(ctx, 90 * DAY + 1);
   return "90 jours plus tard : la probation est terminée.";
 }
 
-export async function ouvertureTitularisation(ctx) {
+export async function openConfirmation(ctx) {
   const c = ctx.contracts.get(ctx.founder);
-  ctx.ids.titularisation = await ouvrirEtRecupererId(ctx, c, c.ouvrirTitularisation(ctx.candidat));
-  return `Proposition de titularisation ouverte (id ${ctx.ids.titularisation}).`;
+  ctx.ids.confirmation = await openAndGetId(ctx, c, c.openConfirmationVote(ctx.applicant));
+  return `Proposition de titularisation ouverte (id ${ctx.ids.confirmation}).`;
 }
 
-export async function voteTitularisation(ctx) {
-  await tousVotent(ctx, ctx.ids.titularisation);
-  return `Les ${ctx.loups.length} Loups actifs votent Approuver.`;
+export async function voteOnConfirmation(ctx) {
+  await allVote(ctx, ctx.ids.confirmation);
+  return `Les ${ctx.wolves.length} Loups actifs votent Approuver.`;
 }
 
-export async function tempsVoteTitularisation(ctx) {
-  await avancerTemps(ctx, 7 * JOUR + 1);
+export async function confirmationVoteTime(ctx) {
+  await advanceTime(ctx, 7 * DAY + 1);
   return "7 jours plus tard : la fenêtre de vote est close.";
 }
 
-export async function executionTitularisation(ctx) {
-  await (await ctx.contracts.get(ctx.candidat).executer(ctx.ids.titularisation)).wait();
-  ctx.loups.push(ctx.candidat);
+export async function executeConfirmation(ctx) {
+  await (await ctx.contracts.get(ctx.applicant).execute(ctx.ids.confirmation)).wait();
+  ctx.wolves.push(ctx.applicant);
   return "Titularisation exécutée : le Louveteau devient Loup à part entière.";
 }
 
-export async function propositionDepense(ctx) {
+export async function expenseProposal(ctx) {
   const c = ctx.contracts.get(ctx.founder);
-  ctx.ids.depense = await ouvrirEtRecupererId(ctx, 
+  ctx.ids.expense = await openAndGetId(ctx,
     c,
-    c.proposerDepense(ctx.candidat, ethers.parseEther("0.005"), "Hébergement serveur de jeu"),
+    c.proposeExpense(ctx.applicant, ethers.parseEther("0.005"), "Hébergement serveur de jeu"),
   );
-  return `Proposition de dépense ouverte (id ${ctx.ids.depense}), 0.005 ETH vers le nouveau Loup.`;
+  return `Proposition de dépense ouverte (id ${ctx.ids.expense}), 0.005 ETH vers le nouveau Loup.`;
 }
 
-export async function voteDepense(ctx) {
-  await tousVotent(ctx, ctx.ids.depense);
-  return `Les ${ctx.loups.length} Loups actifs votent Approuver.`;
+export async function voteOnExpense(ctx) {
+  // The beneficiary (ctx.applicant, just confirmed) can't vote on their
+  // own expense (ConflictOfInterest) — same filter as
+  // voteOnTestExpense/voteOnDormancyExpense further in this file.
+  const voters = ctx.wolves.filter((a) => a !== ctx.applicant);
+  for (const v of voters) {
+    await (await ctx.contracts.get(v).vote(ctx.ids.expense, VoteChoice.Approve)).wait();
+  }
+  return `Les ${voters.length} autres Loups actifs votent Approuver (le bénéficiaire ne peut pas voter sur son propre cas).`;
 }
 
-export async function tempsVoteDepense(ctx) {
-  await avancerTemps(ctx, 7 * JOUR + 1);
+export async function expenseVoteTime(ctx) {
+  await advanceTime(ctx, 7 * DAY + 1);
   return "7 jours plus tard : la fenêtre de vote est close.";
 }
 
-export async function executionDepense(ctx) {
-  await (await ctx.contracts.get(ctx.founder).executer(ctx.ids.depense)).wait();
-  const solde = await ctx.provider.getBalance(ctx.contractAddress);
-  return `Dépense exécutée : les fonds partent de la trésorerie. Trésor restant : ${ethers.formatEther(solde)} ETH.`;
+export async function executeExpense(ctx) {
+  await (await ctx.contracts.get(ctx.founder).execute(ctx.ids.expense)).wait();
+  const balance = await ctx.provider.getBalance(ctx.contractAddress);
+  return `Dépense exécutée : les fonds partent de la trésorerie. Trésor restant : ${ethers.formatEther(balance)} ETH.`;
 }
 
 // ---------------------------------------------------------------------
-// Scénario de test : Exclusion
+// Test scenario: Exclusion
 // ---------------------------------------------------------------------
 
-/** 3 Loups actifs (fondateur + 2), pour qu'exclure l'un d'eux soit un vrai
- *  vote à majorité, pas une décision solitaire. */
+/** 3 active Wolves (founder + 2), so excluding one of them is a real
+ *  majority vote, not a solo decision. */
 export async function setupExclusion(ctx) {
-  const { loup2, loup3 } = ctx.roles;
-  await faireRejoindre(ctx, loup2, { titulariser: true });
-  await faireRejoindre(ctx, loup3, { titulariser: true });
-  ctx.knownAddresses.push(loup2, loup3);
-  return `3 Loups actifs en place (fondateur, ${loup2.slice(0, 8)}…, ${loup3.slice(0, 8)}… — ce dernier sera la cible).`;
+  const { wolf2, wolf3 } = ctx.roles;
+  await makeJoin(ctx, wolf2, { confirm: true });
+  await makeJoin(ctx, wolf3, { confirm: true });
+  ctx.knownAddresses.push(wolf2, wolf3);
+  return `3 Loups actifs en place (fondateur, ${wolf2.slice(0, 8)}…, ${wolf3.slice(0, 8)}… — ce dernier sera la cible).`;
 }
 
-export async function ouvrirExclusion(ctx) {
+export async function openExclusion(ctx) {
   const founder = ctx.contracts.get(ctx.founder);
-  ctx.ids.exclusion = await ouvrirEtRecupererId(ctx, founder, founder.proposerExclusion(ctx.roles.loup3));
-  return `Proposition d'exclusion ouverte contre ${ctx.roles.loup3} (id ${ctx.ids.exclusion}).`;
+  ctx.ids.exclusion = await openAndGetId(ctx, founder, founder.proposeExclusion(ctx.roles.wolf3));
+  return `Proposition d'exclusion ouverte contre ${ctx.roles.wolf3} (id ${ctx.ids.exclusion}).`;
 }
 
 export async function voteExclusion(ctx) {
-  // La cible ne peut pas voter sur sa propre exclusion (ConflitInteret) —
-  // seuls les autres Loups actifs votent.
-  const votants = ctx.loups.filter((a) => a !== ctx.roles.loup3);
-  for (const v of votants) {
-    await (await ctx.contracts.get(v).voter(ctx.ids.exclusion, ChoixVote.Approuver)).wait();
+  // The target can't vote on their own exclusion (ConflictOfInterest) —
+  // only the other active Wolves vote.
+  const voters = ctx.wolves.filter((a) => a !== ctx.roles.wolf3);
+  for (const v of voters) {
+    await (await ctx.contracts.get(v).vote(ctx.ids.exclusion, VoteChoice.Approve)).wait();
   }
-  return `Les ${votants.length} autres Loups actifs votent Approuver (la cible ne peut pas voter sur son propre cas).`;
+  return `Les ${voters.length} autres Loups actifs votent Approuver (la cible ne peut pas voter sur son propre cas).`;
 }
 
-export async function tempsVoteExclusion(ctx) {
-  await avancerTemps(ctx, 7 * JOUR + 1);
+export async function exclusionVoteTime(ctx) {
+  await advanceTime(ctx, 7 * DAY + 1);
   return "7 jours plus tard : la fenêtre de vote est close.";
 }
 
-export async function executionExclusion(ctx) {
-  await (await ctx.contracts.get(ctx.founder).executer(ctx.ids.exclusion)).wait();
-  ctx.loups = ctx.loups.filter((a) => a !== ctx.roles.loup3);
+export async function executeExclusion(ctx) {
+  await (await ctx.contracts.get(ctx.founder).execute(ctx.ids.exclusion)).wait();
+  ctx.wolves = ctx.wolves.filter((a) => a !== ctx.roles.wolf3);
   return "Exclusion exécutée : la carte est brûlée, l'ancien Loup n'est plus membre du tout.";
 }
 
 // ---------------------------------------------------------------------
-// Scénario de test : Ajournement (plafond AJOURNEMENTS_MAX)
+// Test scenario: Postponement (MAX_POSTPONEMENTS cap)
 // ---------------------------------------------------------------------
 
-/** Un Louveteau déjà admis, probation déjà écoulée une première fois —
- *  prêt pour un premier vote de titularisation. 2 Loups actifs pour voter. */
-export async function setupAjournement(ctx) {
-  await faireRejoindre(ctx, ctx.roles.loup2, { titulariser: true });
-  await faireRejoindre(ctx, ctx.roles.candidat, { titulariser: false });
-  ctx.knownAddresses.push(ctx.roles.loup2);
-  await avancerTemps(ctx, 90 * JOUR + 1);
+/** A Cub already admitted, probation already elapsed once — ready for a
+ *  first confirmation vote. 2 active Wolves to vote. */
+export async function setupPostponement(ctx) {
+  await makeJoin(ctx, ctx.roles.wolf2, { confirm: true });
+  await makeJoin(ctx, ctx.roles.applicant, { confirm: false });
+  ctx.knownAddresses.push(ctx.roles.wolf2);
+  await advanceTime(ctx, 90 * DAY + 1);
   return "Louveteau admis, probation écoulée, 2 Loups actifs prêts à voter.";
 }
 
-export async function ouvrirTitularisation1(ctx) {
+export async function openConfirmation1(ctx) {
   const founder = ctx.contracts.get(ctx.founder);
-  ctx.ids.titularisation1 = await ouvrirEtRecupererId(ctx, founder, founder.ouvrirTitularisation(ctx.candidat));
-  return `Vote de titularisation ouvert (id ${ctx.ids.titularisation1}).`;
+  ctx.ids.confirmation1 = await openAndGetId(ctx, founder, founder.openConfirmationVote(ctx.applicant));
+  return `Vote de titularisation ouvert (id ${ctx.ids.confirmation1}).`;
 }
 
-export async function voteAjourner1(ctx) {
-  await tousVotent(ctx, ctx.ids.titularisation1, ChoixVote.Ajourner);
+export async function votePostpone1(ctx) {
+  await allVote(ctx, ctx.ids.confirmation1, VoteChoice.Postpone);
   return "Les Loups votent Ajourner (report).";
 }
 
-export async function tempsVoteTitularisation1(ctx) {
-  await avancerTemps(ctx, 7 * JOUR + 1);
+export async function confirmationVoteTime1(ctx) {
+  await advanceTime(ctx, 7 * DAY + 1);
   return "7 jours plus tard : la fenêtre de vote est close.";
 }
 
-export async function executionAjournement1(ctx) {
-  await (await ctx.contracts.get(ctx.candidat).executer(ctx.ids.titularisation1)).wait();
+export async function executePostponement1(ctx) {
+  await (await ctx.contracts.get(ctx.applicant).execute(ctx.ids.confirmation1)).wait();
   return "Exécuté : ajournement n°1 consommé, le Louveteau reste Louveteau, sa probation redémarre.";
 }
 
-export async function tempsNouvelleProbation1(ctx) {
-  await avancerTemps(ctx, 90 * JOUR + 1);
+export async function newProbationTime1(ctx) {
+  await advanceTime(ctx, 90 * DAY + 1);
   return "90 jours plus tard : la nouvelle probation est terminée.";
 }
 
-export async function ouvrirTitularisation2(ctx) {
+export async function openConfirmation2(ctx) {
   const founder = ctx.contracts.get(ctx.founder);
-  ctx.ids.titularisation2 = await ouvrirEtRecupererId(ctx, founder, founder.ouvrirTitularisation(ctx.candidat));
-  return `Vote de titularisation ouvert (id ${ctx.ids.titularisation2}).`;
+  ctx.ids.confirmation2 = await openAndGetId(ctx, founder, founder.openConfirmationVote(ctx.applicant));
+  return `Vote de titularisation ouvert (id ${ctx.ids.confirmation2}).`;
 }
 
-export async function voteAjourner2(ctx) {
-  await tousVotent(ctx, ctx.ids.titularisation2, ChoixVote.Ajourner);
+export async function votePostpone2(ctx) {
+  await allVote(ctx, ctx.ids.confirmation2, VoteChoice.Postpone);
   return "Les Loups votent Ajourner (report) — 2e fois.";
 }
 
-export async function tempsVoteTitularisation2(ctx) {
-  await avancerTemps(ctx, 7 * JOUR + 1);
+export async function confirmationVoteTime2(ctx) {
+  await advanceTime(ctx, 7 * DAY + 1);
   return "7 jours plus tard : la fenêtre de vote est close.";
 }
 
-export async function executionAjournement2(ctx) {
-  await (await ctx.contracts.get(ctx.candidat).executer(ctx.ids.titularisation2)).wait();
+export async function executePostponement2(ctx) {
+  await (await ctx.contracts.get(ctx.applicant).execute(ctx.ids.confirmation2)).wait();
   return "Exécuté : ajournement n°2 consommé — AJOURNEMENTS_MAX (2) est désormais atteint.";
 }
 
-export async function tempsNouvelleProbation2(ctx) {
-  await avancerTemps(ctx, 90 * JOUR + 1);
+export async function newProbationTime2(ctx) {
+  await advanceTime(ctx, 90 * DAY + 1);
   return "90 jours plus tard : la nouvelle probation est terminée.";
 }
 
-export async function ouvrirTitularisation3(ctx) {
+export async function openConfirmation3(ctx) {
   const founder = ctx.contracts.get(ctx.founder);
-  ctx.ids.titularisation3 = await ouvrirEtRecupererId(ctx, founder, founder.ouvrirTitularisation(ctx.candidat));
-  return `Vote de titularisation ouvert (id ${ctx.ids.titularisation3}).`;
+  ctx.ids.confirmation3 = await openAndGetId(ctx, founder, founder.openConfirmationVote(ctx.applicant));
+  return `Vote de titularisation ouvert (id ${ctx.ids.confirmation3}).`;
 }
 
-/** Ce vote DOIT échouer — {voter} rejette Ajourner une fois le plafond
- *  atteint (ChoixInvalide). C'est le point du test : un revert ici est
- *  le succès attendu, pas une erreur du panneau. */
-export async function tentativeAjournementRefuse(ctx) {
+/** This vote MUST fail — {vote} rejects Postpone once the cap is reached
+ *  (InvalidChoice). That's the point of the test: a revert here is the
+ *  expected success, not a panel error. */
+export async function postponeAttemptRefused(ctx) {
   try {
-    await (await ctx.contracts.get(ctx.founder).voter(ctx.ids.titularisation3, ChoixVote.Ajourner)).wait();
+    await (await ctx.contracts.get(ctx.founder).vote(ctx.ids.confirmation3, VoteChoice.Postpone)).wait();
     return "Inattendu : le vote Ajourner est passé — le plafond ne s'est pas appliqué (bug ?).";
   } catch {
-    return "Comme prévu : le contrat refuse (ChoixInvalide) — AJOURNEMENTS_MAX est déjà atteint, impossible d'ajourner une 3e fois.";
+    return "Comme prévu : le contrat refuse (InvalidChoice) — AJOURNEMENTS_MAX est déjà atteint, impossible d'ajourner une 3e fois.";
   }
 }
 
 // ---------------------------------------------------------------------
-// Scénario de test : Dormance et réveil (quorum)
+// Test scenario: Dormancy and wake-up (quorum)
 // ---------------------------------------------------------------------
 
-/** 3 Loups actifs — l'un d'eux (loup3) ne fera jamais rien ensuite, pour
- *  devenir dormant pendant que les deux autres restent actifs. */
+/** 3 active Wolves — one of them (wolf3) will never do anything
+ *  afterwards, to become dormant while the other two stay active. */
 export async function setupDormance(ctx) {
-  await faireRejoindre(ctx, ctx.roles.loup2, { titulariser: true });
-  await faireRejoindre(ctx, ctx.roles.loup3, { titulariser: true });
-  ctx.knownAddresses.push(ctx.roles.loup2, ctx.roles.loup3);
+  await makeJoin(ctx, ctx.roles.wolf2, { confirm: true });
+  await makeJoin(ctx, ctx.roles.wolf3, { confirm: true });
+  ctx.knownAddresses.push(ctx.roles.wolf2, ctx.roles.wolf3);
   return "3 Loups actifs en place. loup3 ne fera plus rien à partir de maintenant.";
 }
 
-export async function avancerUnAn(ctx) {
-  await avancerTemps(ctx, 366 * JOUR);
-  return "366 jours plus tard, sans aucune activité de personne.";
+export async function advanceOneYear(ctx) {
+  await advanceTime(ctx, 181 * DAY);
+  return "181 jours plus tard, sans aucune activité de personne.";
 }
 
-export async function reveilPartiel(ctx) {
-  await (await ctx.contracts.get(ctx.founder).jeSuisLa()).wait();
-  await (await ctx.contracts.get(ctx.roles.loup2).jeSuisLa()).wait();
-  return "Le fondateur et loup2 confirment leur présence (jeSuisLa) — loup3 ne fait rien, reste dormant.";
+export async function partialWakeUp(ctx) {
+  await (await ctx.contracts.get(ctx.founder).imHere()).wait();
+  await (await ctx.contracts.get(ctx.roles.wolf2).imHere()).wait();
+  return "Le fondateur et loup2 confirment leur présence (imHere) — loup3 ne fait rien, reste dormant.";
 }
 
-export async function ouvrirDepenseDormance(ctx) {
+export async function openDormancyExpense(ctx) {
   const founder = ctx.contracts.get(ctx.founder);
-  ctx.ids.depenseDormance = await ouvrirEtRecupererId(ctx, 
+  ctx.ids.dormancyExpense = await openAndGetId(ctx,
     founder,
-    founder.proposerDepense(ctx.roles.loup2, ethers.parseEther("0.001"), "Test dormance"),
+    founder.proposeExpense(ctx.roles.wolf2, ethers.parseEther("0.001"), "Test dormance"),
   );
-  return `Proposition ouverte (id ${ctx.ids.depenseDormance}) — le snapshot devrait figer 2 Loups actifs, pas 3 (loup3 est dormant).`;
+  return `Proposition ouverte (id ${ctx.ids.dormancyExpense}) — le snapshot devrait figer 2 Loups actifs, pas 3 (loup3 est dormant).`;
 }
 
-export async function voteDepenseDormance(ctx) {
-  await (await ctx.contracts.get(ctx.founder).voter(ctx.ids.depenseDormance, ChoixVote.Approuver)).wait();
-  await (await ctx.contracts.get(ctx.roles.loup2).voter(ctx.ids.depenseDormance, ChoixVote.Approuver)).wait();
-  return "Le fondateur et loup2 votent Approuver — 2 votes sur un snapshot de 2 : ça doit suffire.";
+export async function voteOnDormancyExpense(ctx) {
+  // wolf2 is the beneficiary of this expense (see openDormancyExpense) —
+  // conflict of interest (§7.4): they can't vote on their own case and
+  // are removed from the quorum denominator for this vote. Only the
+  // founder votes here then (observed: a `founder + wolf2` used to vote
+  // by mistake, causing a ConflictOfInterest revert on wolf2's vote).
+  await (await ctx.contracts.get(ctx.founder).vote(ctx.ids.dormancyExpense, VoteChoice.Approve)).wait();
+  return "Le fondateur vote Approuver — loup2 (bénéficiaire) ne peut pas voter sur son propre cas, retiré du dénominateur du quorum.";
 }
 
-export async function tempsVoteDepenseDormance(ctx) {
-  await avancerTemps(ctx, 7 * JOUR + 1);
+export async function dormancyExpenseVoteTime(ctx) {
+  await advanceTime(ctx, 7 * DAY + 1);
   return "7 jours plus tard : la fenêtre de vote est close.";
 }
 
-export async function executionDepenseDormance(ctx) {
-  await (await ctx.contracts.get(ctx.founder).executer(ctx.ids.depenseDormance)).wait();
+export async function executeDormancyExpense(ctx) {
+  await (await ctx.contracts.get(ctx.founder).execute(ctx.ids.dormancyExpense)).wait();
   return "Exécuté sans loup3 : la preuve que la dormance l'a bien exclu du quorum.";
 }
 
-export async function reveilTardif(ctx) {
-  await (await ctx.contracts.get(ctx.roles.loup3).jeSuisLa()).wait();
+export async function lateWakeUp(ctx) {
+  await (await ctx.contracts.get(ctx.roles.wolf3).imHere()).wait();
   return "loup3 se réveille enfin — trop tard pour peser sur le vote déjà clos (le snapshot ne bouge plus rétroactivement).";
 }
 
-/** Vue d'ensemble (stats + propositions), même format que dao-sync côté
- *  Sepolia — pour que le front puisse afficher le mode local avec le même
- *  code que le mode prod, juste une source différente. */
+/** Overview (stats + proposals), same format as dao-sync on the Sepolia
+ *  side — so the front can display local mode with the same code as prod
+ *  mode, just a different source. */
 export async function buildIndex(ctx) {
   if (!ctx.provider) throw new Error("Pas encore connecté — clique sur Réinitialiser.");
   const founder = ctx.contracts.get(ctx.founder);
   const treasuryWei = await ctx.provider.getBalance(ctx.contractAddress);
-  const loupsActifs = Number(await founder.loupsActifs());
+  const activeWolves = Number(await founder.activeWolves());
 
-  // Classement construit hors-chaîne à partir des vrais events DonRecu —
-  // pas seulement des dons déclenchés par le panneau : un don fait
-  // directement via MetaMask sur le vrai front (mode local) doit
-  // apparaître aussi. Même principe que le vrai indexeur
-  // (scripts/sync-dao.js) : donsCumules() reste une lecture O(1) par
-  // adresse côté contrat, jamais une boucle non bornée — seule la
-  // recherche de "qui a déjà donné" scanne les events, bornée par la durée
-  // de vie (courte) d'un contrat local.
-  const donLogs = await founder.queryFilter(founder.filters.DonRecu());
-  const donateurs = [...new Set(donLogs.map((log) => log.args.donateur))];
-  const topDonateurs = (
-    await Promise.all(donateurs.map(async (adresse) => ({ adresse, total: (await founder.donsCumules(adresse)).toString() })))
+  // Leaderboard built off-chain from the real DonationReceived events —
+  // not just donations triggered by the panel: a donation made directly
+  // via MetaMask on the real front (local mode) must show up too. Same
+  // principle as the real indexer (scripts/sync-dao.js): totalDonations()
+  // stays an O(1) read per address on the contract side, never an
+  // unbounded loop — only the search for "who has already donated" scans
+  // events, bounded by a local contract's (short) lifetime.
+  const donationLogs = await founder.queryFilter(founder.filters.DonationReceived());
+  const donors = [...new Set(donationLogs.map((log) => log.args.donor))];
+  const topDonors = (
+    await Promise.all(donors.map(async (address) => ({ address, total: (await founder.totalDonations(address)).toString() })))
   )
     .sort((a, b) => (BigInt(a.total) < BigInt(b.total) ? 1 : -1))
     .slice(0, 20);
 
-  let loupsDormants = 0;
-  let louveteaux = 0;
+  let dormantWolves = 0;
+  let cubs = 0;
+  const members = [];
   for (const addr of ctx.knownAddresses) {
-    // carte() renvoie une struct à zéro (donc rang Louveteau) pour une
-    // adresse qui n'a jamais eu de carte du tout — il faut d'abord vérifier
-    // que la carte existe vraiment (le contrat est un ERC721).
+    // card() returns a zeroed struct (so Cub rank) for an address that
+    // never had a card at all — we must first check that the card really
+    // exists (the contract is an ERC721).
     if ((await founder.balanceOf(addr)) === 0n) continue;
-    const c = await founder.carte(addr);
-    if (Number(c.rang) === 0) {
-      louveteaux += 1;
+    const c = await founder.card(addr);
+    const rank = Number(c.rank);
+    if (rank === 0) {
+      cubs += 1;
+      members.push({ address: addr, rank, dormant: false });
       continue;
     }
-    if (await founder.estDormant(addr)) loupsDormants += 1;
+    const dormant = await founder.isDormant(addr);
+    if (dormant) dormantWolves += 1;
+    members.push({ address: addr, rank, dormant });
   }
 
+  // Same principle as the donations leaderboard just above: the Proposal
+  // struct doesn't store who voted or proposed what (only counters), so
+  // per-member activity is rebuilt from events — like the real indexer
+  // does (scripts/sync-dao.js). Before this fix, this table stayed empty
+  // in local demo mode, always showing 0 for "Votes soumis"/"Propositions
+  // ouvertes" on the membership card, unlike prod.
+  const memberActivity = {};
+  const bump = (addr, key) => {
+    const k = addr.toLowerCase();
+    memberActivity[k] ??= { votesSubmitted: 0, openProposals: 0 };
+    memberActivity[k][key]++;
+  };
+  for (const log of await founder.queryFilter(founder.filters.VoteCast())) bump(log.args.voter, "votesSubmitted");
+  for (const log of await founder.queryFilter(founder.filters.ProposalOpened())) bump(log.args.author, "openProposals");
+
   const proposals = [];
-  let votesExprimes = 0;
-  let propositionsOuvertes = 0;
+  let votesCast = 0;
+  let openProposals = 0;
   for (const id of Object.values(ctx.ids)) {
-    const p = await founder.proposition(id);
-    votesExprimes += Number(p.votesApprouver) + Number(p.votesRejeter) + Number(p.votesAjourner);
-    if (!p.executee) propositionsOuvertes += 1;
+    const p = await founder.proposal(id);
+    votesCast += Number(p.approveVotes) + Number(p.rejectVotes) + Number(p.postponeVotes);
+    if (!p.executed) openProposals += 1;
     proposals.push({
       id: id.toString(),
-      typeProp: Number(p.typeProp),
-      cible: p.cible,
-      auteur: ctx.auteurs[id.toString()] ?? "0x0000000000000000000000000000000000000000",
-      echeance: p.echeance.toString(),
-      snapshotActifs: Number(p.snapshotActifs),
-      snapshotFige: p.snapshotFige,
-      executee: p.executee,
-      votesApprouver: Number(p.votesApprouver),
-      votesRejeter: Number(p.votesRejeter),
-      votesAjourner: Number(p.votesAjourner),
-      montant: p.montant.toString(),
-      motif: p.motif,
+      proposalType: Number(p.proposalType),
+      target: p.target,
+      author: ctx.authors[id.toString()] ?? "0x0000000000000000000000000000000000000000",
+      deadline: p.deadline.toString(),
+      activeSnapshot: Number(p.activeSnapshot),
+      snapshotFrozen: p.snapshotFrozen,
+      executed: p.executed,
+      approveVotes: Number(p.approveVotes),
+      rejectVotes: Number(p.rejectVotes),
+      postponeVotes: Number(p.postponeVotes),
+      amount: p.amount.toString(),
+      reason: p.reason,
     });
   }
 
   return {
-    stats: { treasuryWei: treasuryWei.toString(), loupsActifs, loupsDormants, louveteaux, votesExprimes, propositionsOuvertes },
+    stats: { treasuryWei: treasuryWei.toString(), activeWolves, dormantWolves, cubs, votesCast, openProposals },
     proposals,
-    memberActivity: {},
-    topDonateurs,
+    memberActivity,
+    topDonors,
+    members,
   };
 }
 
 // ---------------------------------------------------------------------
-// Scénario de test : Dépense
+// Test scenario: Expense
 // ---------------------------------------------------------------------
 
-/** 3 Loups actifs (fondateur + 2) — leurs cotisations d'admission
- *  alimentent déjà la trésorerie, pas besoin d'étape de financement à part.
- *  loup2 sera le bénéficiaire : ça permet de montrer le conflit d'intérêt
- *  (il ne pourra pas voter sur sa propre dépense) en plus du mécanisme de
- *  dépense lui-même. */
-export async function setupDepense(ctx) {
-  const { loup2, loup3 } = ctx.roles;
-  await faireRejoindre(ctx, loup2, { titulariser: true });
-  await faireRejoindre(ctx, loup3, { titulariser: true });
-  ctx.knownAddresses.push(loup2, loup3);
-  return `3 Loups actifs en place (trésorerie déjà alimentée par leurs cotisations) — ${loup2.slice(0, 8)}… sera le bénéficiaire.`;
+/** 3 active Wolves (founder + 2) — their admission fees already feed the
+ *  treasury, no need for a separate funding step. wolf2 will be the
+ *  beneficiary: this shows the conflict of interest (they won't be able
+ *  to vote on their own expense) on top of the expense mechanism itself. */
+export async function setupExpense(ctx) {
+  const { wolf2, wolf3 } = ctx.roles;
+  await makeJoin(ctx, wolf2, { confirm: true });
+  await makeJoin(ctx, wolf3, { confirm: true });
+  ctx.knownAddresses.push(wolf2, wolf3);
+  return `3 Loups actifs en place (trésorerie déjà alimentée par leurs cotisations) — ${wolf2.slice(0, 8)}… sera le bénéficiaire.`;
 }
 
-export async function ouvrirDepenseTest(ctx) {
+export async function openTestExpense(ctx) {
   const founder = ctx.contracts.get(ctx.founder);
-  ctx.ids.depenseTest = await ouvrirEtRecupererId(ctx, 
+  ctx.ids.testExpense = await openAndGetId(ctx,
     founder,
-    founder.proposerDepense(ctx.roles.loup2, ethers.parseEther("0.005"), "Test dépense"),
+    founder.proposeExpense(ctx.roles.wolf2, ethers.parseEther("0.005"), "Test dépense"),
   );
-  return `Proposition de dépense ouverte (id ${ctx.ids.depenseTest}) vers ${ctx.roles.loup2.slice(0, 8)}… (0.005 ETH).`;
+  return `Proposition de dépense ouverte (id ${ctx.ids.testExpense}) vers ${ctx.roles.wolf2.slice(0, 8)}… (0.005 ETH).`;
 }
 
-export async function voteDepenseTest(ctx) {
-  // Le bénéficiaire (loup2) ne peut pas voter sur sa propre dépense
-  // (ConflitInteret) — seuls les autres Loups actifs votent.
-  const votants = ctx.loups.filter((a) => a !== ctx.roles.loup2);
-  for (const v of votants) {
-    await (await ctx.contracts.get(v).voter(ctx.ids.depenseTest, ChoixVote.Approuver)).wait();
+export async function voteOnTestExpense(ctx) {
+  // The beneficiary (wolf2) can't vote on their own expense
+  // (ConflictOfInterest) — only the other active Wolves vote.
+  const voters = ctx.wolves.filter((a) => a !== ctx.roles.wolf2);
+  for (const v of voters) {
+    await (await ctx.contracts.get(v).vote(ctx.ids.testExpense, VoteChoice.Approve)).wait();
   }
-  return `Les ${votants.length} autres Loups actifs votent Approuver (le bénéficiaire ne peut pas voter sur son propre cas).`;
+  return `Les ${voters.length} autres Loups actifs votent Approuver (le bénéficiaire ne peut pas voter sur son propre cas).`;
 }
 
-export async function tempsVoteDepenseTest(ctx) {
-  await avancerTemps(ctx, 7 * JOUR + 1);
+export async function testExpenseVoteTime(ctx) {
+  await advanceTime(ctx, 7 * DAY + 1);
   return "7 jours plus tard : la fenêtre de vote est close.";
 }
 
-export async function executionDepenseTest(ctx) {
-  await (await ctx.contracts.get(ctx.founder).executer(ctx.ids.depenseTest)).wait();
-  const solde = await ctx.provider.getBalance(ctx.contractAddress);
-  return `Dépense exécutée : les fonds partent de la trésorerie vers le bénéficiaire. Trésor restant : ${ethers.formatEther(solde)} ETH.`;
+export async function executeTestExpense(ctx) {
+  await (await ctx.contracts.get(ctx.founder).execute(ctx.ids.testExpense)).wait();
+  const balance = await ctx.provider.getBalance(ctx.contractAddress);
+  return `Dépense exécutée : les fonds partent de la trésorerie vers le bénéficiaire. Trésor restant : ${ethers.formatEther(balance)} ETH.`;
 }
 
 // ---------------------------------------------------------------------
-// Scénario de test : Dons
+// Test scenario: Donations
 // ---------------------------------------------------------------------
 
-/** Un don, ouvert à n'importe qui — même une adresse qui n'a jamais
- *  candidaté ni voté. buildIndex retrouve les donateurs via les events
- *  DonRecu, pas besoin de les suivre ici. */
-async function faireDon(ctx, addr, montantEth) {
-  await (await ctx.contracts.get(addr).donner({ value: ethers.parseEther(montantEth) })).wait();
+/** A donation, open to anyone — even an address that never applied nor
+ *  voted. buildIndex finds donors via the DonationReceived events, no
+ *  need to track them here. */
+async function makeDonation(ctx, addr, amountEth) {
+  await (await ctx.contracts.get(addr).donate({ value: ethers.parseEther(amountEth) })).wait();
 }
 
-export async function premierDon(ctx) {
-  await faireDon(ctx, ctx.candidat, "0.01");
-  return `${ctx.candidat.slice(0, 8)}… (jamais candidaté ni voté) fait un don de 0.01 ETH.`;
+export async function firstDonation(ctx) {
+  await makeDonation(ctx, ctx.applicant, "0.01");
+  return `${ctx.applicant.slice(0, 8)}… (jamais candidaté ni voté) fait un don de 0.01 ETH.`;
 }
 
-export async function deuxiemeDon(ctx) {
-  await faireDon(ctx, ctx.roles.loup2, "0.05");
-  return `${ctx.roles.loup2.slice(0, 8)}… fait un don plus généreux de 0.05 ETH.`;
+export async function secondDonation(ctx) {
+  await makeDonation(ctx, ctx.roles.wolf2, "0.05");
+  return `${ctx.roles.wolf2.slice(0, 8)}… fait un don plus généreux de 0.05 ETH.`;
 }
 
-export async function redonDuPremier(ctx) {
-  await faireDon(ctx, ctx.candidat, "0.02");
-  const total = await ctx.contracts.get(ctx.founder).donsCumules(ctx.candidat);
-  return `${ctx.candidat.slice(0, 8)}… redonne 0.02 ETH — total cumulé : ${ethers.formatEther(total)} ETH.`;
+export async function firstDonorGivesAgain(ctx) {
+  await makeDonation(ctx, ctx.applicant, "0.02");
+  const total = await ctx.contracts.get(ctx.founder).totalDonations(ctx.applicant);
+  return `${ctx.applicant.slice(0, 8)}… redonne 0.02 ETH — total cumulé : ${ethers.formatEther(total)} ETH.`;
 }

@@ -71,6 +71,31 @@ body {
   font-weight: 600;
 }
 
+/* Scénario A (tests en direct) : pas un scénario cliquable, juste un
+   pense-bête de commandes terminal — voir index.html. */
+.scenario-a-note {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem 0.7rem;
+  margin-bottom: 0.3rem;
+}
+.scenario-a-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  margin: 0 0 0.4rem;
+}
+.scenario-a-note code {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--orange);
+  white-space: normal;
+  word-break: break-word;
+  margin-bottom: 0.3rem;
+}
+.scenario-a-note code:last-child { margin-bottom: 0; }
+
 .content {
   flex: 1;
   min-width: 0;

@@ -1,86 +1,55 @@
 <script setup lang="ts">
+import { computed } from "vue";
+import { useI18n } from "vue-i18n";
+
+const { t } = useI18n();
 const emit = defineEmits<{ "go-to-dao": [] }>();
 
-const timelineStart = {
-  version: "V1 — Le clan",
-  title: "La Meute 1.0",
-  text: "Création informelle en 2016 : un groupe de joueurs, sans structure ni règles écrites.",
-};
-const timelineAssociation = {
-  version: "V2 — L'association",
-  title: "La Meute 2.0",
-  text: "Dépôt des statuts en 2019 : passage en association loi 1901, bureau élu, existence légale.",
-};
-const timelineDao = {
-  version: "V3 — La DAO",
-  title: "La Meute 3.0",
-  text: "Les décisions internes de l'association sont désormais votées on-chain par ses membres actifs.",
-};
+const timelineStart = computed(() => ({
+  version: t('presentation.timelineStartVersion'),
+  title: t('presentation.timelineStartTitle'),
+  text: t('presentation.timelineStartText'),
+}));
+const timelineAssociation = computed(() => ({
+  version: t('presentation.timelineAssocVersion'),
+  title: t('presentation.timelineAssocTitle'),
+  text: t('presentation.timelineAssocText'),
+}));
+const timelineDao = computed(() => ({
+  version: t('presentation.timelineDaoVersion'),
+  title: t('presentation.timelineDaoTitle'),
+  text: t('presentation.timelineDaoText'),
+}));
 
-// Repris tels quels des arguments déjà présents dans "Pourquoi passer sur
-// une DAO ?" plus bas sur la page — condensés ici pour mettre en avant la
-// V3 dans la timeline, pas une nouvelle rédaction.
-const daoHighlights = [
-  {
-    title: "Infalsifiable et résilient",
-    text: "Un vote décisif n'est plus modifiable après coup, ni suspendu à la disponibilité d'un serveur Discord.",
-  },
-  {
-    title: "Trésorerie consultable en direct",
-    text: "Le solde et l'historique des dépenses sont visibles à tout moment, par tout le monde.",
-  },
-  {
-    title: "Pensée pour les cycles de dormance",
-    text: "Le contrat détecte les Loups dormants et ajuste automatiquement le quorum.",
-  },
-];
+// Reused as-is from the arguments already present in "Why move to a DAO?"
+// further down the page — condensed here to highlight V3 in the timeline,
+// not a new write-up.
+const daoHighlights = computed(() => [
+  { title: t('presentation.highlight1Title'), text: t('presentation.highlight1Text') },
+  { title: t('presentation.highlight2Title'), text: t('presentation.highlight2Text') },
+  { title: t('presentation.highlight3Title'), text: t('presentation.highlight3Text') },
+]);
 
-const advantages = [
-  {
-    title: "Infalsifiable et résilient",
-    text: "Un vote décisif n'est plus modifiable après coup, ni suspendu à la disponibilité d'un serveur Discord ou d'un carnet de comptes-rendus. Aucun serveur, aucun compte admin, aucun papier à perdre.",
-  },
-  {
-    title: "Trésorerie consultable en direct",
-    text: "Le solde et l'historique des dépenses sont visibles à tout moment, par tout le monde — plus besoin d'attendre l'AG et le rapport du trésorier pour connaître l'état des comptes.",
-  },
-  {
-    title: "Pensée pour les cycles de dormance",
-    text: "Un bon jeu sort, tout le monde revient, puis l'activité retombe à 2-3 membres jusqu'au prochain — depuis toujours. Le contrat détecte les Loups dormants et ajuste automatiquement le quorum, au lieu de bloquer l'association pendant les creux.",
-  },
-];
+const advantages = computed(() => [
+  { title: t('presentation.advantage1Title'), text: t('presentation.advantage1Text') },
+  { title: t('presentation.advantage2Title'), text: t('presentation.advantage2Text') },
+  { title: t('presentation.advantage3Title'), text: t('presentation.advantage3Text') },
+]);
 
-const faq = [
-  {
-    q: "Qui a le dernier mot : l'association ou la DAO ?",
-    a: "Juridiquement, l'association 1901 reste seule habilitée à contracter, encaisser et dépenser — c'est elle qui existe aux yeux de la loi. En pratique, le bureau applique fidèlement les votes de la DAO : le contrat ne fait qu'exécuter ce que les statuts délèguent déjà à l'assemblée de ses membres.",
-  },
-  {
-    q: "Le bureau de l'association correspond-il aux \"Loups\" de la DAO ?",
-    a: "Les deux se recoupent par les personnes, pas par le système : le président, le trésorier et le secrétaire de l'association sont aujourd'hui trois Loups, mais rien dans le contrat ne l'impose. Ce sont deux gouvernances distinctes qui coexistent — l'une légale, l'autre décisionnelle.",
-  },
-  {
-    q: "Pourquoi ne pas tout mettre on-chain, y compris le statut légal ?",
-    a: "Parce qu'aucune blockchain ne remplace l'état à ce jour : pour ouvrir un compte bancaire, signer un bail de local ou être reconnue par une fédération sportive, il faut une personne morale. La DAO gère la délibération interne, pas l'existence légale.",
-  },
-  {
-    q: "Où trouver les documents officiels de l'association ?",
-    a: "Statuts, comptes-rendus d'assemblée générale et composition du bureau sont publiés dans l'onglet Association 1901.",
-  },
-];
+const faq = computed(() => [
+  { q: t('presentation.faq1Q'), a: t('presentation.faq1A') },
+  { q: t('presentation.faq2Q'), a: t('presentation.faq2A') },
+  { q: t('presentation.faq3Q'), a: t('presentation.faq3A') },
+  { q: t('presentation.faq4Q'), a: t('presentation.faq4A') },
+]);
 </script>
 
 <template>
   <section class="gv-presentation">
     <div class="gv-intro-hero">
-      <p class="gv-eyebrow">Qui gouverne La Meute ?</p>
-      <h2 class="gv-section-title">Une association, augmentée par une DAO</h2>
-      <p>
-        La Meute est une association loi 1901 depuis 2019. Depuis 2026, ses décisions
-        internes — admission, exclusion, dépenses — sont votées on-chain par ses
-        membres actifs. L'association reste l'entité légale ; la DAO en est
-        l'outil de délibération.
-      </p>
+      <p class="gv-eyebrow">{{ t('presentation.eyebrow') }}</p>
+      <h2 class="gv-section-title">{{ t('presentation.sectionTitle') }}</h2>
+      <p>{{ t('presentation.intro') }}</p>
     </div>
 
     <div class="gv-timeline">
@@ -126,19 +95,15 @@ const faq = [
         </div>
 
         <button class="gv-timeline-cta" type="button" @click="emit('go-to-dao')">
-          Voir la gouvernance en direct
+          {{ t('presentation.viewGovernanceCta') }}
           <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h10M9 4l4 4-4 4" /></svg>
         </button>
       </div>
     </div>
 
     <div class="gv-why-dao">
-      <h3 class="gv-section-title gv-why-dao-title">Pourquoi passer sur une DAO ?</h3>
-      <p class="gv-why-dao-intro">
-        Pas pour remplacer Discord — les sondages informels y restent. Trois
-        problèmes concrets, propres à l'historique de La Meute, que ni Discord
-        ni le papier ne résolvent.
-      </p>
+      <h3 class="gv-section-title gv-why-dao-title">{{ t('presentation.whyDaoTitle') }}</h3>
+      <p class="gv-why-dao-intro">{{ t('presentation.whyDaoIntro') }}</p>
       <div class="gv-advantage-grid">
         <div v-for="adv in advantages" :key="adv.title" class="gv-advantage-card">
           <h4>{{ adv.title }}</h4>
@@ -185,13 +150,13 @@ const faq = [
   margin: 0 0 1.2rem;
 }
 
-// Version précédente : chaque carte était découpée en flèche (clip-path)
-// pour suggérer la progression V1→V2→V3. Abandonné (2026-07-22) — la
-// géométrie exigeait un padding toujours strictement supérieur à la
-// profondeur de la pointe, et un titre qui passait sur plusieurs lignes
-// finissait quand même par tomber dans la zone découpée à certaines
-// largeurs. Remplacé par : V1/V2 réduites empilées à gauche, V3 mise en
-// avant à droite (plus grande, contenu enrichi) — aucune géométrie fragile.
+// Previous version: each card was cut into an arrow shape (clip-path) to
+// suggest the V1→V2→V3 progression. Abandoned (2026-07-22) — the geometry
+// required padding always strictly greater than the tip's depth, and a
+// title wrapping onto multiple lines still ended up falling into the cut
+// zone at certain widths. Replaced with: V1/V2 shrunk and stacked on the
+// left, V3 highlighted on the right (bigger, richer content) — no fragile
+// geometry.
 .gv-timeline {
   max-width: 1080px;
   margin: 2.8rem auto;
@@ -209,10 +174,10 @@ const faq = [
   flex: 0 0 260px;
   display: flex;
   flex-direction: column;
-  // Gap fixe, identique à celui entre la colonne et la carte V3 (voir
-  // .gv-timeline-arrow--to-v3), pour une cohérence visuelle entre les deux
-  // flèches. Le surplus de hauteur par rapport à V3 est absorbé par les
-  // cartes elles-mêmes (flex: 1 ci-dessous), pas par un espace vide.
+  // Fixed gap, identical to the one between the column and the V3 card
+  // (see .gv-timeline-arrow--to-v3), for visual consistency between the
+  // two arrows. The extra height compared to V3 is absorbed by the cards
+  // themselves (flex: 1 below), not by empty space.
   gap: 1.4rem;
 }
 @media (max-width: 820px) {
@@ -242,9 +207,9 @@ const faq = [
 }
 
 .gv-timeline-step--1 {
-  // Un gris chaud plutôt que #eee, qui se fondait presque dans le fond de
-  // page (#f9f9f9) — assez de contraste pour que la carte se détache
-  // clairement, tout en restant sobre à côté de l'orange et du noir.
+  // A warm gray rather than #eee, which nearly blended into the page
+  // background (#f9f9f9) — enough contrast for the card to stand out
+  // clearly, while staying sober next to the orange and black.
   background: linear-gradient(135deg, #ede7dd, #ddd5c6);
 
   .gv-timeline-version, h3 { color: #4a453d; }
@@ -259,14 +224,14 @@ const faq = [
   p { color: rgba(0, 0, 0, 0.7); }
 }
 
-// Positionnée par rapport à la carte V2 elle-même (pas à toute la ligne)
-// pour rester centrée sur V2 quelle que soit la hauteur de V1 ou de V3.
+// Positioned relative to the V2 card itself (not the whole row) to stay
+// centered on V2 regardless of V1 or V3's height.
 .gv-timeline-arrow--to-v3 {
   position: absolute;
   top: 50%;
-  // Centrée au milieu du gap (1.4rem) entre la colonne et la carte V3,
-  // plutôt que collée au bord de V2 — même logique d'espacement que la
-  // flèche V1→V2 (posée au milieu du gap de la colonne).
+  // Centered in the middle of the gap (1.4rem) between the column and the
+  // V3 card, rather than stuck to V2's edge — same spacing logic as the
+  // V1→V2 arrow (placed in the middle of the column's gap).
   left: calc(100% + 0.7rem);
   transform: translate(-50%, -50%);
 }
@@ -348,9 +313,9 @@ const faq = [
 }
 
 .gv-timeline-arrow--v {
-  // V1/V2 sont toujours empilées verticalement (.gv-timeline-col est en
-  // colonne quel que soit l'écran) — cette flèche pointe donc toujours
-  // vers le bas, contrairement à la flèche V2→V3 qui pivote à 820px.
+  // V1/V2 are always stacked vertically (.gv-timeline-col is a column
+  // regardless of screen size) — this arrow therefore always points
+  // down, unlike the V2→V3 arrow which rotates at 820px.
   align-self: center;
   transform: rotate(90deg) !important;
 }

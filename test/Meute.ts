@@ -4,885 +4,968 @@ import { network } from "hardhat";
 
 const { ethers, networkHelpers } = await network.create();
 
-const COTISATION = ethers.parseEther("0.01");
+const FEE = ethers.parseEther("0.01");
 
-// Doit rester synchronisé avec les enums Solidity (Meute.sol).
-const TypeProposition = { Admission: 0, Titularisation: 1, Exclusion: 2, Depense: 3 };
-const ChoixVote = { Approuver: 0, Rejeter: 1, Ajourner: 2 };
+const DAY = 24 * 60 * 60;
+const VOTE_DURATION = 7 * DAY + 1;
+const PROBATION_DURATION = 90 * DAY + 1;
+const DORMANCY_DELAY = 180 * DAY + 1;
+// Well past DORMANCY_DELAY (180 days): guarantees every founder is dormant.
+const PAST_DORMANCY_DELAY = 365 * DAY + 1;
+// 300 days pass with no founder voting (see "waking up after a snapshot..." test).
+const INITIAL_SILENCE_PERIOD = 300 * DAY;
+// 100 more days on top of INITIAL_SILENCE_PERIOD, for the same test.
+const ADDITIONAL_SILENCE_PERIOD = 100 * DAY;
+
+// Must stay in sync with the Solidity enums (Meute.sol).
+const ProposalType = { Admission: 0, Confirmation: 1, Exclusion: 2, Expense: 3 };
+const VoteChoice = { Approve: 0, Reject: 1, Postpone: 2 };
 
 async function deployMeuteFixture() {
-  const [fondateur1, fondateur2, fondateur3, candidat, etranger] = await ethers.getSigners();
-  const fondateurs = [fondateur1, fondateur2, fondateur3];
+  const [founder1, founder2, founder3, applicant, stranger] = await ethers.getSigners();
+  const founders = [founder1, founder2, founder3];
 
-  const meute = await ethers.deployContract("Meute", [fondateurs.map((f) => f.address), COTISATION]);
+  const meute = await ethers.deployContract("Meute", [founders.map((f) => f.address), FEE]);
 
-  return { meute, fondateurs, candidat, etranger };
+  return { meute, founders, applicant, stranger };
 }
 
 describe("Meute", function () {
-  describe("déploiement", function () {
-    it("revert si aucun fondateur", async function () {
-      await expect(ethers.deployContract("Meute", [[], COTISATION])).to.be.revertedWithCustomError(
+  describe("deployment", function () {
+    it("reverts if there are no founders", async function () {
+      await expect(ethers.deployContract("Meute", [[], FEE])).to.be.revertedWithCustomError(
         await ethers.getContractFactory("Meute"),
-        "AucunFondateur",
+        "NoFounders",
       );
     });
 
-    it("revert si cotisation nulle", async function () {
+    it("reverts if a founder address is duplicated", async function () {
+      const [f1, f2] = await ethers.getSigners();
+      await expect(
+        ethers.deployContract("Meute", [[f1.address, f2.address, f1.address], FEE]),
+      ).to.be.revertedWithCustomError(await ethers.getContractFactory("Meute"), "TransferForbidden");
+    });
+
+    it("reverts if the fee is zero", async function () {
       const [f1] = await ethers.getSigners();
       await expect(ethers.deployContract("Meute", [[f1.address], 0n])).to.be.revertedWithCustomError(
         await ethers.getContractFactory("Meute"),
-        "MontantInvalide",
+        "InvalidAmount",
       );
     });
 
-    it("mint une carte Loup pour chaque fondateur", async function () {
-      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+    it("mints a Wolf card for each founder", async function () {
+      const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      assert.equal(await meute.loupsActifs(), BigInt(fondateurs.length));
-      for (const f of fondateurs) {
-        assert.equal(await meute.estDormant(f.address), false);
+      assert.equal(await meute.activeWolves(), BigInt(founders.length));
+      for (const f of founders) {
+        assert.equal(await meute.isDormant(f.address), false);
       }
     });
   });
 
-  describe("candidater", function () {
-    it("revert si la cotisation versée est incorrecte", async function () {
-      const { meute, candidat } = await networkHelpers.loadFixture(deployMeuteFixture);
+  describe("applyForMembership", function () {
+    it("reverts if the fee paid is incorrect", async function () {
+      const { meute, applicant } = await networkHelpers.loadFixture(deployMeuteFixture);
 
       await expect(
-        meute.connect(candidat).candidater({ value: COTISATION - 1n }),
-      ).to.be.revertedWithCustomError(meute, "CotisationIncorrecte");
+        meute.connect(applicant).applyForMembership({ value: FEE - 1n }),
+      ).to.be.revertedWithCustomError(meute, "IncorrectFee");
     });
 
-    it("revert si l'appelant est déjà membre", async function () {
-      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+    it("reverts if the caller is already a member", async function () {
+      const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
 
       await expect(
-        meute.connect(fondateurs[0]).candidater({ value: COTISATION }),
-      ).to.be.revertedWithCustomError(meute, "DejaMembre");
+        meute.connect(founders[0]).applyForMembership({ value: FEE }),
+      ).to.be.revertedWithCustomError(meute, "AlreadyMember");
     });
 
-    it("ouvre une proposition d'admission ciblant le candidat", async function () {
-      const { meute, candidat } = await networkHelpers.loadFixture(deployMeuteFixture);
+    it("opens an admission proposal targeting the applicant", async function () {
+      const { meute, applicant } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await expect(meute.connect(candidat).candidater({ value: COTISATION }))
-        .to.emit(meute, "PropositionOuverte")
-        .withArgs(0n, candidat.address, candidat.address, TypeProposition.Admission);
+      await expect(meute.connect(applicant).applyForMembership({ value: FEE }))
+        .to.emit(meute, "ProposalOpened")
+        .withArgs(0n, applicant.address, applicant.address, ProposalType.Admission);
 
-      const prop = await meute.proposition(0n);
-      assert.equal(prop.typeProp, BigInt(TypeProposition.Admission));
-      assert.equal(prop.cible, candidat.address);
-      assert.equal(prop.executee, false);
-      // Au moins un Loup actif au déploiement : le snapshot est figé dès l'ouverture.
-      assert.equal(prop.snapshotFige, true);
-      assert.equal(prop.snapshotActifs, 3n);
+      const prop = await meute.proposal(0n);
+      assert.equal(prop.proposalType, BigInt(ProposalType.Admission));
+      assert.equal(prop.target, applicant.address);
+      assert.equal(prop.executed, false);
+      // At least one active Wolf at deployment: the snapshot is frozen right at opening.
+      assert.equal(prop.snapshotFrozen, true);
+      assert.equal(prop.activeSnapshot, 3n);
     });
 
-    it("revert sur une seconde candidature simultanée de la même adresse", async function () {
-      const { meute, candidat } = await networkHelpers.loadFixture(deployMeuteFixture);
+    it("reverts on a second simultaneous application from the same address", async function () {
+      const { meute, applicant } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await meute.connect(candidat).candidater({ value: COTISATION });
+      await meute.connect(applicant).applyForMembership({ value: FEE });
 
       await expect(
-        meute.connect(candidat).candidater({ value: COTISATION }),
-      ).to.be.revertedWithCustomError(meute, "CandidatureDejaOuverte");
+        meute.connect(applicant).applyForMembership({ value: FEE }),
+      ).to.be.revertedWithCustomError(meute, "ApplicationAlreadyOpen");
     });
   });
 
-  describe("voter", function () {
-    async function ouvrirCandidature() {
+  describe("vote", function () {
+    async function openApplication() {
       const fixture = await networkHelpers.loadFixture(deployMeuteFixture);
-      await fixture.meute.connect(fixture.candidat).candidater({ value: COTISATION });
+      await fixture.meute.connect(fixture.applicant).applyForMembership({ value: FEE });
       return { ...fixture, proposalId: 0n };
     }
 
-    it("revert si la proposition n'existe pas", async function () {
-      const { meute, fondateurs } = await ouvrirCandidature();
+    it("reverts if the proposal doesn't exist", async function () {
+      const { meute, founders } = await openApplication();
 
       await expect(
-        meute.connect(fondateurs[0]).voter(999n, ChoixVote.Approuver),
-      ).to.be.revertedWithCustomError(meute, "ProposalInconnue");
+        meute.connect(founders[0]).vote(999n, VoteChoice.Approve),
+      ).to.be.revertedWithCustomError(meute, "UnknownProposal");
     });
 
-    it("revert si le votant n'est pas Loup", async function () {
-      const { meute, candidat, etranger, proposalId } = await ouvrirCandidature();
+    it("reverts if the voter isn't a Wolf", async function () {
+      const { meute, applicant, stranger, proposalId } = await openApplication();
 
       await expect(
-        meute.connect(candidat).voter(proposalId, ChoixVote.Approuver),
-      ).to.be.revertedWithCustomError(meute, "PasLoup");
+        meute.connect(applicant).vote(proposalId, VoteChoice.Approve),
+      ).to.be.revertedWithCustomError(meute, "NotAWolf");
       await expect(
-        meute.connect(etranger).voter(proposalId, ChoixVote.Approuver),
-      ).to.be.revertedWithCustomError(meute, "PasLoup");
+        meute.connect(stranger).vote(proposalId, VoteChoice.Approve),
+      ).to.be.revertedWithCustomError(meute, "NotAWolf");
     });
 
-    it("revert si le choix Ajourner est exprimé sur une admission", async function () {
-      const { meute, fondateurs, proposalId } = await ouvrirCandidature();
+    it("reverts if the Postpone choice is used on an admission", async function () {
+      const { meute, founders, proposalId } = await openApplication();
 
       await expect(
-        meute.connect(fondateurs[0]).voter(proposalId, ChoixVote.Ajourner),
-      ).to.be.revertedWithCustomError(meute, "ChoixInvalide");
+        meute.connect(founders[0]).vote(proposalId, VoteChoice.Postpone),
+      ).to.be.revertedWithCustomError(meute, "InvalidChoice");
     });
 
-    it("enregistre le vote d'un Loup et émet VoteExprime", async function () {
-      const { meute, fondateurs, proposalId } = await ouvrirCandidature();
+    it("records a Wolf's vote and emits VoteCast", async function () {
+      const { meute, founders, proposalId } = await openApplication();
 
-      await expect(meute.connect(fondateurs[0]).voter(proposalId, ChoixVote.Approuver))
-        .to.emit(meute, "VoteExprime")
-        .withArgs(proposalId, fondateurs[0].address);
+      await expect(meute.connect(founders[0]).vote(proposalId, VoteChoice.Approve))
+        .to.emit(meute, "VoteCast")
+        .withArgs(proposalId, founders[0].address, VoteChoice.Approve);
 
-      const prop = await meute.proposition(proposalId);
-      assert.equal(prop.votesApprouver, 1n);
-      assert.equal(prop.votesRejeter, 0n);
+      const prop = await meute.proposal(proposalId);
+      assert.equal(prop.approveVotes, 1n);
+      assert.equal(prop.rejectVotes, 0n);
     });
 
-    it("revert en cas de double vote", async function () {
-      const { meute, fondateurs, proposalId } = await ouvrirCandidature();
+    it("reverts on double voting", async function () {
+      const { meute, founders, proposalId } = await openApplication();
 
-      await meute.connect(fondateurs[0]).voter(proposalId, ChoixVote.Approuver);
+      await meute.connect(founders[0]).vote(proposalId, VoteChoice.Approve);
       await expect(
-        meute.connect(fondateurs[0]).voter(proposalId, ChoixVote.Rejeter),
-      ).to.be.revertedWithCustomError(meute, "DejaVote");
+        meute.connect(founders[0]).vote(proposalId, VoteChoice.Reject),
+      ).to.be.revertedWithCustomError(meute, "AlreadyVoted");
     });
 
-    it("revert après la clôture du vote (7 jours)", async function () {
-      const { meute, fondateurs, proposalId } = await ouvrirCandidature();
+    it("reverts after the vote closes (7 days)", async function () {
+      const { meute, founders, proposalId } = await openApplication();
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
 
       await expect(
-        meute.connect(fondateurs[0]).voter(proposalId, ChoixVote.Approuver),
-      ).to.be.revertedWithCustomError(meute, "VoteFerme");
+        meute.connect(founders[0]).vote(proposalId, VoteChoice.Approve),
+      ).to.be.revertedWithCustomError(meute, "VoteClosed");
     });
   });
 
-  describe("dormance et snapshot (§7.5)", function () {
-    it("un Loup silencieux depuis 6 mois devient dormant sans aucune transaction", async function () {
-      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+  describe("dormancy and snapshot (§7.5)", function () {
+    it("a Wolf silent for 6 months becomes dormant without any transaction", async function () {
+      const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await networkHelpers.time.increase(180 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(DORMANCY_DELAY);
 
-      // Pure lecture, aucune transaction envoyée entre-temps : la dormance
-      // est bien passive, constatée à la lecture (§7.5).
-      assert.equal(await meute.estDormant(fondateurs[0].address), true);
-      assert.equal(await meute.loupsActifs(), 0n);
+      // Pure read, no transaction sent in the meantime: dormancy is indeed
+      // passive, observed on read (§7.5).
+      assert.equal(await meute.isDormant(founders[0].address), true);
+      assert.equal(await meute.activeWolves(), 0n);
     });
 
-    it("voter réveille un Loup dormant et le recompte dans loupsActifs", async function () {
-      const { meute, fondateurs, candidat } = await networkHelpers.loadFixture(deployMeuteFixture);
+    it("voting wakes up a dormant Wolf and recounts them in activeWolves", async function () {
+      const { meute, founders, applicant } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await networkHelpers.time.increase(365 * 24 * 60 * 60 + 1);
-      assert.equal(await meute.loupsActifs(), 0n);
+      await networkHelpers.time.increase(PAST_DORMANCY_DELAY);
+      assert.equal(await meute.activeWolves(), 0n);
 
-      // La meute est totalement dormante : candidater() ouvre quand même la
-      // proposition, mais laisse le snapshot en attente (cas limite §7.5).
-      await meute.connect(candidat).candidater({ value: COTISATION });
-      let prop = await meute.proposition(0n);
-      assert.equal(prop.snapshotFige, false);
-      assert.equal(prop.snapshotActifs, 0n);
+      // The pack is fully dormant: applyForMembership() still opens the
+      // proposal, but leaves the snapshot pending (edge case §7.5).
+      await meute.connect(applicant).applyForMembership({ value: FEE });
+      let prop = await meute.proposal(0n);
+      assert.equal(prop.snapshotFrozen, false);
+      assert.equal(prop.activeSnapshot, 0n);
 
-      await expect(meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver))
-        .to.emit(meute, "MembreReveille")
-        .withArgs(fondateurs[0].address);
+      await expect(meute.connect(founders[0]).vote(0n, VoteChoice.Approve))
+        .to.emit(meute, "MemberWokenUp")
+        .withArgs(founders[0].address);
 
-      // Le premier votant s'est réveillé avant que le snapshot ne soit pris :
-      // il est lui-même le dénominateur qu'il vient de reconstituer.
-      prop = await meute.proposition(0n);
-      assert.equal(prop.snapshotFige, true);
-      assert.equal(prop.snapshotActifs, 1n);
-      assert.equal(prop.votesApprouver, 1n);
+      // The first voter woke up before the snapshot was taken: they are
+      // themselves the denominator they just rebuilt.
+      prop = await meute.proposal(0n);
+      assert.equal(prop.snapshotFrozen, true);
+      assert.equal(prop.activeSnapshot, 1n);
+      assert.equal(prop.approveVotes, 1n);
 
-      assert.equal(await meute.estDormant(fondateurs[0].address), false);
-      assert.equal(await meute.loupsActifs(), 1n);
+      assert.equal(await meute.isDormant(founders[0].address), false);
+      assert.equal(await meute.activeWolves(), 1n);
     });
 
-    it("se réveiller après un snapshot déjà figé n'agrandit pas le dénominateur", async function () {
-      const { meute, fondateurs, candidat } = await networkHelpers.loadFixture(deployMeuteFixture);
+    it("waking up after a snapshot is already frozen doesn't grow the denominator", async function () {
+      const { meute, founders, applicant } = await networkHelpers.loadFixture(deployMeuteFixture);
       const signers = await ethers.getSigners();
-      const candidat2 = signers[5];
-      const candidat3 = signers[6];
+      const applicant2 = signers[5];
+      const applicant3 = signers[6];
 
-      // 300 jours passent sans qu'aucun fondateur ne vote.
-      await networkHelpers.time.increase(300 * 24 * 60 * 60);
+      // 300 days pass with no founder voting.
+      await networkHelpers.time.increase(INITIAL_SILENCE_PERIOD);
 
-      // fondateurs[1] et [2] votent maintenant : leur horodatage est
-      // rafraîchi à "aujourd'hui" (jour 300). fondateurs[0] reste silencieux.
-      await meute.connect(candidat).candidater({ value: COTISATION });
-      await meute.connect(fondateurs[1]).voter(0n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[2]).voter(0n, ChoixVote.Approuver);
+      // founders[1] and [2] vote now: their timestamp is refreshed to
+      // "today" (day 300). founders[0] stays silent.
+      await meute.connect(applicant).applyForMembership({ value: FEE });
+      await meute.connect(founders[1]).vote(0n, VoteChoice.Approve);
+      await meute.connect(founders[2]).vote(0n, VoteChoice.Approve);
 
-      // 100 jours de plus : total 400 jours pour fondateurs[0] (dormant,
-      // > 365j), seulement 100 jours pour [1] et [2] (actifs).
-      await networkHelpers.time.increase(100 * 24 * 60 * 60);
+      // 100 more days: total 400 days for founders[0] (dormant, > 365d),
+      // only 100 days for [1] and [2] (active).
+      await networkHelpers.time.increase(ADDITIONAL_SILENCE_PERIOD);
 
-      assert.equal(await meute.estDormant(fondateurs[0].address), true);
-      assert.equal(await meute.estDormant(fondateurs[1].address), false);
-      assert.equal(await meute.loupsActifs(), 2n);
+      assert.equal(await meute.isDormant(founders[0].address), true);
+      assert.equal(await meute.isDormant(founders[1].address), false);
+      assert.equal(await meute.activeWolves(), 2n);
 
-      await meute.connect(candidat2).candidater({ value: COTISATION });
-      const prop = await meute.proposition(1n);
-      // Le snapshot à l'ouverture ignore déjà fondateurs[0] : il ne compte
-      // que les 2 Loups actifs restants.
-      assert.equal(prop.snapshotFige, true);
-      assert.equal(prop.snapshotActifs, 2n);
+      await meute.connect(applicant2).applyForMembership({ value: FEE });
+      const prop = await meute.proposal(1n);
+      // The snapshot at opening already ignores founders[0]: it only counts
+      // the 2 remaining active Wolves.
+      assert.equal(prop.snapshotFrozen, true);
+      assert.equal(prop.activeSnapshot, 2n);
 
-      // fondateurs[0], dormant, se réveille en votant tardivement sur cette
-      // même proposition : son vote compte au numérateur mais le
-      // dénominateur déjà figé n'en tient pas compte.
-      await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Approuver);
-      const propApres = await meute.proposition(1n);
-      assert.equal(propApres.snapshotActifs, 2n);
-      assert.equal(propApres.votesApprouver, 1n);
-      assert.equal(await meute.loupsActifs(), 3n);
+      // founders[0], dormant, wakes up by voting late on this same
+      // proposal: their vote counts in the numerator but the
+      // already-frozen denominator doesn't account for it.
+      await meute.connect(founders[0]).vote(1n, VoteChoice.Approve);
+      const propAfter = await meute.proposal(1n);
+      assert.equal(propAfter.activeSnapshot, 2n);
+      assert.equal(propAfter.approveVotes, 1n);
+      assert.equal(await meute.activeWolves(), 3n);
 
-      // Vérification indépendante : une proposition ouverte maintenant (les
-      // 3 fondateurs actifs) fige bien un snapshot à 3.
-      await meute.connect(candidat3).candidater({ value: COTISATION });
-      const propSuivante = await meute.proposition(2n);
-      assert.equal(propSuivante.snapshotActifs, 3n);
+      // Independent check: a proposal opened now (all 3 founders active)
+      // does freeze a snapshot at 3.
+      await meute.connect(applicant3).applyForMembership({ value: FEE });
+      const nextProp = await meute.proposal(2n);
+      assert.equal(nextProp.activeSnapshot, 3n);
+    });
+
+    it("pruneDormant reverts if the target isn't dormant", async function () {
+      const { meute, founders, stranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await expect(meute.connect(stranger).pruneDormant(founders[0].address)).to.be.revertedWithCustomError(
+        meute,
+        "NotDormant",
+      );
+    });
+
+    it("pruneDormant removes a dormant Wolf without affecting activeWolves or quorum", async function () {
+      const { meute, founders, applicant, stranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await networkHelpers.time.increase(DORMANCY_DELAY);
+      assert.equal(await meute.isDormant(founders[0].address), true);
+      assert.equal(await meute.activeWolves(), 0n);
+
+      // Permissionless: anyone, even a non-member, can prune.
+      await meute.connect(stranger).pruneDormant(founders[0].address);
+
+      assert.equal(await meute.activeWolves(), 0n);
+
+      await meute.connect(applicant).applyForMembership({ value: FEE });
+      const prop = await meute.proposal(0n);
+      assert.equal(prop.snapshotFrozen, false);
+      assert.equal(prop.activeSnapshot, 0n);
+
+      await meute.connect(founders[1]).vote(0n, VoteChoice.Approve);
+      const propAfter = await meute.proposal(0n);
+      assert.equal(propAfter.snapshotFrozen, true);
+      assert.equal(propAfter.activeSnapshot, 1n);
+    });
+
+    it("pruneDormant then imHere() restores membership in _wolves and clears dormancy", async function () {
+      const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await networkHelpers.time.increase(DORMANCY_DELAY);
+      await meute.pruneDormant(founders[0].address);
+      assert.equal(await meute.activeWolves(), 0n);
+
+      await expect(meute.connect(founders[0]).imHere())
+        .to.emit(meute, "MemberWokenUp")
+        .withArgs(founders[0].address);
+
+      assert.equal(await meute.isDormant(founders[0].address), false);
+      assert.equal(await meute.activeWolves(), 1n);
+
+      // Pruning again immediately reverts: freshly woken up, no longer dormant.
+      await expect(meute.pruneDormant(founders[0].address)).to.be.revertedWithCustomError(meute, "NotDormant");
+    });
+
+    it("pruneDormant then vote() restores membership in _wolves and clears dormancy", async function () {
+      const { meute, founders, applicant } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await networkHelpers.time.increase(DORMANCY_DELAY);
+      await meute.pruneDormant(founders[0].address);
+      assert.equal(await meute.activeWolves(), 0n);
+
+      await meute.connect(applicant).applyForMembership({ value: FEE });
+
+      await expect(meute.connect(founders[0]).vote(0n, VoteChoice.Approve))
+        .to.emit(meute, "MemberWokenUp")
+        .withArgs(founders[0].address);
+
+      assert.equal(await meute.isDormant(founders[0].address), false);
+      assert.equal(await meute.activeWolves(), 1n);
     });
   });
 
-  describe("executer — admission (§7.2)", function () {
-    async function ouvrirCandidatureEtVoter(nbApprouver: number, nbRejeter: number) {
+  describe("execute — admission (§7.2)", function () {
+    async function openApplicationAndVote(approveCount: number, rejectCount: number) {
       const fixture = await networkHelpers.loadFixture(deployMeuteFixture);
-      await fixture.meute.connect(fixture.candidat).candidater({ value: COTISATION });
+      await fixture.meute.connect(fixture.applicant).applyForMembership({ value: FEE });
 
-      for (let i = 0; i < nbApprouver; i++) {
-        await fixture.meute.connect(fixture.fondateurs[i]).voter(0n, ChoixVote.Approuver);
+      for (let i = 0; i < approveCount; i++) {
+        await fixture.meute.connect(fixture.founders[i]).vote(0n, VoteChoice.Approve);
       }
-      for (let i = nbApprouver; i < nbApprouver + nbRejeter; i++) {
-        await fixture.meute.connect(fixture.fondateurs[i]).voter(0n, ChoixVote.Rejeter);
+      for (let i = approveCount; i < approveCount + rejectCount; i++) {
+        await fixture.meute.connect(fixture.founders[i]).vote(0n, VoteChoice.Reject);
       }
 
       return { ...fixture, proposalId: 0n };
     }
 
-    it("revert si la proposition n'existe pas", async function () {
+    it("reverts if the proposal doesn't exist", async function () {
       const { meute } = await networkHelpers.loadFixture(deployMeuteFixture);
-      await expect(meute.executer(999n)).to.be.revertedWithCustomError(meute, "ProposalInconnue");
+      await expect(meute.execute(999n)).to.be.revertedWithCustomError(meute, "UnknownProposal");
     });
 
-    it("revert si le vote est encore ouvert", async function () {
-      const { meute, proposalId } = await ouvrirCandidatureEtVoter(2, 0);
-      await expect(meute.executer(proposalId)).to.be.revertedWithCustomError(meute, "VoteEncoreOuvert");
+    it("reverts if the vote is still open", async function () {
+      const { meute, proposalId } = await openApplicationAndVote(2, 0);
+      await expect(meute.execute(proposalId)).to.be.revertedWithCustomError(meute, "VoteStillOpen");
     });
 
-    it("revert en cas de double exécution", async function () {
-      const { meute, proposalId } = await ouvrirCandidatureEtVoter(2, 0);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+    it("reverts on double execution", async function () {
+      const { meute, proposalId } = await openApplicationAndVote(2, 0);
+      await networkHelpers.time.increase(VOTE_DURATION);
 
-      await meute.executer(proposalId);
-      await expect(meute.executer(proposalId)).to.be.revertedWithCustomError(meute, "DejaExecutee");
+      await meute.execute(proposalId);
+      await expect(meute.execute(proposalId)).to.be.revertedWithCustomError(meute, "AlreadyExecuted");
     });
 
-    it("2 voix pour sur 3 : mint une carte Louveteau et émet PropositionExecutee", async function () {
-      // Quorum à 75% sur 3 actifs : il faut que les 3 se soient exprimés
-      // (2 pour, 1 contre) — 2 > 1 l'emporte quand même.
-      const { meute, candidat, proposalId } = await ouvrirCandidatureEtVoter(2, 1);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+    it("2 votes for out of 3: mints a Cub card and emits ProposalExecuted", async function () {
+      // 75% quorum on 3 active: all 3 must have voted (2 for, 1 against) —
+      // 2 > 1 still wins.
+      const { meute, applicant, proposalId } = await openApplicationAndVote(2, 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
 
-      await expect(meute.executer(proposalId)).to.emit(meute, "PropositionExecutee").withArgs(proposalId);
+      await expect(meute.execute(proposalId))
+        .to.emit(meute, "ProposalExecuted")
+        .withArgs(proposalId, VoteChoice.Approve);
 
-      const c = await meute.carte(candidat.address);
-      assert.equal(c.rang, 0n); // Rang.Louveteau
-      assert.equal(await meute.ownerOf(BigInt(candidat.address)), candidat.address);
+      const c = await meute.card(applicant.address);
+      assert.equal(c.rank, 0n); // Rank.Cub
+      assert.equal(await meute.ownerOf(BigInt(applicant.address)), applicant.address);
 
-      // Une nouvelle candidature depuis la même adresse doit maintenant
-      // échouer : le candidat est devenu membre.
+      // A new application from the same address must now fail: the
+      // applicant has become a member.
       await expect(
-        meute.connect(candidat).candidater({ value: COTISATION }),
-      ).to.be.revertedWithCustomError(meute, "DejaMembre");
+        meute.connect(applicant).applyForMembership({ value: FEE }),
+      ).to.be.revertedWithCustomError(meute, "AlreadyMember");
     });
 
-    it("1 voix pour sur 3 (minorité) : rembourse la cotisation, aucune carte mintée", async function () {
-      const { meute, candidat, proposalId } = await ouvrirCandidatureEtVoter(1, 2);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+    it("1 vote for out of 3 (minority): refunds the fee, no card minted", async function () {
+      const { meute, applicant, proposalId } = await openApplicationAndVote(1, 2);
+      await networkHelpers.time.increase(VOTE_DURATION);
 
-      await expect(meute.executer(proposalId)).to.changeEtherBalance(ethers, candidat, COTISATION);
+      await expect(meute.execute(proposalId)).to.changeEtherBalance(ethers, applicant, FEE);
 
-      const c = await meute.carte(candidat.address);
-      assert.equal(c.derniereActivite, 0n); // aucune carte : struct par défaut
+      const c = await meute.card(applicant.address);
+      assert.equal(c.lastActivity, 0n); // no card: default struct
 
-      // Le candidat refusé peut retenter sa chance.
-      await meute.connect(candidat).candidater({ value: COTISATION });
+      // The rejected applicant can try again.
+      await meute.connect(applicant).applyForMembership({ value: FEE });
     });
 
-    it("aucun vote exprimé : rejetée par défaut (pas de quorum, pas de majorité)", async function () {
-      const { meute, candidat, proposalId } = await ouvrirCandidatureEtVoter(0, 0);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+    it("reverts if the refund fails (applicant = contract without receive())", async function () {
+      const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
+      const rejectEther = await ethers.deployContract("RejectEther");
+      await rejectEther.applyOnMeute(meute.target, { value: FEE });
 
-      await expect(meute.executer(proposalId)).to.changeEtherBalance(ethers, candidat, COTISATION);
+      await meute.connect(founders[0]).vote(0n, VoteChoice.Reject);
+      await meute.connect(founders[1]).vote(0n, VoteChoice.Reject);
+      await networkHelpers.time.increase(VOTE_DURATION);
+
+      await expect(meute.execute(0n)).to.be.revertedWithCustomError(meute, "TransferFailed");
+    });
+
+    it("no votes cast: rejected by default (no quorum, no majority)", async function () {
+      const { meute, applicant, proposalId } = await openApplicationAndVote(0, 0);
+      await networkHelpers.time.increase(VOTE_DURATION);
+
+      await expect(meute.execute(proposalId)).to.changeEtherBalance(ethers, applicant, FEE);
     });
   });
 
-  describe("proposerExclusion (§7.4)", function () {
-    it("revert si l'appelant n'est pas Loup", async function () {
-      const { meute, candidat } = await networkHelpers.loadFixture(deployMeuteFixture);
+  describe("proposeExclusion (§7.4)", function () {
+    it("reverts if the caller isn't a Wolf", async function () {
+      const { meute, applicant } = await networkHelpers.loadFixture(deployMeuteFixture);
       await expect(
-        meute.connect(candidat).proposerExclusion(candidat.address),
-      ).to.be.revertedWithCustomError(meute, "PasLoup");
+        meute.connect(applicant).proposeExclusion(applicant.address),
+      ).to.be.revertedWithCustomError(meute, "NotAWolf");
     });
 
-    it("revert si la cible n'est pas membre", async function () {
-      const { meute, fondateurs, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+    it("reverts if the target isn't a member", async function () {
+      const { meute, founders, stranger } = await networkHelpers.loadFixture(deployMeuteFixture);
       await expect(
-        meute.connect(fondateurs[0]).proposerExclusion(etranger.address),
-      ).to.be.revertedWithCustomError(meute, "PasMembre");
+        meute.connect(founders[0]).proposeExclusion(stranger.address),
+      ).to.be.revertedWithCustomError(meute, "NotAMember");
     });
 
-    it("ouvre une proposition d'exclusion ciblant le membre visé", async function () {
-      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
-      await expect(meute.connect(fondateurs[0]).proposerExclusion(fondateurs[1].address))
-        .to.emit(meute, "PropositionOuverte")
-        .withArgs(0n, fondateurs[1].address, fondateurs[0].address, TypeProposition.Exclusion);
+    it("opens an exclusion proposal targeting the member", async function () {
+      const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(meute.connect(founders[0]).proposeExclusion(founders[1].address))
+        .to.emit(meute, "ProposalOpened")
+        .withArgs(0n, founders[1].address, founders[0].address, ProposalType.Exclusion);
     });
 
-    it("bout en bout : exclusion votée à la majorité brûle la carte du membre visé", async function () {
-      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+    it("end to end: exclusion approved by majority burns the targeted member's card", async function () {
+      const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await meute.connect(fondateurs[0]).proposerExclusion(fondateurs[1].address);
-      // La cible (fondateurs[1]) ne peut pas voter sur sa propre exclusion
-      // (ConflitInteret) — le dénominateur l'exclut donc aussi : quorum à
-      // 75% sur 2 actifs (pas 3), atteint par les deux seuls votants
-      // éligibles.
-      await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[2]).voter(0n, ChoixVote.Approuver);
+      await meute.connect(founders[0]).proposeExclusion(founders[1].address);
+      // The target (founders[1]) can't vote on their own exclusion
+      // (ConflictOfInterest) — so the denominator excludes them too:
+      // 75% quorum on 2 active (not 3), reached by the only two eligible voters.
+      await meute.connect(founders[0]).vote(0n, VoteChoice.Approve);
+      await meute.connect(founders[2]).vote(0n, VoteChoice.Approve);
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      await meute.executer(0n);
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await meute.execute(0n);
 
-      await expect(meute.ownerOf(BigInt(fondateurs[1].address))).to.revert(ethers);
-      assert.equal(await meute.loupsActifs(), 2n);
+      await expect(meute.ownerOf(BigInt(founders[1].address))).to.revert(ethers);
+      assert.equal(await meute.activeWolves(), 2n);
     });
 
-    it("bout en bout : exclusion rejetée ne change rien", async function () {
-      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+    it("end to end: rejected exclusion changes nothing", async function () {
+      const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await meute.connect(fondateurs[0]).proposerExclusion(fondateurs[1].address);
-      await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Rejeter);
-      await meute.connect(fondateurs[2]).voter(0n, ChoixVote.Rejeter);
+      await meute.connect(founders[0]).proposeExclusion(founders[1].address);
+      await meute.connect(founders[0]).vote(0n, VoteChoice.Reject);
+      await meute.connect(founders[2]).vote(0n, VoteChoice.Reject);
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      await meute.executer(0n);
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await meute.execute(0n);
 
-      assert.equal(await meute.ownerOf(BigInt(fondateurs[1].address)), fondateurs[1].address);
-      assert.equal(await meute.loupsActifs(), 3n);
+      assert.equal(await meute.ownerOf(BigInt(founders[1].address)), founders[1].address);
+      assert.equal(await meute.activeWolves(), 3n);
     });
 
-    it("revert si la cible tente de voter sur sa propre exclusion (conflit d'intérêt)", async function () {
-      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+    it("reverts if the target tries to vote on their own exclusion (conflict of interest)", async function () {
+      const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await meute.connect(fondateurs[0]).proposerExclusion(fondateurs[1].address);
+      await meute.connect(founders[0]).proposeExclusion(founders[1].address);
       await expect(
-        meute.connect(fondateurs[1]).voter(0n, ChoixVote.Rejeter),
-      ).to.be.revertedWithCustomError(meute, "ConflitInteret");
+        meute.connect(founders[1]).vote(0n, VoteChoice.Reject),
+      ).to.be.revertedWithCustomError(meute, "ConflictOfInterest");
     });
 
-    it("le dénominateur exclut la cible active : 2 votes sur 2 (pas 3) suffisent au quorum", async function () {
-      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+    it("the denominator excludes the active target: 2 votes out of 2 (not 3) reach quorum", async function () {
+      const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await meute.connect(fondateurs[0]).proposerExclusion(fondateurs[1].address);
-      const prop = await meute.proposition(0n);
-      assert.equal(prop.snapshotActifs, 2n); // 3 actifs - la cible elle-même
+      await meute.connect(founders[0]).proposeExclusion(founders[1].address);
+      const prop = await meute.proposal(0n);
+      assert.equal(prop.activeSnapshot, 2n); // 3 active minus the target itself
     });
   });
 
-  describe("donner (§7.6bis)", function () {
-    it("revert si le montant est nul", async function () {
-      const { meute, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
-      await expect(meute.connect(etranger).donner()).to.be.revertedWithCustomError(meute, "MontantInvalide");
+  describe("donate (§7.6bis)", function () {
+    it("reverts if the amount is zero", async function () {
+      const { meute, stranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(meute.connect(stranger).donate()).to.be.revertedWithCustomError(meute, "InvalidAmount");
     });
 
-    it("ouvert à une adresse non-membre, accumule et émet DonRecu", async function () {
-      const { meute, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
-      const montant = ethers.parseEther("0.05");
+    it("open to a non-member address, accumulates and emits DonationReceived", async function () {
+      const { meute, stranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      const amount = ethers.parseEther("0.05");
 
-      await expect(meute.connect(etranger).donner({ value: montant }))
-        .to.emit(meute, "DonRecu")
-        .withArgs(etranger.address, montant, montant);
+      await expect(meute.connect(stranger).donate({ value: amount }))
+        .to.emit(meute, "DonationReceived")
+        .withArgs(stranger.address, amount, amount);
 
-      assert.equal(await meute.donsCumules(etranger.address), montant);
+      assert.equal(await meute.totalDonations(stranger.address), amount);
     });
 
-    it("cumule plusieurs dons de la même adresse", async function () {
-      const { meute, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
-      await meute.connect(etranger).donner({ value: ethers.parseEther("0.01") });
+    it("accumulates several donations from the same address", async function () {
+      const { meute, stranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await meute.connect(stranger).donate({ value: ethers.parseEther("0.01") });
 
-      await expect(meute.connect(etranger).donner({ value: ethers.parseEther("0.02") }))
-        .to.emit(meute, "DonRecu")
-        .withArgs(etranger.address, ethers.parseEther("0.02"), ethers.parseEther("0.03"));
+      await expect(meute.connect(stranger).donate({ value: ethers.parseEther("0.02") }))
+        .to.emit(meute, "DonationReceived")
+        .withArgs(stranger.address, ethers.parseEther("0.02"), ethers.parseEther("0.03"));
 
-      assert.equal(await meute.donsCumules(etranger.address), ethers.parseEther("0.03"));
+      assert.equal(await meute.totalDonations(stranger.address), ethers.parseEther("0.03"));
     });
 
-    it("un don n'ouvre aucune candidature ni carte", async function () {
-      const { meute, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
-      await meute.connect(etranger).donner({ value: ethers.parseEther("0.01") });
+    it("a donation opens no application and no card", async function () {
+      const { meute, stranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await meute.connect(stranger).donate({ value: ethers.parseEther("0.01") });
 
-      const c = await meute.carte(etranger.address);
-      assert.equal(c.derniereActivite, 0n); // toujours non-membre
+      const c = await meute.card(stranger.address);
+      assert.equal(c.lastActivity, 0n); // still not a member
     });
 
-    it("le don alimente immédiatement la trésorerie, disponible pour une dépense votée", async function () {
-      const { meute, fondateurs, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
-      const montant = ethers.parseEther("0.05");
-      await meute.connect(etranger).donner({ value: montant });
+    it("the donation immediately feeds the treasury, available for a voted expense", async function () {
+      const { meute, founders, stranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      const amount = ethers.parseEther("0.05");
+      await meute.connect(stranger).donate({ value: amount });
 
-      await meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "remboursement test");
-      await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[1]).voter(0n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[2]).voter(0n, ChoixVote.Approuver);
+      await meute.connect(founders[0]).proposeExpense(stranger.address, amount, "test refund");
+      await meute.connect(founders[0]).vote(0n, VoteChoice.Approve);
+      await meute.connect(founders[1]).vote(0n, VoteChoice.Approve);
+      await meute.connect(founders[2]).vote(0n, VoteChoice.Approve);
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      await expect(meute.executer(0n)).to.changeEtherBalance(ethers, etranger, montant);
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await expect(meute.execute(0n)).to.changeEtherBalance(ethers, stranger, amount);
     });
   });
 
-  describe("proposerDepense (§7.6)", function () {
-    // Une candidature, même non résolue, verse déjà la cotisation au
-    // contrat : suffit à alimenter la trésorerie pour ces tests.
-    async function financerTresorerie() {
+  describe("proposeExpense (§7.6)", function () {
+    // An application, even unresolved, already pays the fee into the
+    // contract: enough to fund the treasury for these tests.
+    async function fundTreasury() {
       const fixture = await networkHelpers.loadFixture(deployMeuteFixture);
-      const bailleur = (await ethers.getSigners())[5];
-      await fixture.meute.connect(bailleur).candidater({ value: COTISATION });
+      const funder = (await ethers.getSigners())[5];
+      await fixture.meute.connect(funder).applyForMembership({ value: FEE });
       return fixture;
     }
 
-    it("revert si l'appelant n'est pas Loup", async function () {
-      const { meute, candidat, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+    it("reverts if the caller isn't a Wolf", async function () {
+      const { meute, applicant, stranger } = await networkHelpers.loadFixture(deployMeuteFixture);
       await expect(
-        meute.connect(candidat).proposerDepense(etranger.address, 1n, "test"),
-      ).to.be.revertedWithCustomError(meute, "PasLoup");
+        meute.connect(applicant).proposeExpense(stranger.address, 1n, "test"),
+      ).to.be.revertedWithCustomError(meute, "NotAWolf");
     });
 
-    it("revert si le montant est nul", async function () {
-      const { meute, fondateurs, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+    it("reverts if the amount is zero", async function () {
+      const { meute, founders, stranger } = await networkHelpers.loadFixture(deployMeuteFixture);
       await expect(
-        meute.connect(fondateurs[0]).proposerDepense(etranger.address, 0n, "test"),
-      ).to.be.revertedWithCustomError(meute, "MontantInvalide");
+        meute.connect(founders[0]).proposeExpense(stranger.address, 0n, "test"),
+      ).to.be.revertedWithCustomError(meute, "InvalidAmount");
     });
 
-    it("ouvre une proposition de dépense avec le bénéficiaire, le montant et le motif", async function () {
-      const { meute, fondateurs, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
-      const montant = ethers.parseEther("0.001");
-
-      await expect(meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "serveur de jeu"))
-        .to.emit(meute, "PropositionOuverte")
-        .withArgs(0n, etranger.address, fondateurs[0].address, TypeProposition.Depense);
-
-      const prop = await meute.proposition(0n);
-      assert.equal(prop.montant, montant);
-      assert.equal(prop.motif, "serveur de jeu");
-    });
-
-    it("bout en bout : dépense approuvée transfère le montant au bénéficiaire", async function () {
-      const { meute, fondateurs, etranger } = await financerTresorerie();
-      const montant = COTISATION; // couvert par la trésorerie financée ci-dessus
-
-      await meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "serveur de jeu");
-      await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[1]).voter(1n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[2]).voter(1n, ChoixVote.Approuver);
-
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      await expect(meute.executer(1n)).to.changeEtherBalance(ethers, etranger, montant);
-    });
-
-    it("bout en bout : dépense rejetée ne transfère rien", async function () {
-      const { meute, fondateurs, etranger } = await financerTresorerie();
-      const montant = COTISATION;
-
-      await meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "serveur de jeu");
-      await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Rejeter);
-      await meute.connect(fondateurs[2]).voter(1n, ChoixVote.Rejeter);
-
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      await expect(meute.executer(1n)).to.changeEtherBalance(ethers, etranger, 0n);
-    });
-
-    it("revert à l'exécution si la trésorerie est insuffisante", async function () {
-      const { meute, fondateurs, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
-      const montant = ethers.parseEther("1"); // rien dans la trésorerie, aucune candidature versée
-
-      await meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "trop cher");
-      await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[1]).voter(0n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[2]).voter(0n, ChoixVote.Approuver);
-
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      await expect(meute.executer(0n)).to.be.revertedWithCustomError(meute, "FondsInsuffisants");
-    });
-
-    it("quorum non atteint (1 voix sur 3 actifs) : un seul votant ne peut plus emporter une dépense seul", async function () {
-      // Reproduit le scénario "un seul Loup actif drainerait la trésorerie
-      // seul" (identifié en revue de sécurité) : avant le quorum de 75%,
-      // 1 voix pour sur un snapshot figé à 1 suffisait à elle seule à
-      // valider une dépense, sans qu'aucun retour de vote "contre" ne
-      // puisse jamais l'arrêter. Ici, 3 Loups sont actifs au moment du
-      // snapshot : 1 seule voix (même "pour") n'atteint plus le quorum
-      // (il en faut au moins 3 des 3, floor(3*3/4)+1 = 3), donc la dépense
-      // échoue même si personne n'a voté contre.
-      const { meute, fondateurs, etranger } = await financerTresorerie();
-      const montant = COTISATION;
-
-      await meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "test quorum");
-      await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Approuver);
-
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      await expect(meute.executer(1n)).to.changeEtherBalance(ethers, etranger, 0n);
-    });
-
-    it("quorum atteint mais égalité oui/non : la dépense échoue (majorité stricte requise)", async function () {
-      // 3 votants ne peuvent jamais faire un match nul (3 est impair) — il
-      // faut un 4e Loup actif pour obtenir une vraie égalité 2 contre 2.
-      const { meute, fondateurs, candidat, etranger } = await financerTresorerie();
-      await meute.connect(candidat).candidater({ value: COTISATION });
-      await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[1]).voter(1n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[2]).voter(1n, ChoixVote.Approuver);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      await meute.executer(1n); // candidat devient Louveteau
-
-      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
-      await meute.connect(fondateurs[0]).ouvrirTitularisation(candidat.address);
-      await meute.connect(fondateurs[0]).voter(2n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[1]).voter(2n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[2]).voter(2n, ChoixVote.Approuver);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      await meute.executer(2n); // candidat devient Loup — 4 actifs désormais
-
-      const montant = ethers.parseEther("0.02");
-      await meute.connect(fondateurs[0]).proposerDepense(etranger.address, montant, "test égalité");
-      await meute.connect(fondateurs[0]).voter(3n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[1]).voter(3n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[2]).voter(3n, ChoixVote.Rejeter);
-      await meute.connect(candidat).voter(3n, ChoixVote.Rejeter);
-      // Quorum : 4/4 exprimés (>= floor(4*3/4)+1 = 4) — atteint.
-      // Majorité : 2 pour / 2 contre — égalité, donc rejetée.
-
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      await expect(meute.executer(3n)).to.changeEtherBalance(ethers, etranger, 0n);
-    });
-
-    it("revert si le bénéficiaire (un Loup) tente de voter sur sa propre dépense (conflit d'intérêt)", async function () {
-      const { meute, fondateurs } = await financerTresorerie();
-      await meute.connect(fondateurs[0]).proposerDepense(fondateurs[1].address, 1n, "vers un Loup");
+    it("reverts if the beneficiary is the zero address", async function () {
+      const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
       await expect(
-        meute.connect(fondateurs[1]).voter(1n, ChoixVote.Approuver),
-      ).to.be.revertedWithCustomError(meute, "ConflitInteret");
+        meute.connect(founders[0]).proposeExpense(ethers.ZeroAddress, 1n, "test"),
+      ).to.be.revertedWithCustomError(meute, "InvalidAddress");
     });
 
-    it("dépense vers un non-membre : aucun conflit d'intérêt, dénominateur inchangé", async function () {
-      const { meute, fondateurs, etranger } = await financerTresorerie();
-      await meute.connect(fondateurs[0]).proposerDepense(etranger.address, 1n, "vers un tiers");
-      const prop = await meute.proposition(1n);
-      assert.equal(prop.snapshotActifs, 3n); // etranger n'est pas Loup, rien à exclure
+    it("opens an expense proposal with the beneficiary, amount and reason", async function () {
+      const { meute, founders, stranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      const amount = ethers.parseEther("0.001");
+
+      await expect(meute.connect(founders[0]).proposeExpense(stranger.address, amount, "game server"))
+        .to.emit(meute, "ProposalOpened")
+        .withArgs(0n, stranger.address, founders[0].address, ProposalType.Expense);
+
+      const prop = await meute.proposal(0n);
+      assert.equal(prop.amount, amount);
+      assert.equal(prop.reason, "game server");
+    });
+
+    it("end to end: approved expense transfers the amount to the beneficiary", async function () {
+      const { meute, founders, stranger } = await fundTreasury();
+      const amount = FEE; // covered by the treasury funded above
+
+      await meute.connect(founders[0]).proposeExpense(stranger.address, amount, "game server");
+      await meute.connect(founders[0]).vote(1n, VoteChoice.Approve);
+      await meute.connect(founders[1]).vote(1n, VoteChoice.Approve);
+      await meute.connect(founders[2]).vote(1n, VoteChoice.Approve);
+
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await expect(meute.execute(1n)).to.changeEtherBalance(ethers, stranger, amount);
+    });
+
+    it("end to end: rejected expense transfers nothing", async function () {
+      const { meute, founders, stranger } = await fundTreasury();
+      const amount = FEE;
+
+      await meute.connect(founders[0]).proposeExpense(stranger.address, amount, "game server");
+      await meute.connect(founders[0]).vote(1n, VoteChoice.Reject);
+      await meute.connect(founders[2]).vote(1n, VoteChoice.Reject);
+
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await expect(meute.execute(1n)).to.changeEtherBalance(ethers, stranger, 0n);
+    });
+
+    it("reverts at execution if the treasury has insufficient funds", async function () {
+      const { meute, founders, stranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      const amount = ethers.parseEther("1"); // nothing in the treasury, no application paid
+
+      await meute.connect(founders[0]).proposeExpense(stranger.address, amount, "too expensive");
+      await meute.connect(founders[0]).vote(0n, VoteChoice.Approve);
+      await meute.connect(founders[1]).vote(0n, VoteChoice.Approve);
+      await meute.connect(founders[2]).vote(0n, VoteChoice.Approve);
+
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await expect(meute.execute(0n)).to.be.revertedWithCustomError(meute, "InsufficientFunds");
+    });
+
+    it("reverts if the payout fails (beneficiary = contract without receive())", async function () {
+      const { meute, founders } = await fundTreasury();
+      const rejectEther = await ethers.deployContract("RejectEther");
+
+      await meute.connect(founders[0]).proposeExpense(rejectEther.target, FEE, "will fail");
+      await meute.connect(founders[0]).vote(1n, VoteChoice.Approve);
+      await meute.connect(founders[1]).vote(1n, VoteChoice.Approve);
+      await meute.connect(founders[2]).vote(1n, VoteChoice.Approve);
+
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await expect(meute.execute(1n)).to.be.revertedWithCustomError(meute, "TransferFailed");
+    });
+
+    it("blocks reentrancy: a malicious beneficiary cannot re-enter execute()", async function () {
+      const { meute, founders } = await fundTreasury();
+      const amount = FEE;
+
+      const attacker = await ethers.deployContract("ReentrantExpenseBeneficiary");
+      await meute.connect(founders[0]).proposeExpense(attacker.target, amount, "attack");
+      await attacker.setMeute(meute.target);
+      await attacker.setReentrantProposalId(1n);
+
+      await meute.connect(founders[0]).vote(1n, VoteChoice.Approve);
+      await meute.connect(founders[1]).vote(1n, VoteChoice.Approve);
+      await meute.connect(founders[2]).vote(1n, VoteChoice.Approve);
+
+      await networkHelpers.time.increase(VOTE_DURATION);
+
+      // The reentrant call happens inside the low-level `.call{value}` that
+      // pays the beneficiary: `nonReentrant` makes it revert, which the
+      // low-level call swallows as a plain failure (ok = false), so the
+      // outer execute() reverts with TransferFailed rather than the
+      // reentrant call silently succeeding or being ignored.
+      await expect(meute.execute(1n)).to.be.revertedWithCustomError(meute, "TransferFailed");
+    });
+
+    it("quorum not reached (1 vote out of 3 active): a single voter can no longer carry an expense alone", async function () {
+      // Reproduces the "a single active Wolf could drain the treasury
+      // alone" scenario (identified in security review): before the 75%
+      // quorum, 1 vote for on a snapshot frozen at 1 was enough on its own
+      // to validate an expense, with no "against" vote ever able to stop
+      // it. Here, 3 Wolves are active at snapshot time: 1 vote alone (even
+      // "for") no longer reaches quorum (at least 3 of the 3 are needed,
+      // floor(3*3/4)+1 = 3), so the expense fails even if no one voted
+      // against.
+      const { meute, founders, stranger } = await fundTreasury();
+      const amount = FEE;
+
+      await meute.connect(founders[0]).proposeExpense(stranger.address, amount, "quorum test");
+      await meute.connect(founders[0]).vote(1n, VoteChoice.Approve);
+
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await expect(meute.execute(1n)).to.changeEtherBalance(ethers, stranger, 0n);
+    });
+
+    it("quorum reached but a yes/no tie: the expense fails (strict majority required)", async function () {
+      // 3 voters can never tie (3 is odd) — a 4th active Wolf is needed to
+      // get a genuine 2-vs-2 tie.
+      const { meute, founders, applicant, stranger } = await fundTreasury();
+      await meute.connect(applicant).applyForMembership({ value: FEE });
+      await meute.connect(founders[0]).vote(1n, VoteChoice.Approve);
+      await meute.connect(founders[1]).vote(1n, VoteChoice.Approve);
+      await meute.connect(founders[2]).vote(1n, VoteChoice.Approve);
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await meute.execute(1n); // applicant becomes a Cub
+
+      await networkHelpers.time.increase(PROBATION_DURATION);
+      await meute.connect(founders[0]).openConfirmationVote(applicant.address);
+      await meute.connect(founders[0]).vote(2n, VoteChoice.Approve);
+      await meute.connect(founders[1]).vote(2n, VoteChoice.Approve);
+      await meute.connect(founders[2]).vote(2n, VoteChoice.Approve);
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await meute.execute(2n); // applicant becomes a Wolf — 4 active now
+
+      const amount = ethers.parseEther("0.02");
+      await meute.connect(founders[0]).proposeExpense(stranger.address, amount, "tie test");
+      await meute.connect(founders[0]).vote(3n, VoteChoice.Approve);
+      await meute.connect(founders[1]).vote(3n, VoteChoice.Approve);
+      await meute.connect(founders[2]).vote(3n, VoteChoice.Reject);
+      await meute.connect(applicant).vote(3n, VoteChoice.Reject);
+      // Quorum: 4/4 cast (>= floor(4*3/4)+1 = 4) — reached.
+      // Majority: 2 for / 2 against — tie, so rejected.
+
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await expect(meute.execute(3n)).to.changeEtherBalance(ethers, stranger, 0n);
+    });
+
+    it("reverts if the beneficiary (a Wolf) tries to vote on their own expense (conflict of interest)", async function () {
+      const { meute, founders } = await fundTreasury();
+      await meute.connect(founders[0]).proposeExpense(founders[1].address, 1n, "to a Wolf");
+      await expect(
+        meute.connect(founders[1]).vote(1n, VoteChoice.Approve),
+      ).to.be.revertedWithCustomError(meute, "ConflictOfInterest");
+    });
+
+    it("expense to a non-member: no conflict of interest, denominator unchanged", async function () {
+      const { meute, founders, stranger } = await fundTreasury();
+      await meute.connect(founders[0]).proposeExpense(stranger.address, 1n, "to a third party");
+      const prop = await meute.proposal(1n);
+      assert.equal(prop.activeSnapshot, 3n); // stranger isn't a Wolf, nothing to exclude
     });
   });
 
-  describe("ouvrirTitularisation et son exécution (§7.3)", function () {
-    async function admettreLouveteau() {
+  describe("openConfirmationVote and its execution (§7.3)", function () {
+    async function admitCub() {
       const fixture = await networkHelpers.loadFixture(deployMeuteFixture);
-      await fixture.meute.connect(fixture.candidat).candidater({ value: COTISATION });
-      // Quorum à 75% sur 3 actifs : il faut que les 3 se soient exprimés.
-      await fixture.meute.connect(fixture.fondateurs[0]).voter(0n, ChoixVote.Approuver);
-      await fixture.meute.connect(fixture.fondateurs[1]).voter(0n, ChoixVote.Approuver);
-      await fixture.meute.connect(fixture.fondateurs[2]).voter(0n, ChoixVote.Approuver);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      await fixture.meute.executer(0n);
-      return { ...fixture, louveteau: fixture.candidat };
+      await fixture.meute.connect(fixture.applicant).applyForMembership({ value: FEE });
+      // 75% quorum on 3 active: all 3 must have voted.
+      await fixture.meute.connect(fixture.founders[0]).vote(0n, VoteChoice.Approve);
+      await fixture.meute.connect(fixture.founders[1]).vote(0n, VoteChoice.Approve);
+      await fixture.meute.connect(fixture.founders[2]).vote(0n, VoteChoice.Approve);
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await fixture.meute.execute(0n);
+      return { ...fixture, cub: fixture.applicant };
     }
 
-    it("revert si l'appelant n'est pas Loup", async function () {
-      const { meute, louveteau } = await admettreLouveteau();
+    it("reverts if the caller isn't a Wolf", async function () {
+      const { meute, cub } = await admitCub();
       await expect(
-        meute.connect(louveteau).ouvrirTitularisation(louveteau.address),
-      ).to.be.revertedWithCustomError(meute, "PasLoup");
+        meute.connect(cub).openConfirmationVote(cub.address),
+      ).to.be.revertedWithCustomError(meute, "NotAWolf");
     });
 
-    it("revert si la cible n'est pas Louveteau", async function () {
-      const { meute, fondateurs, etranger } = await admettreLouveteau();
+    it("reverts if the target isn't a Cub", async function () {
+      const { meute, founders, stranger } = await admitCub();
       await expect(
-        meute.connect(fondateurs[0]).ouvrirTitularisation(fondateurs[1].address),
-      ).to.be.revertedWithCustomError(meute, "PasLouveteau");
+        meute.connect(founders[0]).openConfirmationVote(founders[1].address),
+      ).to.be.revertedWithCustomError(meute, "NotACub");
       await expect(
-        meute.connect(fondateurs[0]).ouvrirTitularisation(etranger.address),
-      ).to.be.revertedWithCustomError(meute, "PasLouveteau");
+        meute.connect(founders[0]).openConfirmationVote(stranger.address),
+      ).to.be.revertedWithCustomError(meute, "NotACub");
     });
 
-    it("revert si la probation n'est pas terminée", async function () {
-      const { meute, fondateurs, louveteau } = await admettreLouveteau();
+    it("reverts if probation isn't over", async function () {
+      const { meute, founders, cub } = await admitCub();
       await expect(
-        meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address),
-      ).to.be.revertedWithCustomError(meute, "ProbationNonTerminee");
+        meute.connect(founders[0]).openConfirmationVote(cub.address),
+      ).to.be.revertedWithCustomError(meute, "ProbationNotOver");
     });
 
-    it("revert sur une seconde ouverture simultanée", async function () {
-      const { meute, fondateurs, louveteau } = await admettreLouveteau();
-      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+    it("reverts on a second simultaneous opening", async function () {
+      const { meute, founders, cub } = await admitCub();
+      await networkHelpers.time.increase(PROBATION_DURATION);
 
-      await meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address);
+      await meute.connect(founders[0]).openConfirmationVote(cub.address);
       await expect(
-        meute.connect(fondateurs[1]).ouvrirTitularisation(louveteau.address),
-      ).to.be.revertedWithCustomError(meute, "TitularisationDejaOuverte");
+        meute.connect(founders[1]).openConfirmationVote(cub.address),
+      ).to.be.revertedWithCustomError(meute, "ConfirmationAlreadyOpen");
     });
 
-    it("bout en bout : titularisation approuvée passe le Louveteau Loup, même carte", async function () {
-      const { meute, fondateurs, louveteau } = await admettreLouveteau();
-      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+    it("end to end: approved confirmation moves the Cub to Wolf, same card", async function () {
+      const { meute, founders, cub } = await admitCub();
+      await networkHelpers.time.increase(PROBATION_DURATION);
 
-      await meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address);
-      await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[1]).voter(1n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[2]).voter(1n, ChoixVote.Approuver);
+      await meute.connect(founders[0]).openConfirmationVote(cub.address);
+      await meute.connect(founders[0]).vote(1n, VoteChoice.Approve);
+      await meute.connect(founders[1]).vote(1n, VoteChoice.Approve);
+      await meute.connect(founders[2]).vote(1n, VoteChoice.Approve);
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      await meute.executer(1n);
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await meute.execute(1n);
 
-      const c = await meute.carte(louveteau.address);
-      assert.equal(c.rang, 1n); // Rang.Loup
-      assert.equal(await meute.ownerOf(BigInt(louveteau.address)), louveteau.address);
-      assert.equal(await meute.loupsActifs(), 4n); // 3 fondateurs + ce nouveau Loup
+      const c = await meute.card(cub.address);
+      assert.equal(c.rank, 1n); // Rank.Wolf
+      assert.equal(await meute.ownerOf(BigInt(cub.address)), cub.address);
+      assert.equal(await meute.activeWolves(), 4n); // 3 founders + this new Wolf
 
-      // Peut retenter une candidature ultérieurement n'a pas de sens ici,
-      // mais une nouvelle ouverture de titularisation doit être possible à nouveau.
-      assert.equal(await meute.estDormant(louveteau.address), false);
+      // Retrying an application later doesn't make sense here, but opening
+      // a new confirmation vote must be possible again.
+      assert.equal(await meute.isDormant(cub.address), false);
     });
 
-    it("bout en bout : titularisation refusée brûle la carte", async function () {
-      const { meute, fondateurs, louveteau } = await admettreLouveteau();
-      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+    it("end to end: rejected confirmation burns the card", async function () {
+      const { meute, founders, cub } = await admitCub();
+      await networkHelpers.time.increase(PROBATION_DURATION);
 
-      await meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address);
-      await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Rejeter);
-      await meute.connect(fondateurs[1]).voter(1n, ChoixVote.Rejeter);
-      await meute.connect(fondateurs[2]).voter(1n, ChoixVote.Rejeter);
+      await meute.connect(founders[0]).openConfirmationVote(cub.address);
+      await meute.connect(founders[0]).vote(1n, VoteChoice.Reject);
+      await meute.connect(founders[1]).vote(1n, VoteChoice.Reject);
+      await meute.connect(founders[2]).vote(1n, VoteChoice.Reject);
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      await meute.executer(1n);
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await meute.execute(1n);
 
-      await expect(meute.ownerOf(BigInt(louveteau.address))).to.revert(ethers);
+      await expect(meute.ownerOf(BigInt(cub.address))).to.revert(ethers);
     });
 
-    it("bout en bout : ajournement explicite prolonge la probation de 3 mois", async function () {
-      const { meute, fondateurs, louveteau } = await admettreLouveteau();
-      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+    it("end to end: an explicit postponement extends probation by 3 months", async function () {
+      const { meute, founders, cub } = await admitCub();
+      await networkHelpers.time.increase(PROBATION_DURATION);
 
-      await meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address);
-      await meute.connect(fondateurs[0]).voter(1n, ChoixVote.Ajourner);
-      await meute.connect(fondateurs[1]).voter(1n, ChoixVote.Ajourner);
+      await meute.connect(founders[0]).openConfirmationVote(cub.address);
+      await meute.connect(founders[0]).vote(1n, VoteChoice.Postpone);
+      await meute.connect(founders[1]).vote(1n, VoteChoice.Postpone);
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      await meute.executer(1n);
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await meute.execute(1n);
 
-      const c = await meute.carte(louveteau.address);
-      assert.equal(c.rang, 0n); // toujours Louveteau
-      assert.equal(c.ajournements, 1n);
+      const c = await meute.card(cub.address);
+      assert.equal(c.rank, 0n); // still a Cub
+      assert.equal(c.postponements, 1n);
 
-      // Une nouvelle ouverture immédiate échoue : la probation repart pour 3 mois.
+      // A new immediate opening fails: probation restarts for 3 months.
       await expect(
-        meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address),
-      ).to.be.revertedWithCustomError(meute, "ProbationNonTerminee");
+        meute.connect(founders[0]).openConfirmationVote(cub.address),
+      ).to.be.revertedWithCustomError(meute, "ProbationNotOver");
     });
 
-    it("aucun vote exprimé : ajournement par défaut, sans que quiconque ait choisi Ajourner", async function () {
-      const { meute, fondateurs, louveteau } = await admettreLouveteau();
-      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+    it("no votes cast: postponed by default, without anyone choosing Postpone", async function () {
+      const { meute, founders, cub } = await admitCub();
+      await networkHelpers.time.increase(PROBATION_DURATION);
 
-      await meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      await meute.executer(1n);
+      await meute.connect(founders[0]).openConfirmationVote(cub.address);
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await meute.execute(1n);
 
-      const c = await meute.carte(louveteau.address);
-      assert.equal(c.rang, 0n);
-      assert.equal(c.ajournements, 1n);
+      const c = await meute.card(cub.address);
+      assert.equal(c.rank, 0n);
+      assert.equal(c.postponements, 1n);
     });
 
-    it("une fois AJOURNEMENTS_MAX atteint, Ajourner n'est plus un choix valide", async function () {
-      const { meute, fondateurs, louveteau } = await admettreLouveteau();
+    it("once MAX_POSTPONEMENTS is reached, Postpone is no longer a valid choice", async function () {
+      const { meute, founders, cub } = await admitCub();
 
-      // Deux ajournements consécutifs, chacun après sa probation.
+      // Two consecutive postponements, each after its probation.
       for (let i = 0; i < 2; i++) {
-        await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+        await networkHelpers.time.increase(PROBATION_DURATION);
         const proposalId = BigInt(i + 1);
-        await meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address);
-        await meute.connect(fondateurs[0]).voter(proposalId, ChoixVote.Ajourner);
-        await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-        await meute.executer(proposalId);
+        await meute.connect(founders[0]).openConfirmationVote(cub.address);
+        await meute.connect(founders[0]).vote(proposalId, VoteChoice.Postpone);
+        await networkHelpers.time.increase(VOTE_DURATION);
+        await meute.execute(proposalId);
       }
 
-      const c = await meute.carte(louveteau.address);
-      assert.equal(c.ajournements, 2n); // AJOURNEMENTS_MAX
+      const c = await meute.card(cub.address);
+      assert.equal(c.postponements, 2n); // MAX_POSTPONEMENTS
 
-      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
-      await meute.connect(fondateurs[0]).ouvrirTitularisation(louveteau.address);
+      await networkHelpers.time.increase(PROBATION_DURATION);
+      await meute.connect(founders[0]).openConfirmationVote(cub.address);
       await expect(
-        meute.connect(fondateurs[0]).voter(3n, ChoixVote.Ajourner),
-      ).to.be.revertedWithCustomError(meute, "ChoixInvalide");
+        meute.connect(founders[0]).vote(3n, VoteChoice.Postpone),
+      ).to.be.revertedWithCustomError(meute, "InvalidChoice");
 
-      // Le défaut passif (sans quorum) reste possible et ne déborde pas le compteur.
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      await meute.executer(3n);
-      const cApres = await meute.carte(louveteau.address);
-      assert.equal(cApres.ajournements, 2n); // saturé, pas 3
-      assert.equal(cApres.rang, 0n); // toujours Louveteau, ni titularisé ni exclu
+      // The passive default (without quorum) is still possible and doesn't overflow the counter.
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await meute.execute(3n);
+      const cAfter = await meute.card(cub.address);
+      assert.equal(cAfter.postponements, 2n); // saturated, not 3
+      assert.equal(cAfter.rank, 0n); // still a Cub, neither confirmed nor excluded
     });
   });
 
-  describe("jeSuisLa (§7.5)", function () {
-    it("revert si l'appelant n'est pas Loup", async function () {
-      const { meute, candidat } = await networkHelpers.loadFixture(deployMeuteFixture);
-      await expect(meute.connect(candidat).jeSuisLa()).to.be.revertedWithCustomError(meute, "PasLoup");
+  describe("imHere (§7.5)", function () {
+    it("reverts if the caller isn't a Wolf", async function () {
+      const { meute, applicant } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(meute.connect(applicant).imHere()).to.be.revertedWithCustomError(meute, "NotAWolf");
     });
 
-    it("réveille un Loup dormant sans passer par un vote", async function () {
-      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+    it("wakes up a dormant Wolf without going through a vote", async function () {
+      const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await networkHelpers.time.increase(365 * 24 * 60 * 60 + 1);
-      assert.equal(await meute.loupsActifs(), 0n);
+      await networkHelpers.time.increase(PAST_DORMANCY_DELAY);
+      assert.equal(await meute.activeWolves(), 0n);
 
-      await expect(meute.connect(fondateurs[0]).jeSuisLa())
-        .to.emit(meute, "MembreReveille")
-        .withArgs(fondateurs[0].address);
+      await expect(meute.connect(founders[0]).imHere())
+        .to.emit(meute, "MemberWokenUp")
+        .withArgs(founders[0].address);
 
-      assert.equal(await meute.estDormant(fondateurs[0].address), false);
-      assert.equal(await meute.loupsActifs(), 1n);
+      assert.equal(await meute.isDormant(founders[0].address), false);
+      assert.equal(await meute.activeWolves(), 1n);
     });
   });
 
-  describe("demissionner (§7.4)", function () {
-    it("revert si l'appelant n'est pas membre", async function () {
-      const { meute, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
-      await expect(meute.connect(etranger).demissionner()).to.be.revertedWithCustomError(meute, "PasMembre");
+  describe("resign (§7.4)", function () {
+    it("reverts if the caller isn't a member", async function () {
+      const { meute, stranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+      await expect(meute.connect(stranger).resign()).to.be.revertedWithCustomError(meute, "NotAMember");
     });
 
-    it("brûle la carte d'un Loup et le retire du décompte des actifs", async function () {
-      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+    it("burns a Wolf's card and removes them from the active count", async function () {
+      const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await meute.connect(fondateurs[0]).demissionner();
+      await meute.connect(founders[0]).resign();
 
-      await expect(meute.ownerOf(BigInt(fondateurs[0].address))).to.revert(ethers);
-      assert.equal(await meute.loupsActifs(), 2n);
+      await expect(meute.ownerOf(BigInt(founders[0].address))).to.revert(ethers);
+      assert.equal(await meute.activeWolves(), 2n);
     });
 
-    it("n'empêche pas l'exécution d'un vote d'exclusion visant un démissionnaire entre-temps", async function () {
-      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+    it("doesn't block executing an exclusion vote targeting someone who resigned in the meantime", async function () {
+      const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await meute.connect(fondateurs[0]).proposerExclusion(fondateurs[1].address);
-      await meute.connect(fondateurs[1]).demissionner();
+      await meute.connect(founders[0]).proposeExclusion(founders[1].address);
+      await meute.connect(founders[1]).resign();
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      // Ne doit pas revert malgré la carte déjà brûlée.
-      await meute.executer(0n);
-      assert.equal(await meute.loupsActifs(), 2n);
+      await networkHelpers.time.increase(VOTE_DURATION);
+      // Must not revert despite the card already being burned.
+      await meute.execute(0n);
+      assert.equal(await meute.activeWolves(), 2n);
     });
 
-    it("n'empêche pas l'exécution d'un vote de titularisation visant un démissionnaire entre-temps", async function () {
+    it("doesn't block executing a confirmation vote targeting someone who resigned in the meantime", async function () {
       const fixture = await networkHelpers.loadFixture(deployMeuteFixture);
-      const { meute, fondateurs, candidat } = fixture;
+      const { meute, founders, applicant } = fixture;
 
-      await meute.connect(candidat).candidater({ value: COTISATION });
-      await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[1]).voter(0n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[2]).voter(0n, ChoixVote.Approuver);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      await meute.executer(0n);
+      await meute.connect(applicant).applyForMembership({ value: FEE });
+      await meute.connect(founders[0]).vote(0n, VoteChoice.Approve);
+      await meute.connect(founders[1]).vote(0n, VoteChoice.Approve);
+      await meute.connect(founders[2]).vote(0n, VoteChoice.Approve);
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await meute.execute(0n);
 
-      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
-      await meute.connect(fondateurs[0]).ouvrirTitularisation(candidat.address);
-      await meute.connect(candidat).demissionner();
+      await networkHelpers.time.increase(PROBATION_DURATION);
+      await meute.connect(founders[0]).openConfirmationVote(applicant.address);
+      await meute.connect(applicant).resign();
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      // Ne doit pas revert malgré la carte déjà brûlée.
-      await meute.executer(1n);
-      await expect(meute.ownerOf(BigInt(candidat.address))).to.revert(ethers);
+      await networkHelpers.time.increase(VOTE_DURATION);
+      // Must not revert despite the card already being burned.
+      await meute.execute(1n);
+      await expect(meute.ownerOf(BigInt(applicant.address))).to.revert(ethers);
     });
   });
 
-  describe("definirPseudo", function () {
-    it("permet à n'importe quelle adresse de définir son pseudo, même sans être membre", async function () {
-      const { meute, etranger } = await networkHelpers.loadFixture(deployMeuteFixture);
-
-      await expect(meute.connect(etranger).definirPseudo("Riddick"))
-        .to.emit(meute, "PseudoModifie")
-        .withArgs(etranger.address, "Riddick");
-
-      assert.equal(await meute.pseudo(etranger.address), "Riddick");
-    });
-
-    it("permet de changer son propre pseudo librement", async function () {
-      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
-
-      await meute.connect(fondateurs[0]).definirPseudo("Alpha");
-      await meute.connect(fondateurs[0]).definirPseudo("Beta");
-
-      assert.equal(await meute.pseudo(fondateurs[0].address), "Beta");
-    });
-
-    it("une chaîne vide efface le pseudo", async function () {
-      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
-
-      await meute.connect(fondateurs[0]).definirPseudo("Alpha");
-      await meute.connect(fondateurs[0]).definirPseudo("");
-
-      assert.equal(await meute.pseudo(fondateurs[0].address), "");
-    });
-
-    it("revert si le pseudo dépasse 32 octets", async function () {
-      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
-      const tropLong = "a".repeat(33);
-
-      await expect(meute.connect(fondateurs[0]).definirPseudo(tropLong)).to.be.revertedWithCustomError(
-        meute,
-        "PseudoTropLong",
-      );
-    });
-
-    it("accepte exactement 32 octets", async function () {
-      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
-      const pileTailleMax = "a".repeat(32);
-
-      await meute.connect(fondateurs[0]).definirPseudo(pileTailleMax);
-      assert.equal(await meute.pseudo(fondateurs[0].address), pileTailleMax);
-    });
-
-    it("ne modifie pas le pseudo d'une autre adresse", async function () {
-      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
-
-      await meute.connect(fondateurs[0]).definirPseudo("Alpha");
-      await meute.connect(fondateurs[1]).definirPseudo("Beta");
-
-      assert.equal(await meute.pseudo(fondateurs[0].address), "Alpha");
-      assert.equal(await meute.pseudo(fondateurs[1].address), "Beta");
-    });
-  });
-
-  describe("non-transférabilité (§6, C3)", function () {
-    it("revert sur un transfert entre deux détenteurs", async function () {
-      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+  describe("non-transferability (§6, C3)", function () {
+    it("reverts on a transfer between two holders", async function () {
+      const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
 
       await expect(
         meute
-          .connect(fondateurs[0])
-          .transferFrom(fondateurs[0].address, fondateurs[1].address, BigInt(fondateurs[0].address)),
-      ).to.be.revertedWithCustomError(meute, "TransfertInterdit");
+          .connect(founders[0])
+          .transferFrom(founders[0].address, founders[1].address, BigInt(founders[0].address)),
+      ).to.be.revertedWithCustomError(meute, "TransferForbidden");
     });
 
-    it("le mint (candidature admise) et le burn (démission) restent autorisés", async function () {
-      const { meute, fondateurs, candidat } = await networkHelpers.loadFixture(deployMeuteFixture);
+    it("mint (admitted application) and burn (resignation) stay allowed", async function () {
+      const { meute, founders, applicant } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await meute.connect(candidat).candidater({ value: COTISATION });
-      await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[1]).voter(0n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[2]).voter(0n, ChoixVote.Approuver);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      await meute.executer(0n); // mint
+      await meute.connect(applicant).applyForMembership({ value: FEE });
+      await meute.connect(founders[0]).vote(0n, VoteChoice.Approve);
+      await meute.connect(founders[1]).vote(0n, VoteChoice.Approve);
+      await meute.connect(founders[2]).vote(0n, VoteChoice.Approve);
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await meute.execute(0n); // mint
 
-      assert.equal(await meute.ownerOf(BigInt(candidat.address)), candidat.address);
+      assert.equal(await meute.ownerOf(BigInt(applicant.address)), applicant.address);
 
-      await meute.connect(candidat).demissionner(); // burn
-      await expect(meute.ownerOf(BigInt(candidat.address))).to.revert(ethers);
+      await meute.connect(applicant).resign(); // burn
+      await expect(meute.ownerOf(BigInt(applicant.address))).to.revert(ethers);
     });
   });
 
@@ -894,23 +977,23 @@ describe("Meute", function () {
       return JSON.parse(json);
     }
 
-    it("revert si le token n'existe pas", async function () {
+    it("reverts if the token doesn't exist", async function () {
       const { meute } = await networkHelpers.loadFixture(deployMeuteFixture);
       await expect(meute.tokenURI(999n)).to.revert(ethers);
     });
 
-    it("un Loup a des métadonnées cohérentes avec son rang", async function () {
-      const { meute, fondateurs } = await networkHelpers.loadFixture(deployMeuteFixture);
+    it("a Wolf has metadata consistent with its rank", async function () {
+      const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      const uri = await meute.tokenURI(BigInt(fondateurs[0].address));
+      const uri = await meute.tokenURI(BigInt(founders[0].address));
       const metadata = decodeDataUri(uri) as {
         name: string;
         attributes: { trait_type: string; value: string }[];
         image: string;
       };
 
-      assert.match(metadata.name, /Loup/);
-      assert.deepEqual(metadata.attributes, [{ trait_type: "Rang", value: "Loup" }]);
+      assert.match(metadata.name, /Wolf/);
+      assert.deepEqual(metadata.attributes, [{ trait_type: "Rank", value: "Wolf" }]);
       assert.equal(metadata.image.startsWith("data:image/svg+xml;base64,"), true);
 
       const svg = Buffer.from(metadata.image.split(",")[1], "base64").toString("utf8");
@@ -918,25 +1001,25 @@ describe("Meute", function () {
       assert.doesNotMatch(svg, /stroke=/);
     });
 
-    it("un Louveteau a des métadonnées cohérentes avec son rang (contour)", async function () {
-      const { meute, fondateurs, candidat } = await networkHelpers.loadFixture(deployMeuteFixture);
+    it("a Cub has metadata consistent with its rank (outline)", async function () {
+      const { meute, founders, applicant } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await meute.connect(candidat).candidater({ value: COTISATION });
-      await meute.connect(fondateurs[0]).voter(0n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[1]).voter(0n, ChoixVote.Approuver);
-      await meute.connect(fondateurs[2]).voter(0n, ChoixVote.Approuver);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
-      await meute.executer(0n);
+      await meute.connect(applicant).applyForMembership({ value: FEE });
+      await meute.connect(founders[0]).vote(0n, VoteChoice.Approve);
+      await meute.connect(founders[1]).vote(0n, VoteChoice.Approve);
+      await meute.connect(founders[2]).vote(0n, VoteChoice.Approve);
+      await networkHelpers.time.increase(VOTE_DURATION);
+      await meute.execute(0n);
 
-      const uri = await meute.tokenURI(BigInt(candidat.address));
+      const uri = await meute.tokenURI(BigInt(applicant.address));
       const metadata = decodeDataUri(uri) as {
         name: string;
         attributes: { trait_type: string; value: string }[];
         image: string;
       };
 
-      assert.match(metadata.name, /Louveteau/);
-      assert.deepEqual(metadata.attributes, [{ trait_type: "Rang", value: "Louveteau" }]);
+      assert.match(metadata.name, /Cub/);
+      assert.deepEqual(metadata.attributes, [{ trait_type: "Rank", value: "Cub" }]);
 
       const svg = Buffer.from(metadata.image.split(",")[1], "base64").toString("utf8");
       assert.match(svg, /fill="none"/);

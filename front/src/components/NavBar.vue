@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick, watch } from "vue";
 import { useRoute } from "vue-router";
+import { useI18n } from "vue-i18n";
+import { useLocale } from "../composables/useLocale";
 
-// Réplique le comportement du v2 : la nav est transparente en haut de la
-// page d'accueil (au-dessus du hero), et devient opaque (fond blanc) après
-// un léger scroll. Le dashboard n'a pas de hero sous la nav, donc elle y
-// reste toujours opaque, sinon le fond transparent se superpose au contenu.
+const { t } = useI18n();
+const { locale, setLocale } = useLocale();
+
+// Replicates the v2 behavior: the nav is transparent at the top of the
+// homepage (above the hero), and becomes opaque (white background) after
+// a slight scroll. The dashboard has no hero under the nav, so it always
+// stays opaque there, otherwise the transparent background would overlap
+// the content.
 const route = useRoute();
 const scrolledByUser = ref(false);
 const menuOpen = ref(false);
@@ -17,11 +23,11 @@ function onScroll() {
   scrolledByUser.value = window.scrollY > 50;
 }
 
-// La hauteur réelle de la nav dépend du contenu Bootstrap (font-size du
-// brand, wrap du menu sur mobile, etc.) — pas une constante fiable. On la
-// mesure et on l'expose en variable CSS pour que tout composant qui doit se
-// positionner sous elle (ex. le sous-menu sticky du dashboard) reste
-// synchronisé au lieu de deviner un nombre de pixels en dur.
+// The nav's actual height depends on Bootstrap content (brand font-size,
+// mobile menu wrap, etc.) — not a reliable constant. We measure it and
+// expose it as a CSS variable so any component that needs to position
+// itself below it (e.g. the dashboard's sticky sub-menu) stays in sync
+// instead of guessing a hardcoded pixel number.
 function updateNavbarHeight() {
   if (navbarEl.value) {
     document.documentElement.style.setProperty("--navbar-height", `${navbarEl.value.offsetHeight}px`);
@@ -34,7 +40,7 @@ onMounted(() => {
   updateNavbarHeight();
 });
 
-// Le menu mobile déplié change la hauteur totale de la nav.
+// The expanded mobile menu changes the nav's total height.
 watch(menuOpen, () => nextTick(updateNavbarHeight));
 onUnmounted(() => {
   window.removeEventListener("scroll", onScroll);
@@ -53,13 +59,43 @@ onUnmounted(() => {
       </div>
       <div class="collapse navbar-collapse navbar-right navbar-main-collapse" :class="{ in: menuOpen }">
         <ul class="nav navbar-nav">
-          <li><router-link :to="{ path: '/', hash: '#page-top' }" @click="menuOpen = false">Accueil</router-link></li>
-          <li><router-link :to="{ path: '/', hash: '#about' }" @click="menuOpen = false">Notre clan</router-link></li>
-          <li><router-link :to="{ path: '/', hash: '#recruit' }" @click="menuOpen = false">Recrutement</router-link></li>
-          <li><router-link :to="{ path: '/', hash: '#contact' }" @click="menuOpen = false">Nous contacter</router-link></li>
-          <li><router-link to="/gouvernance" @click="menuOpen = false">Gouvernance</router-link></li>
+          <li><router-link :to="{ path: '/', hash: '#page-top' }" @click="menuOpen = false">{{ t("nav.home") }}</router-link></li>
+          <li><router-link :to="{ path: '/', hash: '#about' }" @click="menuOpen = false">{{ t("nav.about") }}</router-link></li>
+          <li><router-link :to="{ path: '/', hash: '#recruit' }" @click="menuOpen = false">{{ t("nav.recruit") }}</router-link></li>
+          <li><router-link :to="{ path: '/', hash: '#contact' }" @click="menuOpen = false">{{ t("nav.contact") }}</router-link></li>
+          <li><router-link to="/gouvernance" @click="menuOpen = false">{{ t("nav.governance") }}</router-link></li>
+          <li class="lang-switch">
+            <button type="button" :class="{ active: locale === 'fr' }" @click="setLocale('fr')">FR</button>
+            <span aria-hidden="true">/</span>
+            <button type="button" :class="{ active: locale === 'en' }" @click="setLocale('en')">EN</button>
+          </li>
         </ul>
       </div>
     </div>
   </nav>
 </template>
+
+<style scoped>
+.lang-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 15px;
+}
+.lang-switch button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.6;
+}
+.lang-switch button.active {
+  opacity: 1;
+  font-weight: 700;
+}
+.lang-switch span {
+  opacity: 0.5;
+}
+</style>

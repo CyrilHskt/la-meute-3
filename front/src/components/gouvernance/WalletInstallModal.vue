@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import { useWallet } from "../../composables/useWallet";
 
+const { t } = useI18n();
 const { noWalletDetected, connect } = useWallet();
 
 function retry() {
@@ -22,18 +24,15 @@ function dismiss() {
           <circle cx="17" cy="15" r="1" />
         </svg>
       </div>
-      <p class="wim-title">Il te faut un wallet</p>
-      <p class="wim-text">
-        Un wallet, c'est ton identité sur la Meute — pas de compte à créer, pas de mot de passe. MetaMask est
-        gratuit, s'installe en 2 minutes et fonctionne directement dans ton navigateur.
-      </p>
+      <p class="wim-title">{{ t('walletInstall.title') }}</p>
+      <p class="wim-text">{{ t('walletInstall.text') }}</p>
       <div class="wim-actions">
         <a class="btn btn-primary" href="https://metamask.io/download/" target="_blank" rel="noopener">
-          Installer MetaMask
+          {{ t('walletInstall.install') }}
         </a>
-        <button class="btn btn-outline" type="button" @click="retry">J'ai déjà un wallet, réessayer</button>
+        <button class="btn btn-outline" type="button" @click="retry">{{ t('walletInstall.retry') }}</button>
       </div>
-      <button class="wim-dismiss" type="button" @click="dismiss">Continuer sans wallet pour l'instant</button>
+      <button class="wim-dismiss" type="button" @click="dismiss">{{ t('walletInstall.dismiss') }}</button>
     </div>
   </div>
 </template>

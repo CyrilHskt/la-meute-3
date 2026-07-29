@@ -10,9 +10,9 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
-        // Injecté avant chaque <style lang="scss">: les variables de
-        // src/styles/_tokens.scss sont disponibles partout sans import
-        // manuel dans chaque composant.
+        // Injected before every <style lang="scss">: the variables from
+        // src/styles/_tokens.scss are available everywhere without a
+        // manual import in each component.
         additionalData: `@use "tokens" as *;`,
         loadPaths: ["src/styles"],
       },
