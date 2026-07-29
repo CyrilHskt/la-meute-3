@@ -48,6 +48,20 @@ const address = ref<Address | null>(null);
 const wrongNetwork = ref(false);
 const noWalletDetected = ref(false);
 
+// Listener registries to break the circular dependency with useMeute.ts
+// (which imports useWallet for readOnlyContract/signMessage): rather than
+// useWallet importing useMeute back, useMeute registers itself here (see
+// main.ts) and useWallet notifies it through these callbacks.
+const explicitConnectListeners: ((addr: Address) => void)[] = [];
+const accountLostOrChangedListeners: ((addr: Address | null) => void)[] = [];
+
+function onExplicitConnect(cb: (addr: Address) => void) {
+  explicitConnectListeners.push(cb);
+}
+function onAccountChanged(cb: (addr: Address | null) => void) {
+  accountLostOrChangedListeners.push(cb);
+}
+
 // Read-only: requires no wallet, works even for a visitor without MetaMask
 // installed. Don't use `custom(window.ethereum)` here: that would require
 // a wallet just to display public stats.
@@ -87,14 +101,14 @@ async function connect() {
   address.value = account;
   wrongNetwork.value = chainId !== chain.id;
 
-  // Dynamic import to break the circular dependency (useMeute imports
-  // useWallet for readOnlyContract/signMessage). Only here, never in
-  // tryRestoreConnection(): membership verification asks for a signature,
-  // it must never pop up silently on automatic reconnection at page load,
-  // only on an explicit click on "Connect my wallet". This is also what
-  // unlocks the whole governance page (members-only) — see useMeute.ts.
-  const { verifyMembershipAndLoad } = await import("./useMeute").then((m) => m.useMeute());
-  void verifyMembershipAndLoad(account);
+  // Notify listeners (see useMeute.ts, wired in main.ts) rather than
+  // importing useMeute directly, to break the circular dependency. Only
+  // here, never in tryRestoreConnection(): membership verification asks
+  // for a signature, it must never pop up silently on automatic
+  // reconnection at page load, only on an explicit click on "Connect my
+  // wallet". This is also what unlocks the whole governance page
+  // (members-only) — see useMeute.ts.
+  explicitConnectListeners.forEach((cb) => cb(account));
 }
 
 // Without this, changing account or network *after* clicking "Connect"
@@ -113,22 +127,15 @@ function attachWalletListeners() {
     const newAccount = accounts.length > 0 ? (accounts[0] as Address) : null;
     address.value = newAccount;
 
-    // The verified session/index (useMeute) related to the old account —
-    // always clear it, whether disconnecting or switching to another
-    // account, otherwise the page stayed displayed as if the new (or no)
-    // account were still an authenticated member (observed: disconnecting
-    // had no visible effect on the governance page).
-    // Dynamic import: same reason as in connect() (useMeute <-> useWallet
-    // circular dependency).
-    void import("./useMeute").then((m) => {
-      const { resetSession, verifyMembershipAndLoad } = m.useMeute();
-      resetSession();
-      // An explicit account change in MetaMask (not a silent reconnection
-      // on load) — asking for a new proof of membership here is
-      // consistent with "one signature per session", the session changes
-      // with the account.
-      if (newAccount) void verifyMembershipAndLoad(newAccount);
-    });
+    // Notify listeners (see useMeute.ts, wired in main.ts) rather than
+    // importing useMeute directly — same reason as in connect() (breaking
+    // the useMeute <-> useWallet circular dependency). The verified
+    // session/index related to the old account must always be cleared,
+    // whether disconnecting or switching to another account, otherwise the
+    // page stayed displayed as if the new (or no) account were still an
+    // authenticated member (observed: disconnecting had no visible effect
+    // on the governance page).
+    accountLostOrChangedListeners.forEach((cb) => cb(newAccount));
   });
 
   injected.on("chainChanged", (...args: unknown[]) => {
@@ -206,5 +213,7 @@ export function useWallet() {
     publicClient,
     contractAddress,
     syncLocalContractAddress,
+    onExplicitConnect,
+    onAccountChanged,
   };
 }
