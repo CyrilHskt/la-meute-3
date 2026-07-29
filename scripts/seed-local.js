@@ -65,7 +65,7 @@ function loadAbi() {
   try {
     return JSON.parse(readFileSync(artifactPath, "utf8")).abi;
   } catch {
-    throw new Error(`ABI introuvable (${artifactPath}) — lance \`npx hardhat compile\` d'abord.`);
+    throw new Error(`ABI not found (${artifactPath}) — run \`npx hardhat compile\` first.`);
   }
 }
 
@@ -87,7 +87,7 @@ async function openAndGetId(contract, txPromise) {
     }
     if (parsed?.name === "ProposalOpened") return parsed.args.proposalId;
   }
-  throw new Error("ProposalOpened introuvable dans les logs de la transaction.");
+  throw new Error("ProposalOpened not found in the transaction logs.");
 }
 
 /** Takes an address from nothing to Wolf: application -> admission -> probation -> confirmation. */
@@ -133,7 +133,7 @@ async function main() {
   const founderSigner = new ethers.JsonRpcSigner(provider, ethers.getAddress(FOUNDER));
 
   const nodeAccounts = await provider.send("eth_accounts", []);
-  if (nodeAccounts.length < 15) throw new Error("Pas assez de comptes de test sur le nœud (besoin d'au moins 15).");
+  if (nodeAccounts.length < 15) throw new Error("Not enough test accounts on the node (need at least 15).");
 
   const acc = (n) => nodeAccounts[n];
   const wolf0 = acc(0);
@@ -175,33 +175,33 @@ async function main() {
   const asFounder = contracts.get(FOUNDER);
   contracts.fee = await asFounder.fee();
 
-  console.log(`Fondateur   (Loup actif)  : ${FOUNDER}`);
-  console.log(`Account #0  (Loup actif)  : ${wolf0}`);
-  console.log(`Account #1  (Louveteau)   : ${cub1}`);
-  console.log(`Account #2  (Candidat)    : ${applicant2}`);
-  console.log(`Account #3  (Loup dormant): ${dormant3}`);
-  console.log(`Account #4  (Visiteur)    : ${visitor4}`);
-  console.log(`Account #6  (Louveteau)   : ${cub6}`);
-  console.log(`Account #7  (Loup dormant): ${dormant7}`);
-  console.log(`Account #8  (Loup dormant): ${dormant8}`);
-  console.log(`Account #9  (Loup actif)  : ${wolf9}`);
-  console.log(`Account #10 (Loup actif)  : ${wolf10}`);
-  console.log(`Account #11 (Banni)       : ${banned11}`);
+  console.log(`Founder     (active Wolf) : ${FOUNDER}`);
+  console.log(`Account #0  (active Wolf) : ${wolf0}`);
+  console.log(`Account #1  (Cub)         : ${cub1}`);
+  console.log(`Account #2  (Applicant)   : ${applicant2}`);
+  console.log(`Account #3  (dormant Wolf): ${dormant3}`);
+  console.log(`Account #4  (Visitor)     : ${visitor4}`);
+  console.log(`Account #6  (Cub)         : ${cub6}`);
+  console.log(`Account #7  (dormant Wolf): ${dormant7}`);
+  console.log(`Account #8  (dormant Wolf): ${dormant8}`);
+  console.log(`Account #9  (active Wolf) : ${wolf9}`);
+  console.log(`Account #10 (active Wolf) : ${wolf10}`);
+  console.log(`Account #11 (Banned)      : ${banned11}`);
   console.log("");
 
-  console.log("1/8 — Account #0 rejoint la meute...");
+  console.log("1/8 — Account #0 joins the pack...");
   await becomeWolf(contracts, wolf0, [FOUNDER]);
 
-  console.log("2/8 — Account #3 rejoint la meute (deviendra dormant)...");
+  console.log("2/8 — Account #3 joins the pack (will become dormant)...");
   await becomeWolf(contracts, dormant3, [FOUNDER, wolf0]);
 
-  console.log("3/8 — Account #7 rejoint la meute (deviendra dormant)...");
+  console.log("3/8 — Account #7 joins the pack (will become dormant)...");
   await becomeWolf(contracts, dormant7, [FOUNDER, wolf0, dormant3]);
 
-  console.log("4/8 — Account #8 rejoint la meute (deviendra dormant)...");
+  console.log("4/8 — Account #8 joins the pack (will become dormant)...");
   await becomeWolf(contracts, dormant8, [FOUNDER, wolf0, dormant3, dormant7]);
 
-  console.log("5/8 — Account #9 et #10 rejoignent la meute...");
+  console.log("5/8 — Account #9 and #10 join the pack...");
   await becomeWolf(contracts, wolf9, [FOUNDER, wolf0, dormant3, dormant7, dormant8]);
   await becomeWolf(contracts, wolf10, [FOUNDER, wolf0, dormant3, dormant7, dormant8, wolf9]);
 
@@ -211,11 +211,11 @@ async function main() {
   // than a fixed subset that was enough at the start.
   const allWolves = [FOUNDER, wolf0, dormant3, dormant7, dormant8, wolf9, wolf10];
 
-  console.log("6/8 — Account #1 et #6 candidatent et restent en probation (jamais titularisés)...");
+  console.log("6/8 — Account #1 and #6 apply and stay in probation (never confirmed)...");
   await becomeCub(contracts, cub1, allWolves);
   await becomeCub(contracts, cub6, allWolves);
 
-  console.log("7/8 — Account #11 rejoint la meute puis est exclu par vote (banni, pas démissionnaire)...");
+  console.log("7/8 — Account #11 joins the pack then is excluded by vote (banned, not resigned)...");
   await becomeCub(contracts, banned11, allWolves);
   {
     const exclusionId = await openAndGetId(asFounder, asFounder.proposeExclusion(banned11));
@@ -224,7 +224,7 @@ async function main() {
     await (await asFounder.execute(exclusionId)).wait();
   }
 
-  console.log("8/8 — Trésor : 3 candidats admis puis démissionnaires (cotisation non remboursée)...");
+  console.log("8/8 — Treasury: 3 applicants admitted then resigned (fee not refunded)...");
   for (const boosterAddr of boosters) {
     const c = contracts.get(boosterAddr);
     const id = await openAndGetId(c, c.applyForMembership({ value: contracts.fee }));
@@ -234,36 +234,36 @@ async function main() {
     await (await c.resign()).wait();
   }
   const treasury = await provider.getBalance(CONTRACT_ADDRESS);
-  console.log(`   -> trésor : ${ethers.formatEther(treasury)} ETH.`);
+  console.log(`   -> treasury: ${ethers.formatEther(treasury)} ETH.`);
 
-  console.log("Rendre #3, #7 et #8 dormants (365j+ sans agir), les autres restent actifs...");
+  console.log("Making #3, #7 and #8 dormant (365d+ without acting), the others stay active...");
   await advanceTime(provider, 366 * DAY);
   for (const v of [FOUNDER, wolf0, wolf9, wolf10]) await (await contracts.get(v).imHere()).wait();
 
-  console.log("Ouverture d'une candidature (#2) et d'une dépense, laissées non votées...");
+  console.log("Opening an application (#2) and an expense, left unvoted...");
   await (await contracts.get(applicant2).applyForMembership({ value: contracts.fee })).wait();
   await (
     await asFounder.proposeExpense(cub1, ethers.parseEther("0.01"), "Hébergement serveur de jeu")
   ).wait();
 
   console.log("");
-  console.log("Terminé. Résumé (réseau Hardhat Local dans MetaMask) :");
-  console.log(`  Fondateur   (Loup actif)  : ${FOUNDER} — ton compte habituel, déjà financé.`);
-  console.log(`  Account #0  (Loup actif)  : ${wolf0}`);
-  console.log(`  Account #1  (Louveteau)   : ${cub1}`);
-  console.log(`  Account #2  (Candidat)    : ${applicant2}`);
-  console.log(`  Account #3  (Loup dormant): ${dormant3}`);
-  console.log(`  Account #4  (Visiteur)    : ${visitor4} — jamais touché, aucune carte.`);
-  console.log(`  Account #6  (Louveteau)   : ${cub6}`);
-  console.log(`  Account #7  (Loup dormant): ${dormant7}`);
-  console.log(`  Account #8  (Loup dormant): ${dormant8}`);
-  console.log(`  Account #9  (Loup actif)  : ${wolf9}`);
-  console.log(`  Account #10 (Loup actif)  : ${wolf10}`);
-  console.log(`  Account #11 (Banni)       : ${banned11}`);
+  console.log("Done. Summary (Hardhat Local network in MetaMask):");
+  console.log(`  Founder     (active Wolf) : ${FOUNDER} — your usual account, already funded.`);
+  console.log(`  Account #0  (active Wolf) : ${wolf0}`);
+  console.log(`  Account #1  (Cub)         : ${cub1}`);
+  console.log(`  Account #2  (Applicant)   : ${applicant2}`);
+  console.log(`  Account #3  (dormant Wolf): ${dormant3}`);
+  console.log(`  Account #4  (Visitor)     : ${visitor4} — never touched, no card.`);
+  console.log(`  Account #6  (Cub)         : ${cub6}`);
+  console.log(`  Account #7  (dormant Wolf): ${dormant7}`);
+  console.log(`  Account #8  (dormant Wolf): ${dormant8}`);
+  console.log(`  Account #9  (active Wolf) : ${wolf9}`);
+  console.log(`  Account #10 (active Wolf) : ${wolf10}`);
+  console.log(`  Account #11 (Banned)      : ${banned11}`);
 }
 
 main().catch((e) => {
   console.error(e.message ?? e);
-  console.error(`Le nœud local et le contrat déployé à ${CONTRACT_ADDRESS} sont-ils bien en place ?`);
+  console.error(`Is the local node and the contract deployed at ${CONTRACT_ADDRESS} in place?`);
   process.exitCode = 1;
 });
