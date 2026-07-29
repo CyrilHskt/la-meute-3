@@ -801,7 +801,12 @@ function startTour() {
           <div class="gv-prop-form">
             <p class="gv-form-label">{{ t('governance.dao.proposeExpense') }}</p>
             <div class="gv-form-row gv-form-row--wrap">
-              <MemberPicker v-model="expenseAddr" :options="knownBeneficiaries" :placeholder="t('governance.dao.beneficiaryPlaceholder')" />
+              <MemberPicker
+                v-model="expenseAddr"
+                :options="knownBeneficiaries"
+                :placeholder="t('governance.dao.beneficiaryPlaceholder')"
+                :aria-label="t('governance.dao.beneficiaryPlaceholder')"
+              />
               <input v-model="expenseAmount" type="number" min="0" step="any" inputmode="decimal" :placeholder="t('governance.dao.amountPlaceholder')" />
               <input v-model="expenseReason" :placeholder="t('governance.dao.reasonPlaceholder')" />
               <button
