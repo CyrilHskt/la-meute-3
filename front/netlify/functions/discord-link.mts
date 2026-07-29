@@ -96,7 +96,7 @@ function defaultAvatar(discordId: string): string {
   return `https://cdn.discordapp.com/embed/avatars/${index}.png`;
 }
 
-async function handleStart(req: Request, url: URL): Promise<Response> {
+async function handleStart(_req: Request, url: URL): Promise<Response> {
   const wallet = url.searchParams.get("wallet");
   if (!wallet || !isAddress(wallet)) return new Response("Missing wallet parameter (address required)", { status: 400 });
   const returnTo = safeReturnTo(url.searchParams.get("returnTo"), frontOrigin(url));
@@ -112,7 +112,7 @@ async function handleStart(req: Request, url: URL): Promise<Response> {
   return new Response(null, { status: 302, headers: { Location: authorizeUrl.toString() } });
 }
 
-async function handleCallback(req: Request, url: URL): Promise<Response> {
+async function handleCallback(_req: Request, url: URL): Promise<Response> {
   const code = url.searchParams.get("code");
   const stateParam = url.searchParams.get("state");
   const fallbackOrigin = frontOrigin(url);

@@ -244,7 +244,7 @@ async function handleGovernance(req: Request): Promise<Response> {
 
   let body: { wallet?: string; signature?: string; nonce?: string };
   try {
-    body = await req.json();
+    body = (await req.json()) as { wallet?: string; signature?: string; nonce?: string };
   } catch {
     return new Response("Invalid JSON", { status: 400 });
   }
