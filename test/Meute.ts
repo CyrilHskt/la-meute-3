@@ -272,7 +272,7 @@ describe("Meute", function () {
     it("pruneDormant removes a dormant Wolf without affecting activeWolves or quorum", async function () {
       const { meute, founders, applicant, stranger } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await networkHelpers.time.increase(180 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(DORMANCY_DELAY);
       assert.equal(await meute.isDormant(founders[0].address), true);
       assert.equal(await meute.activeWolves(), 0n);
 
@@ -295,7 +295,7 @@ describe("Meute", function () {
     it("pruneDormant then imHere() restores membership in _wolves and clears dormancy", async function () {
       const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await networkHelpers.time.increase(180 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(DORMANCY_DELAY);
       await meute.pruneDormant(founders[0].address);
       assert.equal(await meute.activeWolves(), 0n);
 
@@ -313,7 +313,7 @@ describe("Meute", function () {
     it("pruneDormant then vote() restores membership in _wolves and clears dormancy", async function () {
       const { meute, founders, applicant } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await networkHelpers.time.increase(180 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(DORMANCY_DELAY);
       await meute.pruneDormant(founders[0].address);
       assert.equal(await meute.activeWolves(), 0n);
 
