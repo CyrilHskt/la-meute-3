@@ -19,6 +19,8 @@ jobs:
 
       - run: npx hardhat compile
 
+      - run: node scripts/check-contract-sync.js
+
       - run: npx tsc --noEmit
 
       - run: npx hardhat test
