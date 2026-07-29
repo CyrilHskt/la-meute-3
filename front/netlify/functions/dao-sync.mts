@@ -41,66 +41,13 @@
 // POST ?key=patch-proposal              → { proposalId, author } (no auth, but rate-limited)
 
 import { getStore } from "@netlify/blobs";
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { createPublicClient, http, isAddress, recoverMessageAddress, type Address } from "viem";
 import { sepolia } from "viem/chains";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../../src/contract.js";
+import { createNonce, verifyNonce, createSession, verifySession, type NoncePurpose } from "./lib/tokens.js";
 
 const SYNC_SECRET = process.env.SYNC_SECRET;
 const RPC_URL = process.env.RPC_URL;
-// Same secret as discord-link.mts (already used to sign the OAuth
-// `state`) — no new env var to add, same family of short-lived,
-// server-signed tokens.
-const STATE_SECRET = process.env.DISCORD_STATE_SECRET;
-const NONCE_MAX_AGE_MS = 5 * 60 * 1000;
-// Governance session duration: short enough that an excluded member
-// quickly loses access, long enough not to ask for a signature again on
-// every vote or tab change during a normal work session.
-const SESSION_MAX_AGE_MS = 30 * 60 * 1000;
-
-function signer(payload: string): string {
-  return createHmac("sha256", STATE_SECRET!).update(payload).digest("hex");
-}
-
-function createToken(data: Record<string, unknown>): string {
-  const payload = Buffer.from(JSON.stringify({ ...data, ts: Date.now() })).toString("base64url");
-  return `${payload}.${signer(payload)}`;
-}
-
-/** Verifies that a token (nonce or session) was indeed issued by us (HMAC
- *  signature), that it hasn't expired, and that it matches the wallet
- *  using it — without needing to store it anywhere (no Blobs for this,
- *  just a self-verifying signature, same principle as `state` in
- *  discord-link.mts). */
-function verifyToken(token: string, wallet: string, maxAgeMs: number): boolean {
-  const [payload, sig] = (token ?? "").split(".");
-  if (!payload || !sig) return false;
-  const expected = signer(payload);
-  if (sig.length !== expected.length || !timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return false;
-  try {
-    const { wallet: tokenWallet, ts } = JSON.parse(Buffer.from(payload, "base64url").toString()) as {
-      wallet: string;
-      ts: number;
-    };
-    if (Date.now() - ts > maxAgeMs) return false;
-    return tokenWallet.toLowerCase() === wallet.toLowerCase();
-  } catch {
-    return false;
-  }
-}
-
-function createNonce(wallet: string): string {
-  return createToken({ wallet });
-}
-function verifyNonce(nonce: string, wallet: string): boolean {
-  return verifyToken(nonce, wallet, NONCE_MAX_AGE_MS);
-}
-function createSession(wallet: string): string {
-  return createToken({ wallet });
-}
-function verifySession(session: string, wallet: string): boolean {
-  return verifyToken(session, wallet, SESSION_MAX_AGE_MS);
-}
 
 // A single real transaction never triggers more than one call per
 // proposal — a short cooldown is enough to block abusive use (RPC read
@@ -151,13 +98,24 @@ async function handlePatchProposal(req: Request): Promise<Response> {
 
   const store = getStore("dao");
 
-  const rateLimits = ((await store.get("rate-limit", { type: "json" })) ?? {}) as Record<string, number>;
+  const existing = await store.getWithMetadata("rate-limit", { type: "json" });
+  const rateLimits = (existing?.data ?? {}) as Record<string, number>;
   const lastPatch = rateLimits[proposalId];
   if (lastPatch && Date.now() - lastPatch < PATCH_COOLDOWN_MS) {
     return new Response("Too many requests for this proposal, try again in a few seconds", { status: 429 });
   }
   rateLimits[proposalId] = Date.now();
-  await store.setJSON("rate-limit", rateLimits);
+  // Conditional write: if another concurrent request updated "rate-limit"
+  // between our read and this write, `modified` comes back false — treat
+  // it the same as losing the cooldown check above, no retry needed.
+  const writeResult = await store.setJSON(
+    "rate-limit",
+    rateLimits,
+    existing ? { onlyIfMatch: existing.etag! } : { onlyIfNew: true },
+  );
+  if (!writeResult.modified) {
+    return new Response("Too many requests for this proposal, try again in a few seconds", { status: 429 });
+  }
 
   const client = createPublicClient({ chain: sepolia, transport: http(RPC_URL) });
   const p = (await client.readContract({
@@ -222,7 +180,16 @@ function membershipMessage(wallet: string, nonce: string): string {
 async function handleDiscordNonce(url: URL): Promise<Response> {
   const wallet = url.searchParams.get("wallet");
   if (!wallet || !isAddress(wallet)) return new Response("Missing wallet parameter", { status: 400 });
-  return Response.json({ nonce: createNonce(wallet) });
+  // Defaults to "membership" (the original, only use case before the
+  // unlink flow started requesting its own nonce) rather than requiring
+  // the param — front and functions ship together on Netlify, but
+  // defaulting costs nothing and avoids a hard failure for any caller that
+  // hasn't been updated yet.
+  const purpose = (url.searchParams.get("purpose") ?? "membership") as NoncePurpose;
+  if (purpose !== "membership" && purpose !== "unlink") {
+    return new Response("Invalid purpose parameter", { status: 400 });
+  }
+  return Response.json({ nonce: createNonce(wallet, purpose) });
 }
 
 /** Proof of Meute membership, reused by ?key=governance and by the
@@ -239,7 +206,7 @@ async function verifyMembership(
   if (!wallet || !isAddress(wallet) || !signature || !nonce) {
     return new Response("wallet, signature and nonce required", { status: 400 });
   }
-  if (!verifyNonce(nonce, wallet)) {
+  if (!verifyNonce(nonce, wallet, "membership")) {
     return new Response("Invalid or expired nonce — restart the verification.", { status: 401 });
   }
 

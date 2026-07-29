@@ -18,6 +18,7 @@
 import { getStore } from "@netlify/blobs";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { isAddress, recoverMessageAddress, type Address } from "viem";
+import { verifyNonce } from "./lib/tokens.js";
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
@@ -168,23 +169,30 @@ async function handleCallback(req: Request, url: URL): Promise<Response> {
 
 // Signed message, never a plain HTTP request: without proof of wallet
 // ownership, anyone could have unlinked any address's Discord account
-// just by knowing its address (public by nature).
-function unlinkMessage(wallet: string): string {
-  return `Délier mon compte Discord de La Meute (${wallet})`;
+// just by knowing its address (public by nature). The nonce (single-use,
+// short-lived, purpose-bound) prevents a captured/replayed signature from
+// unlinking the account again later — same principle as membershipMessage
+// in dao-sync.mts.
+function unlinkMessage(wallet: string, nonce: string): string {
+  return `Délier mon compte Discord de La Meute (${wallet}) — ${nonce}`;
 }
 
 async function handleUnlink(req: Request): Promise<Response> {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
-  const body = (await req.json()) as { wallet?: string; signature?: `0x${string}` };
+  const body = (await req.json()) as { wallet?: string; signature?: `0x${string}`; nonce?: string };
   const wallet = body.wallet;
   const signature = body.signature;
-  if (!wallet || !isAddress(wallet) || !signature) {
-    return new Response("wallet and signature required", { status: 400 });
+  const nonce = body.nonce;
+  if (!wallet || !isAddress(wallet) || !signature || !nonce) {
+    return new Response("wallet, signature and nonce required", { status: 400 });
+  }
+  if (!verifyNonce(nonce, wallet, "unlink")) {
+    return new Response("Invalid or expired nonce — restart the verification.", { status: 401 });
   }
 
   let recovered: string;
   try {
-    recovered = await recoverMessageAddress({ message: unlinkMessage(wallet), signature });
+    recovered = await recoverMessageAddress({ message: unlinkMessage(wallet, nonce), signature });
   } catch {
     return new Response("Invalid signature", { status: 401 });
   }

@@ -18,6 +18,7 @@ export interface DiscordLink {
 const isLocal = import.meta.env.DEV && import.meta.env.VITE_CHAIN === "local";
 const DEMO_SERVER_URL = "http://127.0.0.1:4100";
 const UNLINK_URL = isLocal ? `${DEMO_SERVER_URL}/discord/unlink` : "/.netlify/functions/discord-link?action=unlink";
+const NONCE_URL = isLocal ? `${DEMO_SERVER_URL}/discord/nonce` : "/.netlify/functions/dao-sync?key=discord-nonce";
 
 // wallet (lowercase) → verified Discord identity. The whole governance
 // page is reserved to current members (see useMeute.ts,
@@ -85,13 +86,17 @@ function consumeDiscordCallbackParam(): "linked" | "error" | "not_member" | null
  *  no one can ever unlink someone else's account. Answers the GDPR right
  *  to erasure: without this, a link once created was permanent. */
 async function unlinkDiscord(address: Address) {
+  const nonceRes = await fetch(`${NONCE_URL}${isLocal ? "?" : "&"}wallet=${address}&purpose=unlink`);
+  if (!nonceRes.ok) throw new Error(await nonceRes.text());
+  const { nonce } = (await nonceRes.json()) as { nonce: string };
+
   const { signMessage } = useWallet();
-  const message = `Délier mon compte Discord de La Meute (${address})`;
+  const message = `Délier mon compte Discord de La Meute (${address}) — ${nonce}`;
   const signature = await signMessage(message);
   const res = await fetch(UNLINK_URL, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ wallet: address, signature }),
+    body: JSON.stringify({ wallet: address, signature, nonce }),
   });
   if (!res.ok) throw new Error(await res.text());
   const updated = { ...links.value };

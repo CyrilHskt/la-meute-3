@@ -22,9 +22,11 @@ const isLocal = import.meta.env.DEV && import.meta.env.VITE_CHAIN === "local";
 const chain: Chain = isLocal ? hardhat : sepolia;
 // Locally, the address isn't fixed: the demo panel (demo/server.mjs)
 // redeploys a brand-new contract on every reset, so a new address every
-// time. `let` rather than `const` so it can be refreshed without
-// restarting the dev server — see syncLocalContractAddress.
-let contractAddress = (import.meta.env.VITE_CONTRACT_ADDRESS as Address | undefined) ?? CONTRACT_ADDRESS;
+// time. A ref so it can be refreshed without restarting the dev server —
+// see syncLocalContractAddress.
+const contractAddress = ref<Address>(
+  (import.meta.env.VITE_CONTRACT_ADDRESS as Address | undefined) ?? CONTRACT_ADDRESS,
+);
 
 const DEMO_SERVER_URL = "http://127.0.0.1:4100";
 
@@ -36,7 +38,7 @@ async function syncLocalContractAddress() {
     const res = await fetch(`${DEMO_SERVER_URL}/api/state`);
     if (!res.ok) return;
     const data = (await res.json()) as { contractAddress?: Address | null };
-    if (data.contractAddress) contractAddress = data.contractAddress;
+    if (data.contractAddress) contractAddress.value = data.contractAddress;
   } catch {
     // The demo panel might not be running — not blocking, we keep the last
     // known address.
@@ -45,6 +47,20 @@ async function syncLocalContractAddress() {
 const address = ref<Address | null>(null);
 const wrongNetwork = ref(false);
 const noWalletDetected = ref(false);
+
+// Listener registries to break the circular dependency with useMeute.ts
+// (which imports useWallet for readOnlyContract/signMessage): rather than
+// useWallet importing useMeute back, useMeute registers itself here (see
+// main.ts) and useWallet notifies it through these callbacks.
+const explicitConnectListeners: ((addr: Address) => void)[] = [];
+const accountLostOrChangedListeners: ((addr: Address | null) => void)[] = [];
+
+function onExplicitConnect(cb: (addr: Address) => void) {
+  explicitConnectListeners.push(cb);
+}
+function onAccountChanged(cb: (addr: Address | null) => void) {
+  accountLostOrChangedListeners.push(cb);
+}
 
 // Read-only: requires no wallet, works even for a visitor without MetaMask
 // installed. Don't use `custom(window.ethereum)` here: that would require
@@ -85,14 +101,14 @@ async function connect() {
   address.value = account;
   wrongNetwork.value = chainId !== chain.id;
 
-  // Dynamic import to break the circular dependency (useMeute imports
-  // useWallet for readOnlyContract/signMessage). Only here, never in
-  // tryRestoreConnection(): membership verification asks for a signature,
-  // it must never pop up silently on automatic reconnection at page load,
-  // only on an explicit click on "Connect my wallet". This is also what
-  // unlocks the whole governance page (members-only) — see useMeute.ts.
-  const { verifyMembershipAndLoad } = await import("./useMeute").then((m) => m.useMeute());
-  void verifyMembershipAndLoad(account);
+  // Notify listeners (see useMeute.ts, wired in main.ts) rather than
+  // importing useMeute directly, to break the circular dependency. Only
+  // here, never in tryRestoreConnection(): membership verification asks
+  // for a signature, it must never pop up silently on automatic
+  // reconnection at page load, only on an explicit click on "Connect my
+  // wallet". This is also what unlocks the whole governance page
+  // (members-only) — see useMeute.ts.
+  explicitConnectListeners.forEach((cb) => cb(account));
 }
 
 // Without this, changing account or network *after* clicking "Connect"
@@ -111,22 +127,15 @@ function attachWalletListeners() {
     const newAccount = accounts.length > 0 ? (accounts[0] as Address) : null;
     address.value = newAccount;
 
-    // The verified session/index (useMeute) related to the old account —
-    // always clear it, whether disconnecting or switching to another
-    // account, otherwise the page stayed displayed as if the new (or no)
-    // account were still an authenticated member (observed: disconnecting
-    // had no visible effect on the governance page).
-    // Dynamic import: same reason as in connect() (useMeute <-> useWallet
-    // circular dependency).
-    void import("./useMeute").then((m) => {
-      const { resetSession, verifyMembershipAndLoad } = m.useMeute();
-      resetSession();
-      // An explicit account change in MetaMask (not a silent reconnection
-      // on load) — asking for a new proof of membership here is
-      // consistent with "one signature per session", the session changes
-      // with the account.
-      if (newAccount) void verifyMembershipAndLoad(newAccount);
-    });
+    // Notify listeners (see useMeute.ts, wired in main.ts) rather than
+    // importing useMeute directly — same reason as in connect() (breaking
+    // the useMeute <-> useWallet circular dependency). The verified
+    // session/index related to the old account must always be cleared,
+    // whether disconnecting or switching to another account, otherwise the
+    // page stayed displayed as if the new (or no) account were still an
+    // authenticated member (observed: disconnecting had no visible effect
+    // on the governance page).
+    accountLostOrChangedListeners.forEach((cb) => cb(newAccount));
   });
 
   injected.on("chainChanged", (...args: unknown[]) => {
@@ -163,7 +172,7 @@ tryRestoreConnection();
 
 /** Read-only (view) contract: works without a connected wallet. */
 function readOnlyContract() {
-  return getContract({ address: contractAddress, abi: CONTRACT_ABI, client: publicClient });
+  return getContract({ address: contractAddress.value, abi: CONTRACT_ABI, client: publicClient });
 }
 
 /** Signed contract: requires a connected wallet, for functions that write. */
@@ -175,7 +184,7 @@ function writableContract() {
     chain,
     transport: custom(injected as Parameters<typeof custom>[0]),
   });
-  return getContract({ address: contractAddress, abi: CONTRACT_ABI, client: walletClient });
+  return getContract({ address: contractAddress.value, abi: CONTRACT_ABI, client: walletClient });
 }
 
 /** Signs an arbitrary message (not a transaction) — used to prove
@@ -204,5 +213,7 @@ export function useWallet() {
     publicClient,
     contractAddress,
     syncLocalContractAddress,
+    onExplicitConnect,
+    onAccountChanged,
   };
 }

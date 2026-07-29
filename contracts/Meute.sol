@@ -195,6 +195,7 @@ contract Meute is ERC721, ReentrancyGuard {
     error NotAMember();
     error ConfirmationAlreadyOpen();
     error ConflictOfInterest();
+    error NotDormant();
 
     // ---------------------------------------------------------------------
     // Events
@@ -458,6 +459,15 @@ contract Meute is ERC721, ReentrancyGuard {
                 active++;
             }
         }
+    }
+
+    /// @notice Permissionless housekeeping: removes a verified-dormant Wolf
+    ///         from the iterated {_wolves} set. Purely a gas optimization —
+    ///         doesn't touch rank, Card, or voting eligibility (a dormant
+    ///         Wolf wasn't counted or votable anyway).
+    function pruneDormant(address wolf) external {
+        if (!isDormant(wolf)) revert NotDormant();
+        _wolves.remove(wolf);
     }
 
     /// @dev Quorum denominator to use for a given proposal: {activeWolves}
@@ -726,6 +736,9 @@ contract Meute is ERC721, ReentrancyGuard {
     function _wakeUp(address member) private {
         if (isDormant(member)) {
             emit MemberWokenUp(member);
+        }
+        if (!_wolves.contains(member)) {
+            _wolves.add(member);
         }
         _cards[member].lastActivity = uint40(block.timestamp);
     }
