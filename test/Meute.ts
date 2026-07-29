@@ -136,7 +136,7 @@ describe("Meute", function () {
 
       await expect(meute.connect(founders[0]).vote(proposalId, VoteChoice.Approve))
         .to.emit(meute, "VoteCast")
-        .withArgs(proposalId, founders[0].address);
+        .withArgs(proposalId, founders[0].address, VoteChoice.Approve);
 
       const prop = await meute.proposal(proposalId);
       assert.equal(prop.approveVotes, 1n);
