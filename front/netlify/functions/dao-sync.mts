@@ -151,13 +151,24 @@ async function handlePatchProposal(req: Request): Promise<Response> {
 
   const store = getStore("dao");
 
-  const rateLimits = ((await store.get("rate-limit", { type: "json" })) ?? {}) as Record<string, number>;
+  const existing = await store.getWithMetadata("rate-limit", { type: "json" });
+  const rateLimits = (existing?.data ?? {}) as Record<string, number>;
   const lastPatch = rateLimits[proposalId];
   if (lastPatch && Date.now() - lastPatch < PATCH_COOLDOWN_MS) {
     return new Response("Too many requests for this proposal, try again in a few seconds", { status: 429 });
   }
   rateLimits[proposalId] = Date.now();
-  await store.setJSON("rate-limit", rateLimits);
+  // Conditional write: if another concurrent request updated "rate-limit"
+  // between our read and this write, `modified` comes back false — treat
+  // it the same as losing the cooldown check above, no retry needed.
+  const writeResult = await store.setJSON(
+    "rate-limit",
+    rateLimits,
+    existing ? { onlyIfMatch: existing.etag! } : { onlyIfNew: true },
+  );
+  if (!writeResult.modified) {
+    return new Response("Too many requests for this proposal, try again in a few seconds", { status: 429 });
+  }
 
   const client = createPublicClient({ chain: sepolia, transport: http(RPC_URL) });
   const p = (await client.readContract({
