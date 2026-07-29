@@ -1,7 +1,7 @@
 {
-  "address": "0x0000000000000000000000000000000000000000",
-  "deployBlock": "0",
-  "version": "0.4.0",
+  "address": "0x528d68AFE81572c26f213de4Aa3e9B94578bDa3E",
+  "deployBlock": "11378008",
+  "version": "0.5.0",
   "abi": [
     {
       "inputs": [

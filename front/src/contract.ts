@@ -7,20 +7,15 @@
 // forces their numbers to match. The real compatibility link is this
 // constant: it documents which contract version this front build actually
 // targets, to update on every redeployment.
-export const CONTRACT_VERSION = "0.4.0" as const;
+export const CONTRACT_VERSION = "0.5.0" as const;
 
-// PLACEHOLDER — replace with the real address once Meute.sol is
-// redeployed to Sepolia. The previous address
-// (0x6Bc2B5b30D0259c9A6912a751c26EA55BFf8E87B, contract-v0.3.0) is no
-// longer compatible with CONTRACT_ABI below.
-export const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
+export const CONTRACT_ADDRESS = "0x528d68AFE81572c26f213de4Aa3e9B94578bDa3E" as const;
 
 // Deployment block (ignition/deployments/chain-11155111/journal.jsonl):
 // starting point for log queries, so we never query from block 0 — public
 // RPCs cap the `eth_getLogs` range (10,000 blocks on the one used here),
 // and the contract has no activity before this block anyway.
-// PLACEHOLDER — replace with the real deployment block once redeployed.
-export const CONTRACT_DEPLOY_BLOCK = 0n;
+export const CONTRACT_DEPLOY_BLOCK = 11378008n;
 
 export const CONTRACT_ABI = [
   {
