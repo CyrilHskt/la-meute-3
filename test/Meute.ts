@@ -6,6 +6,17 @@ const { ethers, networkHelpers } = await network.create();
 
 const FEE = ethers.parseEther("0.01");
 
+const DAY = 24 * 60 * 60;
+const VOTE_DURATION = 7 * DAY + 1;
+const PROBATION_DURATION = 90 * DAY + 1;
+const DORMANCY_DELAY = 180 * DAY + 1;
+// Well past DORMANCY_DELAY (180 days): guarantees every founder is dormant.
+const PAST_DORMANCY_DELAY = 365 * DAY + 1;
+// 300 days pass with no founder voting (see "waking up after a snapshot..." test).
+const INITIAL_SILENCE_PERIOD = 300 * DAY;
+// 100 more days on top of INITIAL_SILENCE_PERIOD, for the same test.
+const ADDITIONAL_SILENCE_PERIOD = 100 * DAY;
+
 // Must stay in sync with the Solidity enums (Meute.sol).
 const ProposalType = { Admission: 0, Confirmation: 1, Exclusion: 2, Expense: 3 };
 const VoteChoice = { Approve: 0, Reject: 1, Postpone: 2 };
@@ -155,7 +166,7 @@ describe("Meute", function () {
     it("reverts after the vote closes (7 days)", async function () {
       const { meute, founders, proposalId } = await openApplication();
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
 
       await expect(
         meute.connect(founders[0]).vote(proposalId, VoteChoice.Approve),
@@ -167,7 +178,7 @@ describe("Meute", function () {
     it("a Wolf silent for 6 months becomes dormant without any transaction", async function () {
       const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await networkHelpers.time.increase(180 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(DORMANCY_DELAY);
 
       // Pure read, no transaction sent in the meantime: dormancy is indeed
       // passive, observed on read (§7.5).
@@ -178,7 +189,7 @@ describe("Meute", function () {
     it("voting wakes up a dormant Wolf and recounts them in activeWolves", async function () {
       const { meute, founders, applicant } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await networkHelpers.time.increase(365 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(PAST_DORMANCY_DELAY);
       assert.equal(await meute.activeWolves(), 0n);
 
       // The pack is fully dormant: applyForMembership() still opens the
@@ -210,7 +221,7 @@ describe("Meute", function () {
       const applicant3 = signers[6];
 
       // 300 days pass with no founder voting.
-      await networkHelpers.time.increase(300 * 24 * 60 * 60);
+      await networkHelpers.time.increase(INITIAL_SILENCE_PERIOD);
 
       // founders[1] and [2] vote now: their timestamp is refreshed to
       // "today" (day 300). founders[0] stays silent.
@@ -220,7 +231,7 @@ describe("Meute", function () {
 
       // 100 more days: total 400 days for founders[0] (dormant, > 365d),
       // only 100 days for [1] and [2] (active).
-      await networkHelpers.time.increase(100 * 24 * 60 * 60);
+      await networkHelpers.time.increase(ADDITIONAL_SILENCE_PERIOD);
 
       assert.equal(await meute.isDormant(founders[0].address), true);
       assert.equal(await meute.isDormant(founders[1].address), false);
@@ -277,7 +288,7 @@ describe("Meute", function () {
 
     it("reverts on double execution", async function () {
       const { meute, proposalId } = await openApplicationAndVote(2, 0);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
 
       await meute.execute(proposalId);
       await expect(meute.execute(proposalId)).to.be.revertedWithCustomError(meute, "AlreadyExecuted");
@@ -287,7 +298,7 @@ describe("Meute", function () {
       // 75% quorum on 3 active: all 3 must have voted (2 for, 1 against) —
       // 2 > 1 still wins.
       const { meute, applicant, proposalId } = await openApplicationAndVote(2, 1);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
 
       await expect(meute.execute(proposalId))
         .to.emit(meute, "ProposalExecuted")
@@ -306,7 +317,7 @@ describe("Meute", function () {
 
     it("1 vote for out of 3 (minority): refunds the fee, no card minted", async function () {
       const { meute, applicant, proposalId } = await openApplicationAndVote(1, 2);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
 
       await expect(meute.execute(proposalId)).to.changeEtherBalance(ethers, applicant, FEE);
 
@@ -324,14 +335,14 @@ describe("Meute", function () {
 
       await meute.connect(founders[0]).vote(0n, VoteChoice.Reject);
       await meute.connect(founders[1]).vote(0n, VoteChoice.Reject);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
 
       await expect(meute.execute(0n)).to.be.revertedWithCustomError(meute, "TransferFailed");
     });
 
     it("no votes cast: rejected by default (no quorum, no majority)", async function () {
       const { meute, applicant, proposalId } = await openApplicationAndVote(0, 0);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
 
       await expect(meute.execute(proposalId)).to.changeEtherBalance(ethers, applicant, FEE);
     });
@@ -369,7 +380,7 @@ describe("Meute", function () {
       await meute.connect(founders[0]).vote(0n, VoteChoice.Approve);
       await meute.connect(founders[2]).vote(0n, VoteChoice.Approve);
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await meute.execute(0n);
 
       await expect(meute.ownerOf(BigInt(founders[1].address))).to.revert(ethers);
@@ -383,7 +394,7 @@ describe("Meute", function () {
       await meute.connect(founders[0]).vote(0n, VoteChoice.Reject);
       await meute.connect(founders[2]).vote(0n, VoteChoice.Reject);
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await meute.execute(0n);
 
       assert.equal(await meute.ownerOf(BigInt(founders[1].address)), founders[1].address);
@@ -454,7 +465,7 @@ describe("Meute", function () {
       await meute.connect(founders[1]).vote(0n, VoteChoice.Approve);
       await meute.connect(founders[2]).vote(0n, VoteChoice.Approve);
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await expect(meute.execute(0n)).to.changeEtherBalance(ethers, stranger, amount);
     });
   });
@@ -512,7 +523,7 @@ describe("Meute", function () {
       await meute.connect(founders[1]).vote(1n, VoteChoice.Approve);
       await meute.connect(founders[2]).vote(1n, VoteChoice.Approve);
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await expect(meute.execute(1n)).to.changeEtherBalance(ethers, stranger, amount);
     });
 
@@ -524,7 +535,7 @@ describe("Meute", function () {
       await meute.connect(founders[0]).vote(1n, VoteChoice.Reject);
       await meute.connect(founders[2]).vote(1n, VoteChoice.Reject);
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await expect(meute.execute(1n)).to.changeEtherBalance(ethers, stranger, 0n);
     });
 
@@ -537,7 +548,7 @@ describe("Meute", function () {
       await meute.connect(founders[1]).vote(0n, VoteChoice.Approve);
       await meute.connect(founders[2]).vote(0n, VoteChoice.Approve);
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await expect(meute.execute(0n)).to.be.revertedWithCustomError(meute, "InsufficientFunds");
     });
 
@@ -550,7 +561,7 @@ describe("Meute", function () {
       await meute.connect(founders[1]).vote(1n, VoteChoice.Approve);
       await meute.connect(founders[2]).vote(1n, VoteChoice.Approve);
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await expect(meute.execute(1n)).to.be.revertedWithCustomError(meute, "TransferFailed");
     });
 
@@ -567,7 +578,7 @@ describe("Meute", function () {
       await meute.connect(founders[1]).vote(1n, VoteChoice.Approve);
       await meute.connect(founders[2]).vote(1n, VoteChoice.Approve);
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
 
       // The reentrant call happens inside the low-level `.call{value}` that
       // pays the beneficiary: `nonReentrant` makes it revert, which the
@@ -592,7 +603,7 @@ describe("Meute", function () {
       await meute.connect(founders[0]).proposeExpense(stranger.address, amount, "quorum test");
       await meute.connect(founders[0]).vote(1n, VoteChoice.Approve);
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await expect(meute.execute(1n)).to.changeEtherBalance(ethers, stranger, 0n);
     });
 
@@ -604,15 +615,15 @@ describe("Meute", function () {
       await meute.connect(founders[0]).vote(1n, VoteChoice.Approve);
       await meute.connect(founders[1]).vote(1n, VoteChoice.Approve);
       await meute.connect(founders[2]).vote(1n, VoteChoice.Approve);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await meute.execute(1n); // applicant becomes a Cub
 
-      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(PROBATION_DURATION);
       await meute.connect(founders[0]).openConfirmationVote(applicant.address);
       await meute.connect(founders[0]).vote(2n, VoteChoice.Approve);
       await meute.connect(founders[1]).vote(2n, VoteChoice.Approve);
       await meute.connect(founders[2]).vote(2n, VoteChoice.Approve);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await meute.execute(2n); // applicant becomes a Wolf — 4 active now
 
       const amount = ethers.parseEther("0.02");
@@ -624,7 +635,7 @@ describe("Meute", function () {
       // Quorum: 4/4 cast (>= floor(4*3/4)+1 = 4) — reached.
       // Majority: 2 for / 2 against — tie, so rejected.
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await expect(meute.execute(3n)).to.changeEtherBalance(ethers, stranger, 0n);
     });
 
@@ -652,7 +663,7 @@ describe("Meute", function () {
       await fixture.meute.connect(fixture.founders[0]).vote(0n, VoteChoice.Approve);
       await fixture.meute.connect(fixture.founders[1]).vote(0n, VoteChoice.Approve);
       await fixture.meute.connect(fixture.founders[2]).vote(0n, VoteChoice.Approve);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await fixture.meute.execute(0n);
       return { ...fixture, cub: fixture.applicant };
     }
@@ -683,7 +694,7 @@ describe("Meute", function () {
 
     it("reverts on a second simultaneous opening", async function () {
       const { meute, founders, cub } = await admitCub();
-      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(PROBATION_DURATION);
 
       await meute.connect(founders[0]).openConfirmationVote(cub.address);
       await expect(
@@ -693,14 +704,14 @@ describe("Meute", function () {
 
     it("end to end: approved confirmation moves the Cub to Wolf, same card", async function () {
       const { meute, founders, cub } = await admitCub();
-      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(PROBATION_DURATION);
 
       await meute.connect(founders[0]).openConfirmationVote(cub.address);
       await meute.connect(founders[0]).vote(1n, VoteChoice.Approve);
       await meute.connect(founders[1]).vote(1n, VoteChoice.Approve);
       await meute.connect(founders[2]).vote(1n, VoteChoice.Approve);
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await meute.execute(1n);
 
       const c = await meute.card(cub.address);
@@ -715,14 +726,14 @@ describe("Meute", function () {
 
     it("end to end: rejected confirmation burns the card", async function () {
       const { meute, founders, cub } = await admitCub();
-      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(PROBATION_DURATION);
 
       await meute.connect(founders[0]).openConfirmationVote(cub.address);
       await meute.connect(founders[0]).vote(1n, VoteChoice.Reject);
       await meute.connect(founders[1]).vote(1n, VoteChoice.Reject);
       await meute.connect(founders[2]).vote(1n, VoteChoice.Reject);
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await meute.execute(1n);
 
       await expect(meute.ownerOf(BigInt(cub.address))).to.revert(ethers);
@@ -730,13 +741,13 @@ describe("Meute", function () {
 
     it("end to end: an explicit postponement extends probation by 3 months", async function () {
       const { meute, founders, cub } = await admitCub();
-      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(PROBATION_DURATION);
 
       await meute.connect(founders[0]).openConfirmationVote(cub.address);
       await meute.connect(founders[0]).vote(1n, VoteChoice.Postpone);
       await meute.connect(founders[1]).vote(1n, VoteChoice.Postpone);
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await meute.execute(1n);
 
       const c = await meute.card(cub.address);
@@ -751,10 +762,10 @@ describe("Meute", function () {
 
     it("no votes cast: postponed by default, without anyone choosing Postpone", async function () {
       const { meute, founders, cub } = await admitCub();
-      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(PROBATION_DURATION);
 
       await meute.connect(founders[0]).openConfirmationVote(cub.address);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await meute.execute(1n);
 
       const c = await meute.card(cub.address);
@@ -767,25 +778,25 @@ describe("Meute", function () {
 
       // Two consecutive postponements, each after its probation.
       for (let i = 0; i < 2; i++) {
-        await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+        await networkHelpers.time.increase(PROBATION_DURATION);
         const proposalId = BigInt(i + 1);
         await meute.connect(founders[0]).openConfirmationVote(cub.address);
         await meute.connect(founders[0]).vote(proposalId, VoteChoice.Postpone);
-        await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+        await networkHelpers.time.increase(VOTE_DURATION);
         await meute.execute(proposalId);
       }
 
       const c = await meute.card(cub.address);
       assert.equal(c.postponements, 2n); // MAX_POSTPONEMENTS
 
-      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(PROBATION_DURATION);
       await meute.connect(founders[0]).openConfirmationVote(cub.address);
       await expect(
         meute.connect(founders[0]).vote(3n, VoteChoice.Postpone),
       ).to.be.revertedWithCustomError(meute, "InvalidChoice");
 
       // The passive default (without quorum) is still possible and doesn't overflow the counter.
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await meute.execute(3n);
       const cAfter = await meute.card(cub.address);
       assert.equal(cAfter.postponements, 2n); // saturated, not 3
@@ -802,7 +813,7 @@ describe("Meute", function () {
     it("wakes up a dormant Wolf without going through a vote", async function () {
       const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
 
-      await networkHelpers.time.increase(365 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(PAST_DORMANCY_DELAY);
       assert.equal(await meute.activeWolves(), 0n);
 
       await expect(meute.connect(founders[0]).imHere())
@@ -835,7 +846,7 @@ describe("Meute", function () {
       await meute.connect(founders[0]).proposeExclusion(founders[1].address);
       await meute.connect(founders[1]).resign();
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       // Must not revert despite the card already being burned.
       await meute.execute(0n);
       assert.equal(await meute.activeWolves(), 2n);
@@ -849,14 +860,14 @@ describe("Meute", function () {
       await meute.connect(founders[0]).vote(0n, VoteChoice.Approve);
       await meute.connect(founders[1]).vote(0n, VoteChoice.Approve);
       await meute.connect(founders[2]).vote(0n, VoteChoice.Approve);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await meute.execute(0n);
 
-      await networkHelpers.time.increase(90 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(PROBATION_DURATION);
       await meute.connect(founders[0]).openConfirmationVote(applicant.address);
       await meute.connect(applicant).resign();
 
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       // Must not revert despite the card already being burned.
       await meute.execute(1n);
       await expect(meute.ownerOf(BigInt(applicant.address))).to.revert(ethers);
@@ -881,7 +892,7 @@ describe("Meute", function () {
       await meute.connect(founders[0]).vote(0n, VoteChoice.Approve);
       await meute.connect(founders[1]).vote(0n, VoteChoice.Approve);
       await meute.connect(founders[2]).vote(0n, VoteChoice.Approve);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await meute.execute(0n); // mint
 
       assert.equal(await meute.ownerOf(BigInt(applicant.address)), applicant.address);
@@ -930,7 +941,7 @@ describe("Meute", function () {
       await meute.connect(founders[0]).vote(0n, VoteChoice.Approve);
       await meute.connect(founders[1]).vote(0n, VoteChoice.Approve);
       await meute.connect(founders[2]).vote(0n, VoteChoice.Approve);
-      await networkHelpers.time.increase(7 * 24 * 60 * 60 + 1);
+      await networkHelpers.time.increase(VOTE_DURATION);
       await meute.execute(0n);
 
       const uri = await meute.tokenURI(BigInt(applicant.address));
