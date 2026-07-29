@@ -25,18 +25,16 @@
 //   SYNC_SECRET           — secret shared with that function
 // Optional:
 //   CONTRACT_ADDRESS      — overrides the address read from
-//                           front/src/contract.ts (single source of truth
-//                           by default, so this script never drifts out
-//                           of sync with a redeployment)
+//                           front/src/contract-meta.json (generated from
+//                           front/src/contract.ts via
+//                           scripts/generate-contract-meta.js — single
+//                           source of truth by default, so this script
+//                           never drifts out of sync with a redeployment)
 
 import { ethers } from "ethers";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
 import { loadAbi } from "./lib/abi.js";
+import meta from "../front/src/contract-meta.json" with { type: "json" };
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const CONTRACT_TS_PATH = join(__dirname, "..", "front", "src", "contract.ts");
 // Alchemy's free plan caps eth_getLogs at 10 blocks per request (observed
 // in prod: -32600 error as soon as you exceed it), and a fairly low
 // compute-units/second throughput (429 error even sequentially with no
@@ -44,16 +42,9 @@ const CONTRACT_TS_PATH = join(__dirname, "..", "front", "src", "contract.ts");
 const BLOCK_RANGE = 9n; // fromBlock..fromBlock+9 = 10 blocks inclusive
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
-function readContractConstant(name) {
-  const source = readFileSync(CONTRACT_TS_PATH, "utf8");
-  const match = source.match(new RegExp(`export const ${name} = "?(\\w+)"?`));
-  if (!match) throw new Error(`Constant ${name} not found in ${CONTRACT_TS_PATH}`);
-  return match[1];
-}
-
 const RPC_URL = process.env.RPC_URL;
-const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS ?? readContractConstant("CONTRACT_ADDRESS");
-const DEPLOY_BLOCK = BigInt(readContractConstant("CONTRACT_DEPLOY_BLOCK").replace(/n$/, ""));
+const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS ?? meta.address;
+const DEPLOY_BLOCK = BigInt(meta.deployBlock);
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 const SYNC_ENDPOINT = process.env.SYNC_ENDPOINT;
 const SYNC_SECRET = process.env.SYNC_SECRET;
