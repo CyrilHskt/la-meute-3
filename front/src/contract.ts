@@ -359,6 +359,12 @@ export const CONTRACT_ABI = [
         "internalType": "uint256",
         "name": "proposalId",
         "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum Meute.VoteChoice",
+        "name": "outcome",
+        "type": "uint8"
       }
     ],
     "name": "ProposalExecuted",
