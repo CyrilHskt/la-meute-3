@@ -248,6 +248,73 @@ describe("Meute", function () {
       const nextProp = await meute.proposal(2n);
       assert.equal(nextProp.activeSnapshot, 3n);
     });
+
+    it("pruneDormant reverts if the target isn't dormant", async function () {
+      const { meute, founders, stranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await expect(meute.connect(stranger).pruneDormant(founders[0].address)).to.be.revertedWithCustomError(
+        meute,
+        "NotDormant",
+      );
+    });
+
+    it("pruneDormant removes a dormant Wolf without affecting activeWolves or quorum", async function () {
+      const { meute, founders, applicant, stranger } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await networkHelpers.time.increase(180 * 24 * 60 * 60 + 1);
+      assert.equal(await meute.isDormant(founders[0].address), true);
+      assert.equal(await meute.activeWolves(), 0n);
+
+      // Permissionless: anyone, even a non-member, can prune.
+      await meute.connect(stranger).pruneDormant(founders[0].address);
+
+      assert.equal(await meute.activeWolves(), 0n);
+
+      await meute.connect(applicant).applyForMembership({ value: FEE });
+      const prop = await meute.proposal(0n);
+      assert.equal(prop.snapshotFrozen, false);
+      assert.equal(prop.activeSnapshot, 0n);
+
+      await meute.connect(founders[1]).vote(0n, VoteChoice.Approve);
+      const propAfter = await meute.proposal(0n);
+      assert.equal(propAfter.snapshotFrozen, true);
+      assert.equal(propAfter.activeSnapshot, 1n);
+    });
+
+    it("pruneDormant then imHere() restores membership in _wolves and clears dormancy", async function () {
+      const { meute, founders } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await networkHelpers.time.increase(180 * 24 * 60 * 60 + 1);
+      await meute.pruneDormant(founders[0].address);
+      assert.equal(await meute.activeWolves(), 0n);
+
+      await expect(meute.connect(founders[0]).imHere())
+        .to.emit(meute, "MemberWokenUp")
+        .withArgs(founders[0].address);
+
+      assert.equal(await meute.isDormant(founders[0].address), false);
+      assert.equal(await meute.activeWolves(), 1n);
+
+      // Pruning again immediately reverts: freshly woken up, no longer dormant.
+      await expect(meute.pruneDormant(founders[0].address)).to.be.revertedWithCustomError(meute, "NotDormant");
+    });
+
+    it("pruneDormant then vote() restores membership in _wolves and clears dormancy", async function () {
+      const { meute, founders, applicant } = await networkHelpers.loadFixture(deployMeuteFixture);
+
+      await networkHelpers.time.increase(180 * 24 * 60 * 60 + 1);
+      await meute.pruneDormant(founders[0].address);
+      assert.equal(await meute.activeWolves(), 0n);
+
+      await meute.connect(applicant).applyForMembership({ value: FEE });
+
+      await expect(meute.connect(founders[0]).vote(0n, VoteChoice.Approve))
+        .to.emit(meute, "MemberWokenUp")
+        .withArgs(founders[0].address);
+
+      assert.equal(await meute.isDormant(founders[0].address), false);
+      assert.equal(await meute.activeWolves(), 1n);
+    });
   });
 
   describe("execute — admission (§7.2)", function () {
