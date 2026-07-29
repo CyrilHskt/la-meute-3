@@ -1,4 +1,4 @@
-import { ref } from "vue";
+import { ref, readonly } from "vue";
 import type { Address } from "viem";
 import { useWallet } from "./useWallet";
 import { useDiscordLink } from "./useDiscordLink";
@@ -350,15 +350,15 @@ export function useMeute() {
   }
 
   return {
-    stats,
-    proposals,
-    memberActivity,
-    topDonors,
-    members,
-    myDonations,
-    loading,
-    error,
-    isAuthorized,
+    stats: readonly(stats),
+    proposals: readonly(proposals),
+    memberActivity: readonly(memberActivity),
+    topDonors: readonly(topDonors),
+    members: readonly(members),
+    myDonations: readonly(myDonations),
+    loading: readonly(loading),
+    error: readonly(error),
+    isAuthorized: readonly(isAuthorized),
     verifyMembershipAndLoad,
     resetSession,
     loadAll,

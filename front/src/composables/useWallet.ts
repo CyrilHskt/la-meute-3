@@ -22,9 +22,11 @@ const isLocal = import.meta.env.DEV && import.meta.env.VITE_CHAIN === "local";
 const chain: Chain = isLocal ? hardhat : sepolia;
 // Locally, the address isn't fixed: the demo panel (demo/server.mjs)
 // redeploys a brand-new contract on every reset, so a new address every
-// time. `let` rather than `const` so it can be refreshed without
-// restarting the dev server — see syncLocalContractAddress.
-let contractAddress = (import.meta.env.VITE_CONTRACT_ADDRESS as Address | undefined) ?? CONTRACT_ADDRESS;
+// time. A ref so it can be refreshed without restarting the dev server —
+// see syncLocalContractAddress.
+const contractAddress = ref<Address>(
+  (import.meta.env.VITE_CONTRACT_ADDRESS as Address | undefined) ?? CONTRACT_ADDRESS,
+);
 
 const DEMO_SERVER_URL = "http://127.0.0.1:4100";
 
@@ -36,7 +38,7 @@ async function syncLocalContractAddress() {
     const res = await fetch(`${DEMO_SERVER_URL}/api/state`);
     if (!res.ok) return;
     const data = (await res.json()) as { contractAddress?: Address | null };
-    if (data.contractAddress) contractAddress = data.contractAddress;
+    if (data.contractAddress) contractAddress.value = data.contractAddress;
   } catch {
     // The demo panel might not be running — not blocking, we keep the last
     // known address.
@@ -163,7 +165,7 @@ tryRestoreConnection();
 
 /** Read-only (view) contract: works without a connected wallet. */
 function readOnlyContract() {
-  return getContract({ address: contractAddress, abi: CONTRACT_ABI, client: publicClient });
+  return getContract({ address: contractAddress.value, abi: CONTRACT_ABI, client: publicClient });
 }
 
 /** Signed contract: requires a connected wallet, for functions that write. */
@@ -175,7 +177,7 @@ function writableContract() {
     chain,
     transport: custom(injected as Parameters<typeof custom>[0]),
   });
-  return getContract({ address: contractAddress, abi: CONTRACT_ABI, client: walletClient });
+  return getContract({ address: contractAddress.value, abi: CONTRACT_ABI, client: walletClient });
 }
 
 /** Signs an arbitrary message (not a transaction) — used to prove

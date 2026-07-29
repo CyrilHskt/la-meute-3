@@ -47,7 +47,7 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 function readContractConstant(name) {
   const source = readFileSync(CONTRACT_TS_PATH, "utf8");
   const match = source.match(new RegExp(`export const ${name} = "?(\\w+)"?`));
-  if (!match) throw new Error(`Constante ${name} introuvable dans ${CONTRACT_TS_PATH}`);
+  if (!match) throw new Error(`Constant ${name} not found in ${CONTRACT_TS_PATH}`);
   return match[1];
 }
 
@@ -59,10 +59,10 @@ const SYNC_ENDPOINT = process.env.SYNC_ENDPOINT;
 const SYNC_SECRET = process.env.SYNC_SECRET;
 
 if (!RPC_URL || !DISCORD_WEBHOOK_URL || !SYNC_ENDPOINT || !SYNC_SECRET) {
-  throw new Error("RPC_URL, DISCORD_WEBHOOK_URL, SYNC_ENDPOINT et SYNC_SECRET sont requis.");
+  throw new Error("RPC_URL, DISCORD_WEBHOOK_URL, SYNC_ENDPOINT and SYNC_SECRET are required.");
 }
 
-const TYPE_LABELS = ["Admission", "Titularisation", "Exclusion", "Dépense"];
+const TYPE_LABELS = ["Admission", "Confirmation", "Exclusion", "Expense"];
 const Rank = { Cub: 0, Wolf: 1 };
 const VoteChoice = { Approve: 0, Reject: 1, Postpone: 2 };
 
@@ -71,7 +71,7 @@ async function loadState() {
     headers: { "x-sync-secret": SYNC_SECRET },
     signal: AbortSignal.timeout(15_000),
   });
-  if (!res.ok) throw new Error(`Lecture de l'état échouée (HTTP ${res.status})`);
+  if (!res.ok) throw new Error(`Failed to read state (HTTP ${res.status})`);
   const state = await res.json();
   // `lastBlock: null` = never run yet (the function's default value) — we
   // then start from the deployment block, instead of trying `BigInt(null)`.
@@ -85,7 +85,7 @@ async function saveJson(key, value) {
     body: JSON.stringify(value),
     signal: AbortSignal.timeout(15_000),
   });
-  if (!res.ok) throw new Error(`Écriture de "${key}" échouée (HTTP ${res.status})`);
+  if (!res.ok) throw new Error(`Failed to write "${key}" (HTTP ${res.status})`);
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -97,7 +97,7 @@ async function getLogsWithRetry(provider, params, attempt = 1) {
     const is429 = err?.error?.code === 429 || err?.info?.error?.code === 429;
     if (!is429 || attempt >= 5) throw err;
     const delay = 1000 * 2 ** (attempt - 1);
-    console.log(`Rate-limit (429), nouvelle tentative dans ${delay}ms (essai ${attempt}/5)...`);
+    console.log(`Rate-limited (429), retrying in ${delay}ms (attempt ${attempt}/5)...`);
     await sleep(delay);
     return getLogsWithRetry(provider, params, attempt + 1);
   }
@@ -153,10 +153,10 @@ async function postToDiscord(content) {
       signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) {
-      console.error(`Discord a répondu ${res.status} : ${await res.text()}`);
+      console.error(`Discord responded ${res.status}: ${await res.text()}`);
     }
   } catch (err) {
-    console.error("Échec de l'envoi vers Discord :", err);
+    console.error("Failed to send to Discord:", err);
   }
 }
 
@@ -186,13 +186,13 @@ async function main() {
     memberActivity[k][key]++;
   };
 
-  console.log("Récupération du dernier bloc...");
+  console.log("Fetching the latest block...");
   const fromBlock = BigInt(state.lastBlock) + 1n;
   const toBlock = BigInt(await provider.getBlockNumber());
-  console.log(`Plage à traiter : blocs ${fromBlock} → ${toBlock} (${toBlock - fromBlock + 1n} blocs).`);
+  console.log(`Range to process: blocks ${fromBlock} → ${toBlock} (${toBlock - fromBlock + 1n} blocks).`);
 
   if (fromBlock <= toBlock) {
-    console.log(`Récupération des events (par lots de ${BLOCK_RANGE + 1n} blocs)...`);
+    console.log(`Fetching events (in batches of ${BLOCK_RANGE + 1n} blocks)...`);
     const rawLogs = await getAllLogsChunked(provider, CONTRACT_ADDRESS, fromBlock, toBlock);
     const decoded = rawLogs.flatMap((log) => {
       try {
@@ -201,7 +201,7 @@ async function main() {
         return [];
       }
     });
-    console.log(`${decoded.length} event(s) décodé(s).`);
+    console.log(`${decoded.length} event(s) decoded.`);
 
     for (const log of decoded) {
       if (log.name === "Transfer") {
@@ -216,7 +216,7 @@ async function main() {
         // source of truth, no recomputation from amount, to avoid any
         // drift if a run were replayed or an event missed.
         donations[donor.toLowerCase()] = totalDonated.toString();
-        console.log(`Don reçu de ${donor} : ${ethers.formatEther(amount)} ETH (total ${ethers.formatEther(totalDonated)} ETH).`);
+        console.log(`Donation received from ${donor}: ${ethers.formatEther(amount)} ETH (total ${ethers.formatEther(totalDonated)} ETH).`);
         await postToDiscord(`💝 **Don reçu** — ${ethers.formatEther(amount)} ETH de \`${donor.slice(0, 6)}…${donor.slice(-4)}\`. Merci !`);
       } else if (log.name === "ProposalOpened") {
         const { proposalId, target, author, proposalType } = log.args;
@@ -224,7 +224,7 @@ async function main() {
         proposalAuthors[proposalId.toString()] = author;
         bump(author, "openProposals");
         const prop = await contract.proposal(proposalId);
-        console.log(`Ouverture #${proposalId} — ${TYPE_LABELS[Number(proposalType)]}`);
+        console.log(`Opening #${proposalId} — ${TYPE_LABELS[Number(proposalType)]}`);
         await postToDiscord(
           `🗳️ **Nouvelle proposition ouverte** — ${proposalLabel(proposalType, target, prop.amount, prop.reason)}\n` +
             `Vote ouvert 7 jours — quorum : ${requiredQuorum(prop.activeSnapshot)}/${prop.activeSnapshot} Loups actifs doivent voter, puis oui doit dépasser non.`,
@@ -233,7 +233,7 @@ async function main() {
         const { proposalId, outcome } = log.args;
         const prop = await contract.proposal(proposalId);
         const approved = Number(outcome) === VoteChoice.Approve;
-        console.log(`Exécution #${proposalId} — ${approved ? "approuvée" : "refusée"}`);
+        console.log(`Execution #${proposalId} — ${approved ? "approved" : "rejected"}`);
         await postToDiscord(
           `${approved ? "✅" : "❌"} **Vote clos** — ${proposalLabel(prop.proposalType, prop.target, prop.amount, prop.reason)}\n` +
             `${approved ? "Approuvée" : "Refusée"} (${prop.approveVotes} pour / ${prop.rejectVotes} contre).`,
@@ -241,14 +241,14 @@ async function main() {
       }
     }
   } else {
-    console.log("Aucun nouveau bloc — on rafraîchit quand même l'instantané (dormance, trésor).");
+    console.log("No new block — refreshing the snapshot anyway (dormancy, treasury).");
   }
 
   // Always recomputed, even without a new block: dormancy depends on the
   // current time, not just past events, and the treasury can change with
   // no associated event (none in this contract, but as a precaution).
   const currentMembers = [...minted].filter((a) => !burned.has(a));
-  console.log(`Rafraîchissement de ${currentMembers.length} carte(s) membre...`);
+  console.log(`Refreshing ${currentMembers.length} member card(s)...`);
   const [cards, dormancyDelay] = await Promise.all([
     Promise.all(currentMembers.map((addr) => contract.card(addr))),
     contract.DORMANCY_DELAY(), // read from the chain — never hardcoded here
@@ -274,7 +274,7 @@ async function main() {
     contract.activeWolves(),
   ]);
 
-  console.log(`Rafraîchissement de ${proposalIds.size} proposition(s)...`);
+  console.log(`Refreshing ${proposalIds.size} proposal(s)...`);
   const proposals = await Promise.all(
     [...proposalIds].map(async (id) => {
       const p = await contract.proposal(id);
@@ -332,7 +332,7 @@ async function main() {
     memberActivity,
     donations,
   });
-  console.log(`État et instantané à jour (Netlify Blobs) : dernier bloc traité ${toBlock}.`);
+  console.log(`State and snapshot up to date (Netlify Blobs): last block processed ${toBlock}.`);
 }
 
 main().catch((err) => {
