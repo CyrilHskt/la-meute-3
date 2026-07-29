@@ -10,7 +10,7 @@ process.env.DISCORD_CLIENT_ID = "test-client-id";
 process.env.DISCORD_CLIENT_SECRET = "test-client-secret";
 process.env.DISCORD_GUILD_ID = "test-guild-id";
 
-const { safeReturnTo, makeState, verifyState } = await import("./discord-link.mjs");
+const { safeReturnTo, makeState, verifyState } = await import("../discord-link.mjs");
 
 const ORIGIN = "https://lameute.example";
 const WALLET = "0x1111111111111111111111111111111111111111";
