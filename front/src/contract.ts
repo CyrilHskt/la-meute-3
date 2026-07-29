@@ -184,6 +184,11 @@ export const CONTRACT_ABI = [
   },
   {
     "inputs": [],
+    "name": "InvalidAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "InvalidAmount",
     "type": "error"
   },
@@ -210,6 +215,11 @@ export const CONTRACT_ABI = [
   {
     "inputs": [],
     "name": "NotAWolf",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotDormant",
     "type": "error"
   },
   {
@@ -890,6 +900,19 @@ export const CONTRACT_ABI = [
       }
     ],
     "name": "proposeExpense",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "wolf",
+        "type": "address"
+      }
+    ],
+    "name": "pruneDormant",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
