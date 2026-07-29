@@ -26,7 +26,7 @@ contract Meute is ERC721, ReentrancyGuard {
     ///         Immutable: since the contract isn't upgradable (§9), this is
     ///         the only way to know, from Etherscan or the front, which
     ///         commit a deployed address corresponds to.
-    string public constant VERSION = "0.5.0";
+    string public constant VERSION = "0.4.0";
 
     // ---------------------------------------------------------------------
     // Types
