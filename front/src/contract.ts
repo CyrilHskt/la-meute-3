@@ -440,6 +440,12 @@ export const CONTRACT_ABI = [
         "internalType": "address",
         "name": "voter",
         "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum Meute.VoteChoice",
+        "name": "choice",
+        "type": "uint8"
       }
     ],
     "name": "VoteCast",
