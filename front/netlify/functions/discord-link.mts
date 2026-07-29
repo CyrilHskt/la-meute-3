@@ -32,12 +32,12 @@ function sign(payload: string): string {
   return createHmac("sha256", STATE_SECRET!).update(payload).digest("hex");
 }
 
-function makeState(wallet: string, returnTo: string): string {
+export function makeState(wallet: string, returnTo: string): string {
   const payload = Buffer.from(JSON.stringify({ wallet, returnTo, ts: Date.now() })).toString("base64url");
   return `${payload}.${sign(payload)}`;
 }
 
-function verifyState(state: string): { wallet: string; returnTo: string } | null {
+export function verifyState(state: string): { wallet: string; returnTo: string } | null {
   const [payload, sig] = state.split(".");
   if (!payload || !sig) return null;
   const expected = sign(payload);
@@ -74,7 +74,7 @@ function frontOrigin(url: URL): string {
 // a real Discord authorization (classic open redirect) — we only accept
 // the same origin as the current request, never an arbitrary value
 // supplied by the client.
-function safeReturnTo(candidate: string | null, fallbackOrigin: string): string {
+export function safeReturnTo(candidate: string | null, fallbackOrigin: string): string {
   if (!candidate) return `${fallbackOrigin}/`;
   try {
     const parsed = new URL(candidate);
