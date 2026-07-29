@@ -47,27 +47,15 @@
 //     scanning and importing hundreds of unrelated accounts.
 
 import { ethers } from "ethers";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { loadAbi } from "./lib/abi.js";
+import { DEFAULT_FOUNDER } from "./lib/constants.js";
 
 const RPC_URL = process.env.RPC_URL ?? "http://127.0.0.1:8545";
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS ?? "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-const FOUNDER = process.env.FOUNDER ?? "0x95B5d450178C9f13dc977655a9A70a17Aac6c8d3";
+const FOUNDER = process.env.FOUNDER ?? DEFAULT_FOUNDER;
 
 const VoteChoice = { Approve: 0, Reject: 1, Postpone: 2 };
 const DAY = 24 * 60 * 60;
-
-function loadAbi() {
-  const artifactPath = join(__dirname, "..", "artifacts", "contracts", "Meute.sol", "Meute.json");
-  try {
-    return JSON.parse(readFileSync(artifactPath, "utf8")).abi;
-  } catch {
-    throw new Error(`ABI introuvable (${artifactPath}) — lance \`npx hardhat compile\` d'abord.`);
-  }
-}
 
 async function advanceTime(provider, seconds) {
   await provider.send("evm_increaseTime", [seconds]);
@@ -122,7 +110,7 @@ async function becomeCub(contracts, applicantAddr, voters) {
 
 async function main() {
   const provider = new ethers.JsonRpcProvider(RPC_URL);
-  const abi = loadAbi();
+  const abi = loadAbi(import.meta.url);
 
   await provider.send("hardhat_impersonateAccount", [FOUNDER]);
   await provider.send("hardhat_setBalance", [FOUNDER, "0x56BC75E2D63100000"]); // 100 ETH
