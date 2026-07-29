@@ -210,16 +210,21 @@ function verifyToken(token, wallet, maxAgeMs) {
   const expected = discordSign(payload);
   if (sig.length !== expected.length || !timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return false;
   try {
-    const { wallet: tokenWallet, ts } = JSON.parse(Buffer.from(payload, "base64url").toString());
-    if (Date.now() - ts > maxAgeMs) return false;
-    return tokenWallet.toLowerCase() === wallet.toLowerCase();
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString());
+    if (Date.now() - data.ts > maxAgeMs) return false;
+    if (data.wallet.toLowerCase() !== wallet.toLowerCase()) return false;
+    return data;
   } catch {
     return false;
   }
 }
 
-const createNonce = (wallet) => createToken({ wallet });
-const verifyNonce = (nonce, wallet) => verifyToken(nonce, wallet, NONCE_MAX_AGE_MS);
+const createNonce = (wallet, purpose) => createToken({ wallet, purpose });
+function verifyNonce(nonce, wallet, purpose) {
+  const data = verifyToken(nonce, wallet, NONCE_MAX_AGE_MS);
+  if (!data) return false;
+  return data.purpose === purpose;
+}
 const createSession = (wallet) => createToken({ wallet });
 const verifySession = (session, wallet) => verifyToken(session, wallet, SESSION_MAX_AGE_MS);
 
@@ -233,7 +238,12 @@ async function handleDiscordNonce(req, res, url) {
     res.writeHead(400).end("Missing wallet parameter");
     return;
   }
-  sendJson(res, 200, { nonce: createNonce(wallet) });
+  const purpose = url.searchParams.get("purpose") ?? "membership";
+  if (purpose !== "membership" && purpose !== "unlink") {
+    res.writeHead(400).end("Invalid purpose parameter");
+    return;
+  }
+  sendJson(res, 200, { nonce: createNonce(wallet, purpose) });
 }
 
 // Replica of handleGovernance (dao-sync.mts): signature + nonce +
@@ -260,7 +270,7 @@ async function handleGovernance(req, res) {
     res.writeHead(400).end("wallet, signature et nonce requis");
     return;
   }
-  if (!verifyNonce(nonce, wallet)) {
+  if (!verifyNonce(nonce, wallet, "membership")) {
     res.writeHead(401).end("Invalid or expired nonce — restart the verification.");
     return;
   }
@@ -328,12 +338,16 @@ async function handleDiscordUnlink(req, res) {
     res.writeHead(400).end("JSON invalide");
     return;
   }
-  const { wallet, signature } = body;
-  if (!wallet || !isAddress(wallet) || !signature) {
-    res.writeHead(400).end("wallet et signature requis");
+  const { wallet, signature, nonce } = body;
+  if (!wallet || !isAddress(wallet) || !signature || !nonce) {
+    res.writeHead(400).end("wallet, signature et nonce requis");
     return;
   }
-  const message = `Délier mon compte Discord de La Meute (${wallet})`;
+  if (!verifyNonce(nonce, wallet, "unlink")) {
+    res.writeHead(401).end("Invalid or expired nonce — restart the verification.");
+    return;
+  }
+  const message = `Délier mon compte Discord de La Meute (${wallet}) — ${nonce}`;
   let recovered;
   try {
     recovered = verifyMessage(message, signature);
