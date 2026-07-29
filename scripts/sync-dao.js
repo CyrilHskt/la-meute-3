@@ -63,6 +63,7 @@ if (!RPC_URL || !DISCORD_WEBHOOK_URL || !SYNC_ENDPOINT || !SYNC_SECRET) {
 
 const TYPE_LABELS = ["Admission", "Titularisation", "Exclusion", "Dépense"];
 const Rank = { Cub: 0, Wolf: 1 };
+const VoteChoice = { Approve: 0, Reject: 1, Postpone: 2 };
 
 function loadAbi() {
   const artifactPath = join(__dirname, "..", "artifacts", "contracts", "Meute.sol", "Meute.json");
@@ -131,12 +132,6 @@ async function getAllLogsChunked(provider, address, fromBlock, toBlock) {
 // "Reject".
 function requiredQuorum(activeSnapshot) {
   return Math.floor((Number(activeSnapshot) * 3) / 4) + 1;
-}
-
-function isApproved(approveVotes, rejectVotes, postponeVotes, activeSnapshot) {
-  const cast = Number(approveVotes) + Number(rejectVotes) + Number(postponeVotes);
-  const quorumReached = cast * 4 > Number(activeSnapshot) * 3;
-  return quorumReached && Number(approveVotes) > Number(rejectVotes) && Number(approveVotes) > Number(postponeVotes);
 }
 
 function proposalLabel(proposalType, target, amount, reason) {
@@ -243,9 +238,9 @@ async function main() {
             `Vote ouvert 7 jours — quorum : ${requiredQuorum(prop.activeSnapshot)}/${prop.activeSnapshot} Loups actifs doivent voter, puis oui doit dépasser non.`,
         );
       } else if (log.name === "ProposalExecuted") {
-        const { proposalId } = log.args;
+        const { proposalId, outcome } = log.args;
         const prop = await contract.proposal(proposalId);
-        const approved = isApproved(prop.approveVotes, prop.rejectVotes, prop.postponeVotes, prop.activeSnapshot);
+        const approved = Number(outcome) === VoteChoice.Approve;
         console.log(`Exécution #${proposalId} — ${approved ? "approuvée" : "refusée"}`);
         await postToDiscord(
           `${approved ? "✅" : "❌"} **Vote clos** — ${proposalLabel(prop.proposalType, prop.target, prop.amount, prop.reason)}\n` +
