@@ -212,7 +212,7 @@ contract Meute is ERC721, ReentrancyGuard {
         address indexed author,
         ProposalType proposalType
     );
-    event VoteCast(uint256 indexed proposalId, address indexed voter);
+    event VoteCast(uint256 indexed proposalId, address indexed voter, VoteChoice choice);
     event ProposalExecuted(uint256 indexed proposalId);
     event MemberWokenUp(address indexed member);
     event DonationReceived(address indexed donor, uint256 amount, uint256 totalDonated);
@@ -373,7 +373,7 @@ contract Meute is ERC721, ReentrancyGuard {
             prop.postponeVotes++;
         }
 
-        emit VoteCast(proposalId, msg.sender);
+        emit VoteCast(proposalId, msg.sender, choice);
     }
 
     /// @notice Applies the outcome of a proposal whose deadline has passed.
