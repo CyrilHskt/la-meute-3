@@ -42,6 +42,13 @@ const faq = computed(() => [
   { q: t('presentation.faq3Q'), a: t('presentation.faq3A') },
   { q: t('presentation.faq4Q'), a: t('presentation.faq4A') },
 ]);
+
+const values = computed(() => [
+  { index: "01", title: t('presentation.valueTransparentTitle'), text: t('presentation.valueTransparentText') },
+  { index: "02", title: t('presentation.valueSelfGovernedTitle'), text: t('presentation.valueSelfGovernedText') },
+  { index: "03", title: t('presentation.valueResilientTitle'), text: t('presentation.valueResilientText') },
+  { index: "04", title: t('presentation.valueOpenTitle'), text: t('presentation.valueOpenText') },
+]);
 </script>
 
 <template>
@@ -112,11 +119,32 @@ const faq = computed(() => [
       </div>
     </div>
 
+    <div class="gv-values">
+      <h3 class="gv-section-title gv-values-title">{{ t('presentation.valuesTitle') }}</h3>
+      <ul class="gv-values-grid">
+        <li v-for="value in values" :key="value.title" class="gv-value-item">
+          <span class="gv-value-index mono">{{ value.index }}</span>
+          <div>
+            <h4>{{ value.title }}</h4>
+            <p>{{ value.text }}</p>
+          </div>
+        </li>
+      </ul>
+    </div>
+
     <div class="gv-faq">
       <details v-for="(item, i) in faq" :key="item.q" class="gv-faq-item" :open="i === 0">
         <summary>{{ item.q }}</summary>
         <p>{{ item.a }}</p>
       </details>
+    </div>
+
+    <div class="gv-recruit">
+      <h3 class="gv-section-title gv-recruit-title">{{ t('presentation.recruitTitle') }}</h3>
+      <p class="gv-recruit-text">{{ t('presentation.recruitIntro') }}</p>
+      <p class="gv-recruit-text">{{ t('presentation.recruitEssentials') }}</p>
+      <p class="gv-recruit-text gv-recruit-probation">{{ t('presentation.recruitProbation') }}</p>
+      <a href="https://discord.gg/Wy5rScG" class="gv-recruit-cta">{{ t('presentation.recruitCta') }}</a>
     </div>
   </section>
 </template>
@@ -347,5 +375,94 @@ const faq = computed(() => [
   &[open] summary::after { content: "\2212"; }
 
   p { margin: 0 0 $space-3; color: $color-text-dim; font-size: $fs-body; line-height: 1.7; }
+}
+
+.gv-values {
+  max-width: 760px;
+  margin: 0 auto ($space-5 * 1.5);
+  padding: 0 $space-3;
+}
+.gv-values-title { text-align: center; margin-bottom: $space-4; }
+
+.gv-values-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: $space-3;
+}
+
+.gv-value-item {
+  display: flex;
+  align-items: baseline;
+  gap: $space-3;
+  padding: $space-3 0;
+  border-top: 1px solid $color-border;
+
+  &:first-child {
+    border-top: none;
+    padding-top: 0;
+  }
+
+  h4 {
+    font-family: $font-display;
+    font-size: $fs-h4;
+    font-weight: 600;
+    color: $color-black;
+    margin: 0 0 $space-1;
+  }
+
+  p {
+    font-size: $fs-body;
+    line-height: 1.6;
+    color: $color-text-dim;
+    margin: 0;
+  }
+}
+
+.gv-value-index {
+  flex: none;
+  font-size: $fs-caption;
+  font-weight: 500;
+  color: $color-orange-dark;
+
+  &.mono {
+    font-family: $font-mono;
+  }
+}
+
+.gv-recruit {
+  max-width: 640px;
+  margin: 0 auto ($space-5 * 1.5);
+  padding: 0 $space-3;
+  text-align: center;
+}
+.gv-recruit-title { margin-bottom: $space-3; }
+
+.gv-recruit-text {
+  margin: $space-3 0 0;
+  font-size: $fs-body;
+  line-height: 1.7;
+  color: $color-text-dim;
+}
+
+.gv-recruit-probation {
+  color: $color-text-dim;
+}
+
+.gv-recruit-cta {
+  display: inline-block;
+  margin-top: $space-4;
+  font-family: $font-mono;
+  font-size: $fs-caption;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: $color-orange-dark;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 2px;
+}
+.gv-recruit-cta:hover,
+.gv-recruit-cta:focus {
+  color: $color-orange;
 }
 </style>

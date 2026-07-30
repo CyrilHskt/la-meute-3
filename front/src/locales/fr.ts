@@ -98,6 +98,27 @@ export default {
     faq3A: "Parce qu'aucune blockchain ne remplace l'état à ce jour : pour ouvrir un compte bancaire, signer un bail de local ou être reconnue par une fédération sportive, il faut une personne morale. La DAO gère la délibération interne, pas l'existence légale.",
     faq4Q: "Où trouver les documents officiels de l'association ?",
     faq4A: "Statuts, comptes-rendus d'assemblée générale et composition du bureau sont publiés dans l'onglet Association 1901.",
+    valuesTitle: "Nos principes et valeurs",
+    valueTransparentTitle: "Transparente",
+    valueTransparentText:
+      "Chaque vote, chaque dépense, chaque décision est public et vérifiable par tous les membres, en permanence.",
+    valueSelfGovernedTitle: "Autogouvernée",
+    valueSelfGovernedText:
+      "Aucun chef, aucun compte admin : les mêmes règles s'appliquent à tout le monde, y compris au fondateur.",
+    valueResilientTitle: "Résiliente",
+    valueResilientText:
+      "Un membre silencieux ne bloque plus le groupe : la dormance et le quorum s'ajustent d'eux-mêmes.",
+    valueOpenTitle: "Ouverte",
+    valueOpenText:
+      "Rejoindre, proposer, voter : accessible à qui s'investit vraiment, décidé collectivement, jamais à huis clos.",
+    recruitTitle: "Recrutements",
+    recruitIntro:
+      "Nous sommes un petit groupe soudé, pas un serveur ouvert à tous : on prend le temps de se connaître avant d'intégrer quelqu'un, pour que ça tienne dans la durée. Si vous cherchez :",
+    recruitEssentials:
+      "Bonne entente entre membres, gestion financière transparente, fonctionnement démocratique : c'est notre socle, pas des options.",
+    recruitProbation:
+      "Chaque nouveau membre passe par une période probatoire avant d'être pleinement intégré à la meute.",
+    recruitCta: "Rejoignez-nous sur Discord",
   },
   versionBadge: {
     title: "Versions & mises à jour",

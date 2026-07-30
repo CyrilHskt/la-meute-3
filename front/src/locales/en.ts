@@ -96,6 +96,27 @@ const en: typeof fr = {
     faq3A: "Because no blockchain replaces the state as of today: opening a bank account, signing a lease, or being recognized by a sports federation all require a legal entity. The DAO handles internal deliberation, not legal existence.",
     faq4Q: "Where can I find the association's official documents?",
     faq4A: "Bylaws, general meeting minutes, and the board's composition are published under the Association 1901 tab.",
+    valuesTitle: "Our principles and values",
+    valueTransparentTitle: "Transparent",
+    valueTransparentText:
+      "Every vote, every expense, every decision is public and verifiable by every member, at all times.",
+    valueSelfGovernedTitle: "Self-governed",
+    valueSelfGovernedText:
+      "No leader, no admin account: the same rules apply to everyone, including the founder.",
+    valueResilientTitle: "Resilient",
+    valueResilientText:
+      "A silent member no longer blocks the group: dormancy and quorum adjust themselves.",
+    valueOpenTitle: "Open",
+    valueOpenText:
+      "Joining, proposing, voting: open to anyone who genuinely gets involved, decided collectively, never behind closed doors.",
+    recruitTitle: "Recruitment",
+    recruitIntro:
+      "We're a small, tight-knit group, not a server open to everyone: we take the time to get to know someone before bringing them in, so it lasts. If you're looking for:",
+    recruitEssentials:
+      "Good chemistry between members, transparent financial management, democratic decision-making: that's our foundation, not optional extras.",
+    recruitProbation:
+      "Every new member goes through a probation period before being fully inducted into the pack.",
+    recruitCta: "Join us on Discord",
   },
   versionBadge: {
     title: "Versions & updates",
