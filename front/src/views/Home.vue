@@ -149,7 +149,11 @@ const { t } = useI18n();
   filter: sepia(35%) saturate(70%) contrast(95%);
 
   [data-theme="dark"] & {
-    filter: sepia(20%) saturate(60%) contrast(110%) brightness(1.15);
+    // The line art is dark ink on transparent — just brightening it left
+    // dark strokes sitting on an equally dark page (illegible, "muddy").
+    // Inverting turns the ink strokes into light/glowing lines against
+    // the dark background instead, matching the reference look.
+    filter: invert(1) sepia(15%) hue-rotate(180deg) saturate(70%) brightness(1.05);
   }
 }
 
