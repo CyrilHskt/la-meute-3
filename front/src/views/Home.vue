@@ -12,16 +12,16 @@ const { t } = useI18n();
         <div class="container">
           <div class="row">
             <div class="col-md-8 col-md-offset-2">
-              <h1 class="brand-heading">
-                {{ t('home.title') }}
-                <img src="/img/logo.png" :alt="t('home.logoAlt')" class="brand-heading-logo" />
-              </h1>
-              <p class="intro-text">{{ t('home.tagline') }}</p>
               <img
                 src="/img/illustrations/motif-wolf-pack-trio.png"
                 alt="Trois loups sur un promontoire rocheux, montagnes en arrière-plan"
                 class="intro-illustration"
               />
+              <h1 class="brand-heading">
+                {{ t('home.title') }}
+                <img src="/img/logo.png" :alt="t('home.logoAlt')" class="brand-heading-logo" />
+              </h1>
+              <p class="intro-text">{{ t('home.tagline') }}</p>
               <router-link to="/gouvernance?tab=presentation" class="intro-cta intro-cta--dao">{{ t('home.daoTeaser') }} &rarr;</router-link>
             </div>
           </div>
@@ -45,7 +45,7 @@ const { t } = useI18n();
 
 .intro {
   display: block;
-  padding: ($space-5 * 3) 0 ($space-5 * 2);
+  padding: ($space-5 * 2) 0 ($space-5 * 2);
   text-align: center;
   color: $color-text;
   background: $color-page-bg;
@@ -102,11 +102,11 @@ const { t } = useI18n();
 
 .intro-illustration {
   display: block;
-  max-width: 220px;
-  width: 100%;
+  max-width: 800px;
+  width: 90%;
   height: auto;
   margin: 0 auto $space-4;
-  opacity: 0.85;
+  opacity: 0.9;
   filter: sepia(35%) saturate(70%) contrast(95%);
 }
 
