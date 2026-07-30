@@ -223,6 +223,20 @@ let walletBeingVerified: string | null = null;
 // review, not just theoretical).
 let verificationGeneration = 0;
 
+// Dashboard.vue mounts GovernanceDao/Members/Donations simultaneously (all
+// `v-show`, never `v-if`), and each fires its own onMounted `loadAll()` —
+// so opening the dashboard triggers 3 concurrent, redundant refreshes. A
+// naive "return the in-flight promise to every caller" dedup was tried and
+// reverted: a caller right after a just-mined transaction must never
+// receive a snapshot older than that transaction, and reusing the promise
+// already in flight can resolve with data fetched before that transaction
+// was even sent. `loadAllRun` tracks the current in-flight
+// `performLoadAll()`; `loadAllRerun` is a single trailing rerun shared by
+// every caller that arrives while `loadAllRun` is in flight, guaranteed to
+// start only once that run has fully settled (see `loadAll()` below).
+let loadAllRun: Promise<void> | null = null;
+let loadAllRerun: Promise<void> | null = null;
+
 function applyIndex(index: DaoIndex) {
   stats.value = { ...index.stats, treasuryWei: BigInt(index.stats.treasuryWei) };
 
@@ -370,8 +384,7 @@ export function useMeute() {
    *  signature as long as it's valid (~30 min), so we don't ask for a
    *  signature again on every vote or tab change. Does nothing if the
    *  session isn't (yet) established. */
-  async function loadAll() {
-    if (!isAuthorized.value || !session.value || !address.value) return;
+  async function performLoadAll() {
     loading.value = true;
     error.value = null;
     try {
@@ -395,6 +408,32 @@ export function useMeute() {
     } finally {
       loading.value = false;
     }
+  }
+
+  /** Coalesces the 3 concurrent `loadAll()` calls fired when Dashboard.vue
+   *  mounts its 3 governance sub-pages at once. Any caller B arriving while
+   *  a run A is in flight gets `loadAllRerun`: a fresh `performLoadAll()`
+   *  chained to only start once A has fully settled, i.e. strictly after B
+   *  called `loadAll()` — so B's promise resolves with data reflecting at
+   *  least everything committed before B's call. Multiple latecomers share
+   *  the same `loadAllRerun`, so N concurrent calls collapse into at most 2
+   *  real fetches instead of N. */
+  async function loadAll(): Promise<void> {
+    if (!isAuthorized.value || !session.value || !address.value) return;
+
+    if (!loadAllRun) {
+      loadAllRun = performLoadAll().finally(() => {
+        loadAllRun = null;
+      });
+      return loadAllRun;
+    }
+
+    if (!loadAllRerun) {
+      loadAllRerun = loadAllRun.then(loadAll, loadAll).finally(() => {
+        loadAllRerun = null;
+      });
+    }
+    return loadAllRerun;
   }
 
   // Direct read of a single proposal, to call right after a transaction
