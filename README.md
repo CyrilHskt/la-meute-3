@@ -17,7 +17,7 @@
   <img alt="contract version" src="https://img.shields.io/github/v/tag/CyrilHskt/la-meute-3?filter=contract-v*&label=contract&color=5319e7" />
   <img alt="front version" src="https://img.shields.io/github/v/tag/CyrilHskt/la-meute-3?filter=front-v*&label=front&color=1d76db" />
   <img alt="network" src="https://img.shields.io/badge/network-Sepolia_testnet-8a2be2" />
-  <img alt="made in France" src="https://img.shields.io/badge/made%20in-France_%F0%9F%87%AB%F0%9F%87%B7-0055A4?labelColor=EF4135" />
+  <img alt="made in France" src="https://img.shields.io/badge/made%20in-France-EF4135?labelColor=0055A4" />
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-yellow" /></a>
 </p>
 
