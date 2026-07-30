@@ -67,7 +67,7 @@ const { t } = useI18n();
 
 .intro-text-block {
   padding: 0 $space-4;
-  margin-bottom: $space-5 * 2;
+  margin-bottom: $space-5;
 }
 
 .intro .brand-heading {
@@ -144,16 +144,18 @@ const { t } = useI18n();
   // phone viewport this shrank to under 100px, cropping the wolves out
   // almost entirely (observed at 375px: ~98px tall). An explicit height
   // range keeps a real, deliberate crop at every width instead.
-  // `object-fit: cover` cropped the mountain peaks/wolf head off the top
-  // on very wide viewports (the image has to scale up more than the box
-  // is tall to cover the full width). `contain` never crops — any
-  // leftover space is just the page background, which is the same color
-  // as the illustration's own transparent edges, so no visible seam.
+  // `contain` (tried after `cover` cropped the mountain peaks/wolf head on
+  // very wide viewports) avoided cropping but left visible empty margins
+  // on the sides instead — the source asset's aspect ratio just didn't
+  // match a wide short banner. Fixed at the asset level instead: this
+  // export has a generous sky margin baked in above the peaks specifically
+  // as crop safety room, so `cover` (edge-to-edge, no side gaps) crops
+  // into that empty margin instead of the artwork itself.
   display: block;
   width: 100%;
   max-width: none;
-  height: clamp(220px, 40vh, 520px);
-  object-fit: contain;
+  height: clamp(260px, 55vh, 650px);
+  object-fit: cover;
   object-position: bottom;
   opacity: 0.92;
   filter: sepia(35%) saturate(70%) contrast(95%);
