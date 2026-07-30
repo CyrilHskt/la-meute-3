@@ -122,10 +122,14 @@ const faq = computed(() => [
 </template>
 
 <style lang="scss" scoped>
+.gv-presentation {
+  background: $color-page-bg;
+}
+
 .gv-intro-hero {
   max-width: 760px;
   margin: 0 auto;
-  padding: 3rem 1.6rem 1rem;
+  padding: $space-5 $space-3 $space-3;
   text-align: center;
 
   p {
@@ -135,50 +139,41 @@ const faq = computed(() => [
   }
 }
 .gv-eyebrow {
+  font-family: $font-mono;
   color: $color-orange-dark;
-  font-weight: 700;
   font-size: $fs-caption;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 .gv-section-title {
-  color: $color-orange;
+  color: $color-black;
   font-family: $font-display;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  font-weight: 700;
   font-size: $fs-section-title;
-  margin: 0 0 1.2rem;
+  margin: 0 0 $space-3;
 }
 
-// Previous version: each card was cut into an arrow shape (clip-path) to
-// suggest the V1→V2→V3 progression. Abandoned (2026-07-22) — the geometry
-// required padding always strictly greater than the tip's depth, and a
-// title wrapping onto multiple lines still ended up falling into the cut
-// zone at certain widths. Replaced with: V1/V2 shrunk and stacked on the
-// left, V3 highlighted on the right (bigger, richer content) — no fragile
-// geometry.
+// Previous version used clip-path arrow shapes, gradients and a
+// dark/shadowed spotlight card for V3 — replaced with three plain ledger
+// entries sharing the same hairline-border treatment as the rest of the
+// site: the D.A.O. step is marked as current through a rouille left
+// border and bold type, not through a different visual language.
 .gv-timeline {
   max-width: 1080px;
-  margin: 2.8rem auto;
-  padding: 0 1.6rem;
+  margin: $space-4 auto ($space-5 * 1.5);
+  padding: 0 $space-3;
   display: flex;
   align-items: stretch;
-  gap: 1.4rem;
+  gap: $space-3;
 }
 @media (max-width: 820px) {
   .gv-timeline { flex-direction: column; }
-  .gv-timeline-arrow { transform: rotate(90deg); align-self: center; }
 }
 
 .gv-timeline-col {
   flex: 0 0 260px;
   display: flex;
   flex-direction: column;
-  // Fixed gap, identical to the one between the column and the V3 card
-  // (see .gv-timeline-arrow--to-v3), for visual consistency between the
-  // two arrows. The extra height compared to V3 is absorbed by the cards
-  // themselves (flex: 1 below), not by empty space.
-  gap: 1.4rem;
+  gap: $space-3;
 }
 @media (max-width: 820px) {
   .gv-timeline-col { flex: 1 1 auto; width: 100%; }
@@ -186,11 +181,12 @@ const faq = computed(() => [
 
 .gv-timeline-step {
   min-width: 0;
-  padding: 2rem 2rem;
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  padding: $space-4;
+  background: $color-card-bg;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
 
-  h3 { margin: 0 0 0.7rem; font-family: $font-display; font-size: $fs-card-title; color: $color-black; }
+  h3 { margin: 0 0 $space-2; font-family: $font-display; font-size: $fs-card-title; color: $color-black; }
   p { margin: 0; font-size: $fs-body; color: $color-text-dim; line-height: 1.6; }
 }
 
@@ -199,167 +195,128 @@ const faq = computed(() => [
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 1.3rem 1.4rem;
+  padding: $space-3;
 
-  h3 { font-size: $fs-h4; margin-bottom: 0.3rem; }
+  h3 { font-size: $fs-h4; margin-bottom: $space-1; }
   p { font-size: $fs-caption; }
   .gv-timeline-version { font-size: 11px; }
 }
 
-.gv-timeline-step--1 {
-  // A warm gray rather than #eee, which nearly blended into the page
-  // background (#f9f9f9) — enough contrast for the card to stand out
-  // clearly, while staying sober next to the orange and black.
-  background: linear-gradient(135deg, #ede7dd, #ddd5c6);
-
-  .gv-timeline-version, h3 { color: #4a453d; }
-  p { color: #756e62; }
-}
-
+.gv-timeline-step--1,
 .gv-timeline-step--2 {
-  position: relative;
-  background: linear-gradient(135deg, #ffd9a0, $color-orange);
-
   .gv-timeline-version, h3 { color: $color-black; }
-  p { color: rgba(0, 0, 0, 0.7); }
+  p { color: $color-text-dim; }
 }
 
-// Positioned relative to the V2 card itself (not the whole row) to stay
-// centered on V2 regardless of V1 or V3's height.
+// No dedicated arrow icons in the ledger layout: the vertical/horizontal
+// stacking order already reads as a timeline, and dropping them removes
+// a purely decorative element that didn't survive the gradient rework.
+.gv-timeline-arrow,
+.gv-timeline-arrow--v,
 .gv-timeline-arrow--to-v3 {
-  position: absolute;
-  top: 50%;
-  // Centered in the middle of the gap (1.4rem) between the column and the
-  // V3 card, rather than stuck to V2's edge — same spacing logic as the
-  // V1→V2 arrow (placed in the middle of the column's gap).
-  left: calc(100% + 0.7rem);
-  transform: translate(-50%, -50%);
-}
-@media (max-width: 820px) {
-  .gv-timeline-arrow--to-v3 {
-    top: 100%;
-    left: 50%;
-    transform: translate(-50%, 0) rotate(90deg);
-  }
+  display: none;
 }
 
 .gv-timeline-step--3 {
   flex: 1;
-  background: linear-gradient(150deg, #262626, #000);
-  padding: 2.2rem 2.4rem;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.25);
+  background: $color-card-bg;
+  border: 1px solid $color-border;
+  border-left: 3px solid $color-orange-dark;
+  padding: $space-4;
 
-  .gv-timeline-version { color: $color-orange; }
-  h3 { color: #fff; font-size: $fs-section-title * 0.68; }
+  .gv-timeline-version { color: $color-orange-dark; }
+  h3 { color: $color-black; font-size: $fs-section-title * 0.68; }
 }
 
 .gv-timeline-lede {
-  color: rgba(255, 255, 255, 0.75) !important;
+  color: $color-text-dim !important;
   max-width: 460px;
-  margin-bottom: 1.4rem !important;
+  margin-bottom: $space-3 !important;
 }
 
 .gv-timeline-highlights {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: $space-2;
 }
 
 .gv-timeline-highlight {
   display: flex;
   align-items: flex-start;
-  gap: 0.6rem;
+  gap: $space-2;
 
-  svg { flex-shrink: 0; margin-top: 2px; color: $color-orange; }
+  svg { flex-shrink: 0; margin-top: 2px; color: $color-success; }
 }
 
 .gv-timeline-highlight-title {
-  font-weight: 700;
+  font-weight: 600;
   font-size: $fs-caption;
-  color: #fff;
+  color: $color-black;
 }
 
 .gv-timeline-highlight-text {
   font-size: 12.5px;
-  color: rgba(255, 255, 255, 0.55);
+  color: $color-text-dim;
   line-height: 1.5;
 }
 
 .gv-timeline-cta {
-  margin-top: 1.5rem;
+  margin-top: $space-4;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: $space-1;
   background: none;
   border: none;
-  color: $color-orange;
-  font-family: $font-display;
+  border-bottom: 1px solid currentColor;
+  color: $color-orange-dark;
+  font-family: $font-body;
   font-size: $fs-caption;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-weight: 600;
   cursor: pointer;
-  padding: 0;
+  padding: 0 0 2px;
 
-  &:hover { color: #ffc46b; }
-}
-
-.gv-timeline-arrow {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: $color-orange;
-}
-
-.gv-timeline-arrow--v {
-  // V1/V2 are always stacked vertically (.gv-timeline-col is a column
-  // regardless of screen size) — this arrow therefore always points
-  // down, unlike the V2→V3 arrow which rotates at 820px.
-  align-self: center;
-  transform: rotate(90deg) !important;
+  &:hover { color: $color-orange; }
 }
 
 .gv-timeline-version {
-  font-weight: 700;
+  font-family: $font-mono;
   font-size: $fs-caption;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: 0.5rem;
+  letter-spacing: 0.06em;
+  margin-bottom: $space-1;
   color: $color-orange-dark;
 }
 
 .gv-why-dao {
   max-width: 1000px;
-  margin: 0.5rem auto 3rem;
-  padding: 0 1.6rem;
+  margin: $space-1 auto ($space-5 * 1.5);
+  padding: 0 $space-3;
 }
-.gv-why-dao-title { text-align: center; margin-bottom: 0.6rem; }
+.gv-why-dao-title { text-align: center; margin-bottom: $space-2; }
 .gv-why-dao-intro {
   text-align: center;
   color: $color-text-dim;
   font-size: $fs-body;
   max-width: 640px;
-  margin: 0 auto 1.8rem;
+  margin: 0 auto $space-4;
 }
 .gv-advantage-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1.2rem;
+  gap: $space-4;
 }
 @media (max-width: 700px) { .gv-advantage-grid { grid-template-columns: 1fr; } }
 .gv-advantage-card {
   text-align: center;
-  padding: 0.4rem 0.8rem;
+  padding: $space-1 $space-2;
 
-  h4 { margin: 0 0 0.4rem; font-family: $font-display; font-size: $fs-h4; color: $color-black; }
+  h4 { margin: 0 0 $space-1; font-family: $font-display; font-size: $fs-h4; color: $color-black; }
   p { margin: 0; font-size: $fs-body; color: $color-text-dim; line-height: 1.55; }
 }
 
 .gv-faq {
   max-width: 820px;
-  margin: 0 auto 3rem;
-  padding: 0 1.6rem;
+  margin: 0 auto ($space-5 * 1.5);
+  padding: 0 $space-3;
 }
 .gv-faq-item {
   border-bottom: 1px solid $color-border;
@@ -370,10 +327,11 @@ const faq = computed(() => [
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1.2rem 0.2rem;
-    font-weight: 700;
+    padding: $space-3 $space-1;
+    font-weight: 600;
     color: $color-black;
     font-size: $fs-h4;
+    font-family: $font-display;
 
     &::-webkit-details-marker { display: none; }
     &::after {
@@ -382,12 +340,12 @@ const faq = computed(() => [
       font-size: 1.4rem;
       font-weight: 400;
       flex-shrink: 0;
-      margin-left: 1rem;
+      margin-left: $space-3;
     }
   }
 
   &[open] summary::after { content: "\2212"; }
 
-  p { margin: 0 0 1.2rem; color: $color-text-dim; font-size: $fs-body; line-height: 1.7; }
+  p { margin: 0 0 $space-3; color: $color-text-dim; font-size: $fs-body; line-height: 1.7; }
 }
 </style>
