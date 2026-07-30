@@ -14,7 +14,11 @@ const props = defineProps<{
   // shown separately just above: without this, this component displayed
   // it a second time (observed by the user, visual duplicate).
   addressOnly?: boolean;
-  // Bright icons/text, for use on a dark background (dashboard #111).
+  // Historically used to switch to bright icons/text for the dashboard's
+  // old dark shell (#111). The dashboard is light now (carnet-de-meute),
+  // so this currently has no visual effect — kept as a no-op prop rather
+  // than removed, since dark surfaces may come back later (e.g. a future
+  // explicit dark theme toggle) and callers already pass it.
   dark?: boolean;
 }>();
 
@@ -88,18 +92,8 @@ async function copy() {
   font-size: $fs-caption;
 }
 
-.addr-chip--dark {
-  color: rgba(255, 255, 255, 0.5);
-
-  .icon-btn {
-    color: rgba(255, 255, 255, 0.5);
-
-    &:hover {
-      color: $color-orange;
-      background: rgba(249, 174, 60, 0.16);
-    }
-  }
-}
+// No-op today (see the `dark` prop's comment above) — this class is only
+// applied by callers that opt in via the `dark` prop, none currently do.
 
 .addr-actions {
   display: inline-flex;
@@ -123,7 +117,7 @@ async function copy() {
   justify-content: center;
   width: 20px;
   height: 20px;
-  border-radius: 3px;
+  border-radius: $radius-sm;
   border: none;
   background: transparent;
   color: $color-text-dim;
@@ -133,12 +127,12 @@ async function copy() {
 
   &:hover {
     color: $color-orange-dark;
-    background: rgba(249, 174, 60, 0.12);
+    background: $color-page-bg;
   }
 
   &--success {
-    color: #2e9e5b;
-    background: rgba(46, 158, 91, 0.12);
+    color: $color-success;
+    background: $color-page-bg;
     transform: scale(1.15);
   }
 }
