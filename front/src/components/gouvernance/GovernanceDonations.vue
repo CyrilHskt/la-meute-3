@@ -48,7 +48,7 @@ async function onConnect() {
 }
 
 async function donate() {
-  const amount = parseEther(donationInput.value || "0");
+  const amount = parseEther(String(donationInput.value || "0"));
   txError.value = null;
   txPending.value = true;
   try {
