@@ -10,9 +10,10 @@
 // setting silently saw the untested dark variant instead of the approved
 // light "carnet clair" one, and it also exposed a real bug (sections that
 // rely on `background` being inherited, which it isn't, showed through to
-// legacy Bootstrap styles under the dark palette). Deliberately dropped for
-// now: ship a single light theme, bring dark back later as an explicit,
-// user-driven toggle rather than an accidental OS-driven one.
+// legacy Bootstrap styles under the dark palette). It is now wired back as
+// an explicit, user-driven toggle (see `useTheme.ts`) that sets
+// `data-theme="dark"` on `<html>` and persists the choice in localStorage —
+// never auto-detected from the OS/browser, on purpose.
 //
 // Sizes ($fs-*, spacing, radius) stay plain SCSS variables: they don't need
 // to change between themes, and bootstrap.min.css's `html{font-size:10px}`
@@ -47,6 +48,34 @@
   --color-rank-cub: #a67c3d;
 }
 
+:root[data-theme="dark"] {
+  // "Veillée" (night-watch) — same restrained, warm/paper register as
+  // light, never pure black, no neon. Explicit opt-in only (see
+  // useTheme.ts) — never auto-detected from OS/browser: an earlier
+  // auto-detected dark mode in this redesign caused a real, confusing
+  // bug (see git history) and was deliberately removed.
+  --color-paper: #1c1916;
+  --color-surface: #242019;
+  --color-ink: #e9e2d6;
+  --color-ink-dim: #a89d8d;
+  --color-border: rgba(233, 226, 214, 0.14);
+
+  --color-rouille: #c35b2b;
+  --color-rouille-strong: #e08a52;
+  // The brightened dark-mode rouille fill is light enough that white text
+  // on top of it would fail contrast, unlike in light mode — so this flips
+  // to dark ink instead of staying white.
+  --color-rouille-contrast: #1c1916;
+
+  --color-vote-approved: #6fbf73;
+  --color-vote-rejected: #e2695a;
+  --color-vote-quorum: #b4a58e;
+  --color-vote-postponed: #d6a35c;
+
+  --color-rank-wolf: #c68a5e;
+  --color-rank-cub: #d6a35c;
+}
+
 // --- SCSS aliases -----------------------------------------------------
 // Same variable names the codebase already uses, now backed by the custom
 // properties above instead of hardcoded hex. Anything assigned through
@@ -54,6 +83,7 @@
 
 $color-orange: var(--color-rouille);
 $color-orange-dark: var(--color-rouille-strong);
+$color-on-accent: var(--color-rouille-contrast);
 $color-black: var(--color-ink);
 $color-text: var(--color-ink);
 $color-text-dim: var(--color-ink-dim);
