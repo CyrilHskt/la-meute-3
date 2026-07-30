@@ -59,29 +59,31 @@ watch(
 
 <template>
   <div class="gv-dashboard">
-  <nav class="gv-page-tabs">
-    <div class="gv-page-tabs-links">
+  <aside class="gv-sidebar">
+    <nav class="gv-sidebar-links">
       <button
         v-for="tab in tabs"
         :key="tab.id"
-        class="gv-page-tab"
-        :class="{ 'gv-page-tab--active': activeTab === tab.id }"
+        class="gv-sidebar-tab"
+        :class="{ 'gv-sidebar-tab--active': activeTab === tab.id }"
         @click="activeTab = tab.id"
       >
         {{ tab.label }}
       </button>
-    </div>
+    </nav>
     <button v-if="activeTab === 'dao'" class="gv-tour-trigger" type="button" @click="requestTour">
       {{ t('dashboard.guidedTour') }}
       <span v-if="showTourPulse" class="gv-tour-pulse" aria-hidden="true"></span>
     </button>
-  </nav>
+  </aside>
 
-  <GovernancePresentation v-show="activeTab === 'presentation'" @go-to-dao="activeTab = 'dao'" />
-  <GovernanceAssociation v-show="activeTab === 'association'" />
-  <GovernanceMembers v-show="activeTab === 'members'" />
-  <GovernanceDao v-show="activeTab === 'dao'" />
-  <GovernanceDonations v-show="activeTab === 'donations'" />
+  <div class="gv-dashboard-content">
+    <GovernancePresentation v-show="activeTab === 'presentation'" @go-to-dao="activeTab = 'dao'" />
+    <GovernanceAssociation v-show="activeTab === 'association'" />
+    <GovernanceMembers v-show="activeTab === 'members'" />
+    <GovernanceDao v-show="activeTab === 'dao'" />
+    <GovernanceDonations v-show="activeTab === 'donations'" />
+  </div>
   </div>
 </template>
 
@@ -96,64 +98,101 @@ watch(
   padding-top: var(--navbar-height, 80px);
   background: $color-page-bg;
   min-height: 100vh;
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  align-items: start;
 }
 
-.gv-page-tabs {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: $space-4;
-  background: $color-page-bg;
-  padding: 0 $space-4;
-  border-bottom: 1px solid $color-border;
+.gv-dashboard-content {
+  min-width: 0;
+}
+
+.gv-sidebar {
   position: sticky;
   top: var(--navbar-height, 80px);
-  z-index: 10;
-}
-
-.gv-page-tabs-links {
-  grid-column: 2;
+  height: calc(100vh - var(--navbar-height, 80px));
   display: flex;
-  gap: 2.2rem;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: $space-4;
+  padding: $space-4 $space-3;
+  border-right: 1px solid $color-border;
+  background: $color-page-bg;
 }
 
-@media (max-width: 640px) {
-  .gv-page-tabs {
-    grid-template-columns: 1fr auto;
-  }
-  .gv-page-tabs-links {
-    grid-column: 1;
-    gap: 1.2rem;
-  }
+.gv-sidebar-links {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
 }
 
-.gv-page-tab {
+.gv-sidebar-tab {
   background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-left: 2px solid transparent;
   color: $color-text-dim;
   font-family: $font-display;
   font-weight: 600;
   text-transform: none;
   letter-spacing: normal;
   font-size: $fs-body;
-  padding: $space-4 0.2rem $space-3;
+  text-align: left;
+  padding: $space-2 $space-3;
   cursor: pointer;
 
   &:hover { color: $color-text; }
 }
 
-.gv-page-tab--active {
+.gv-sidebar-tab--active {
   color: $color-black;
-  border-bottom-color: $color-orange-dark;
+  border-left-color: $color-orange-dark;
+  background: $color-card-bg;
+}
+
+@media (max-width: 820px) {
+  .gv-dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .gv-sidebar {
+    position: sticky;
+    top: var(--navbar-height, 80px);
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-3;
+    padding: 0 $space-4;
+    border-right: none;
+    border-bottom: 1px solid $color-border;
+    z-index: 10;
+    overflow-x: auto;
+  }
+
+  .gv-sidebar-links {
+    flex-direction: row;
+    gap: 1.2rem;
+  }
+
+  .gv-sidebar-tab {
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    padding: $space-4 0.2rem $space-3;
+    white-space: nowrap;
+  }
+
+  .gv-sidebar-tab--active {
+    border-left-color: transparent;
+    border-bottom-color: $color-orange-dark;
+    background: transparent;
+  }
 }
 
 .gv-tour-trigger {
   position: relative;
-  grid-column: 3;
-  justify-self: end;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   background: transparent;
   border: 1px solid $color-border;
   color: $color-text;
@@ -166,14 +205,9 @@ watch(
   font-size: $fs-caption;
   cursor: pointer;
   transition: border-color 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
 
   &:hover { border-color: $color-orange-dark; color: $color-orange-dark; }
-}
-
-@media (max-width: 640px) {
-  .gv-tour-trigger {
-    grid-column: 2;
-  }
 }
 
 .gv-tour-pulse {
