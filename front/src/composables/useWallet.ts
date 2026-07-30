@@ -168,7 +168,7 @@ async function tryRestoreConnection() {
     // "Connect my wallet" manually.
   }
 }
-tryRestoreConnection();
+const restoreConnectionPromise = tryRestoreConnection();
 
 /** Read-only (view) contract: works without a connected wallet. */
 function readOnlyContract() {
@@ -215,5 +215,6 @@ export function useWallet() {
     syncLocalContractAddress,
     onExplicitConnect,
     onAccountChanged,
+    restoreConnectionPromise,
   };
 }

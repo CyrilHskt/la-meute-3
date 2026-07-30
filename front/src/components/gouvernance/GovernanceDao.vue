@@ -21,7 +21,7 @@ import DiscordConsentModal from "./DiscordConsentModal.vue";
 
 const { t } = useI18n();
 const { locale } = useLocale();
-const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient } = useWallet();
+const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient, restoreConnectionPromise } = useWallet();
 const {
   stats,
   proposals,
@@ -135,7 +135,10 @@ onMounted(async () => {
   // Discord account mid-scenario. Here we just finished an explicit action
   // (linking Discord), so asking for a signature again is legitimate, not
   // a surprise.
-  if (discordResult && address.value) void verifyMembershipAndLoad(address.value);
+  if (discordResult) {
+    await restoreConnectionPromise;
+    if (address.value) void verifyMembershipAndLoad(address.value);
+  }
 });
 
 // Local demo mode only (see useLocalAutoRefresh): the demo panel advances
