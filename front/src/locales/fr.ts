@@ -24,6 +24,7 @@ export default {
     heroTitle: "La Meute",
     subtitle: "Clan gaming depuis 2007",
     motto: "À vaincre sans péril, on triomphe sans gloire",
+    mottoSource: "— Corneille, Le Cid",
   },
   presentation: {
     eyebrow: "Qui gouverne La Meute ?",

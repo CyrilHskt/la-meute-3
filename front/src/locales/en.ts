@@ -22,6 +22,7 @@ const en: typeof fr = {
     heroTitle: "La Meute",
     subtitle: "Gaming clan since 2007",
     motto: "To conquer without risk is to triumph without glory",
+    mottoSource: "— Corneille, Le Cid",
   },
   presentation: {
     eyebrow: "Who governs La Meute?",

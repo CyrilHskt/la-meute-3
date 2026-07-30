@@ -12,6 +12,7 @@ const { t } = useI18n();
         <h1 class="brand-heading">{{ t('home.heroTitle') }}</h1>
         <p class="brand-subtitle">{{ t('home.subtitle') }}</p>
         <p class="intro-motto">{{ t('home.motto') }}</p>
+        <p class="intro-motto-source">{{ t('home.mottoSource') }}</p>
         <nav class="intro-nav" aria-label="Navigation principale">
           <router-link to="/gouvernance?tab=presentation" class="intro-nav__link">{{ t('nav.clan') }}</router-link>
           <span class="intro-nav__sep" aria-hidden="true">&middot;</span>
@@ -57,9 +58,8 @@ const { t } = useI18n();
   // by scrolling further down.
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: center;
   min-height: 100vh;
-  padding-top: $space-5;
   text-align: center;
   color: $color-text;
   background: $color-page-bg;
@@ -67,6 +67,7 @@ const { t } = useI18n();
 
 .intro-text-block {
   padding: 0 $space-4;
+  margin-bottom: $space-5 * 2;
 }
 
 .intro .brand-heading {
@@ -98,12 +99,20 @@ const { t } = useI18n();
   line-height: 1.3;
 }
 
+.intro-motto-source {
+  font-family: $font-body;
+  font-style: italic;
+  font-size: $fs-caption;
+  color: $color-text-dim;
+  margin: $space-2 0 0;
+}
+
 .intro-nav {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: $space-2;
-  margin: $space-4 0 0;
+  margin: $space-5 0 0;
 }
 
 .intro-nav__link {
