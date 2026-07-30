@@ -74,12 +74,12 @@ are moved on-chain.
 | 🃏 **Membership card** | Soulbound ERC-721, one per member, carries rank and activity |
 | 💤 **Self-healing quorum** | Dormant members are excluded from quorum math, and can be pruned from the active set to keep it cheap to compute |
 | 🌐 **Front-end** | Vue 3 dashboard — wallet connect, live governance feed, French/English toggle |
+| 📇 **Own indexer** | A lightweight, purpose-built equivalent of The Graph: a cron job scans on-chain events and maintains a queryable snapshot (Netlify Blobs) — the front never scans the chain itself |
 | 🔐 **Security-reviewed** | Reentrancy tested with a real attack contract, CI enforces the front's ABI never drifts from the compiled contract |
 
 ## 📚 Documentation
 
-- [Cahier des charges](docs/cahier-des-charges.md) — context, scope, state machine,
-  token rationale, security, accepted limitations.
+🚧 Coming soon.
 
 ## 🧱 Stack
 
