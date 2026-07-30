@@ -23,8 +23,8 @@ function onDarkModeTogglePlaceholderClick() {
       type="button"
       class="home-header__dark-mode-placeholder"
       aria-label="Mode sombre (bientôt disponible)"
+      aria-disabled="true"
       title="Mode sombre (bientôt disponible)"
-      disabled
       @click="onDarkModeTogglePlaceholderClick"
     >
       <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">

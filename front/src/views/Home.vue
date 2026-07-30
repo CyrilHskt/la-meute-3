@@ -134,11 +134,15 @@ const { t } = useI18n();
 }
 
 .intro-illustration {
+  // `height: auto` let the panorama's wide aspect ratio dictate the
+  // height from `width: 100%` alone — fine on desktop, but on a narrow
+  // phone viewport this shrank to under 100px, cropping the wolves out
+  // almost entirely (observed at 375px: ~98px tall). An explicit height
+  // range keeps a real, deliberate crop at every width instead.
   display: block;
   width: 100%;
   max-width: none;
-  height: auto;
-  max-height: 55vh;
+  height: clamp(220px, 40vh, 520px);
   object-fit: cover;
   object-position: bottom;
   opacity: 0.92;
