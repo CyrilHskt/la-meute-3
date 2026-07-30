@@ -1,41 +1,123 @@
-// Design tokens shared by all Vue components.
-// Reuses the colors/fonts already set by public/css/theme.css (the v2),
-// so the Vue part (governance) stays visually consistent with the
-// marketing part without duplicating values by hand in every component.
-
-// Colors
-$color-orange: #f9ae3c;
-$color-orange-dark: #e0932c;
-$color-black: #1a1a1a;
-$color-text: #333333;
-$color-text-dim: #767676;
-$color-border: #e4e4e4;
-$color-card-bg: #ffffff;
-$color-page-bg: #f9f9f9;
-$color-danger: #d9534f;
-$color-success: #4a9e5c;
-$color-wolf: #a84300;
-$color-cub: #9159ae;
-
-// Fonts — identical to theme.css (h1-h6 in Montserrat, body in Open Sans)
-$font-display: "Montserrat", "Helvetica Neue", Helvetica, Arial, sans-serif;
-$font-body: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-$font-mono: ui-monospace, "SF Mono", Menlo, monospace;
-
-// Typographic scale — copied as-is from the values actually computed by
-// theme.css/bootstrap.min.css on the homepage (not an approximation): h2
-// 38px, h3 24px, h4 18px, p 20px (desktop, ≥768px). Any new text size must
-// go through one of these tokens rather than a hardcoded value, so
-// governance and the homepage stay in sync without copy-pasting pixels.
+// Design tokens shared by all Vue components — "Carnet de meute" direction.
 //
-// In px, not rem: bootstrap.min.css redefines `html{font-size:10px}` (its
-// own internal scale system), so 1rem = 10px throughout the app, not
-// 16px. The homepage never sees this because theme.css only uses
-// hardcoded px — but a rem token there would be ~62% too small. Direct px
-// is immune to this trap, regardless of the html{font-size} value imposed
-// by Bootstrap.
-$fs-caption: 13px; // captions, labels, secondary text
-$fs-body: 17px; // paragraphs (p, desktop)
-$fs-h4: 16px; // card subtitles
-$fs-card-title: 21px; // h3
-$fs-section-title: 34px; // h2
+// Colors are defined as CSS custom properties on :root (light = default,
+// dark = `prefers-color-scheme: dark`), then re-exposed as SCSS variables
+// that simply resolve to `var(--token)`. This means every component that
+// already consumes `$color-*` (14 files as of this rewrite) gets both the
+// new palette AND automatic light/dark theme switching for free, without
+// editing each one — there was no theming mechanism at all before this
+// (`prefers-color-scheme`/`data-theme` was absent from the codebase), so
+// this introduces the convention rather than following one.
+//
+// Sizes ($fs-*, spacing, radius) stay plain SCSS variables: they don't need
+// to change between themes, and bootstrap.min.css's `html{font-size:10px}`
+// reset means pixel values (not rem) remain the safe choice site-wide.
+
+:root {
+  // Paper / "carnet clair" (light) — default.
+  --color-paper: #f5f0ea;
+  --color-surface: #f3eee6;
+  --color-ink: #1b1a18;
+  --color-ink-dim: #4a4a48;
+  --color-border: rgba(27, 26, 24, 0.14);
+
+  // Rouille, the single brand accent. Two steps: the base hue for large
+  // fills/borders/icons, and a darker step for anywhere it's used as text
+  // (base rouille on paper measures ~3.8:1, below AA for text — see audit
+  // notes in the redesign report).
+  --color-rouille: #c35b2b;
+  --color-rouille-strong: #a34a20;
+  --color-rouille-contrast: #ffffff;
+
+  // Semantic vote-outcome colors — legend/badges only, never for generic
+  // UI or buttons. Text-safe steps against --color-paper.
+  --color-vote-approved: #3f7d4a;
+  --color-vote-rejected: #b23b2e;
+  --color-vote-quorum: #6e6455;
+  --color-vote-postponed: #a67c3d;
+
+  // Member-rank badges (existing "wolf"/"cub" concept, unrelated to vote
+  // outcomes — kept as distinct hues so the two systems never collide).
+  --color-rank-wolf: #7a4a2e;
+  --color-rank-cub: #a67c3d;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    // "Veillée" (night watch) — dark.
+    --color-paper: #121416;
+    --color-surface: #1b1d1f;
+    --color-ink: #e6e6e6;
+    --color-ink-dim: #9aa0a6;
+    --color-border: rgba(230, 230, 230, 0.14);
+
+    // Base rouille measures ~4.3:1 on the dark background (still AA for
+    // normal text), so unlike the light theme we don't need a separate
+    // darker step here — a lighter step instead, for anywhere rouille
+    // sits on a large filled surface and needs to stay legible/vivid.
+    --color-rouille: #c35b2b;
+    --color-rouille-strong: #d97a4e;
+    --color-rouille-contrast: #121416;
+
+    --color-vote-approved: #5fa86a;
+    --color-vote-rejected: #d9695a;
+    --color-vote-quorum: #9aa0a6;
+    --color-vote-postponed: #c99a55;
+
+    --color-rank-wolf: #a97a52;
+    --color-rank-cub: #c99a55;
+  }
+}
+
+// --- SCSS aliases -----------------------------------------------------
+// Same variable names the codebase already uses, now backed by the custom
+// properties above instead of hardcoded hex. Anything assigned through
+// these keeps working unchanged in every consuming component.
+
+$color-orange: var(--color-rouille);
+$color-orange-dark: var(--color-rouille-strong);
+$color-black: var(--color-ink);
+$color-text: var(--color-ink);
+$color-text-dim: var(--color-ink-dim);
+$color-border: var(--color-border);
+$color-card-bg: var(--color-surface);
+$color-page-bg: var(--color-paper);
+$color-danger: var(--color-vote-rejected);
+$color-success: var(--color-vote-approved);
+$color-wolf: var(--color-rank-wolf);
+$color-cub: var(--color-rank-cub);
+
+// Fonts — Inter (UI/body/headings) + IBM Plex Mono (data), self-hosted via
+// the `@fontsource/inter` and `@fontsource/ibm-plex-mono` npm packages
+// (imported once in `src/main.ts`). These packages ship the actual woff2
+// files as static build assets bundled by Vite — the browser never
+// contacts Google Fonts or any other CDN at runtime, so this satisfies
+// both the "no CDN webfont" constraint and fixes the pre-existing CSP
+// violation (the live `fonts.googleapis.com` <link> removed from
+// `index.html`). This DOES add two new npm dependencies (flagged here per
+// the brief: a plain static-asset package, not a styling framework or a
+// runtime font loader — pure `@font-face` CSS + local files).
+// Only the weights actually used are imported: Inter 400/500/600/700,
+// IBM Plex Mono 400/500. No italics (unused in the current UI/copy).
+$font-display: "Inter", -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+$font-body: "Inter", -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+$font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+
+// Typographic scale — updated per the "Carnet de meute" reference board.
+// In px, not rem: see historical note above re: bootstrap's `html{font-size:10px}`.
+$fs-caption: 12px; // captions, labels, secondary text
+$fs-body: 14px; // paragraphs, line-height 20px
+$fs-h4: 16px; // card subtitles, line-height 24px
+$fs-card-title: 20px; // card/section title, line-height 28px
+$fs-section-title: 28px; // page/section title, line-height 36px
+
+// Spacing scale (px) — use these instead of ad hoc margin/padding values.
+$space-1: 4px;
+$space-2: 8px;
+$space-3: 16px;
+$space-4: 24px;
+$space-5: 32px;
+
+// Border radius — restrained, ledger/register look (no maxed-out pill shapes).
+$radius-sm: 2px;
+$radius-md: 4px;
