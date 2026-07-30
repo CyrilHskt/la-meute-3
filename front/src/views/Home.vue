@@ -12,6 +12,11 @@ const { t } = useI18n();
         <h1 class="brand-heading">{{ t('home.heroTitle') }}</h1>
         <p class="brand-subtitle">{{ t('home.subtitle') }}</p>
         <p class="intro-motto">{{ t('home.motto') }}</p>
+        <nav class="intro-nav" aria-label="Navigation principale">
+          <router-link to="/gouvernance?tab=presentation" class="intro-nav__link">{{ t('nav.clan') }}</router-link>
+          <span class="intro-nav__sep" aria-hidden="true">&middot;</span>
+          <router-link to="/gouvernance?tab=dao" class="intro-nav__link">{{ t('nav.governance') }}</router-link>
+        </nav>
       </div>
       <img
         src="/img/illustrations/hero-wolf-pack-panorama.png"
@@ -65,7 +70,7 @@ const { t } = useI18n();
 }
 
 .intro .brand-heading {
-  font-size: $fs-section-title + 40px;
+  font-size: $fs-section-title + 64px;
   font-family: $font-display;
   font-weight: 700;
   color: $color-black;
@@ -74,23 +79,49 @@ const { t } = useI18n();
 }
 
 .intro .brand-subtitle {
-  font-size: $fs-caption;
+  font-size: $fs-body;
   font-weight: 500;
   font-family: $font-body;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: $color-text-dim;
-  margin: $space-2 0 0;
+  margin: $space-3 0 0;
 }
 
 .intro .intro-motto {
   font-family: $font-script;
   font-weight: 600;
-  font-size: $fs-section-title + 4px;
+  font-size: $fs-section-title + 20px;
   color: $color-orange-dark;
-  max-width: 42rem;
-  margin: $space-4 auto 0;
+  max-width: 46rem;
+  margin: $space-5 auto 0;
   line-height: 1.3;
+}
+
+.intro-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-2;
+  margin: $space-4 0 0;
+}
+
+.intro-nav__link {
+  font-family: $font-mono;
+  font-size: $fs-body;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: $color-text-dim;
+  padding: $space-1 $space-2;
+}
+.intro-nav__link:hover,
+.intro-nav__link:focus {
+  color: $color-orange;
+}
+
+.intro-nav__sep {
+  color: $color-text-dim;
 }
 
 .intro-illustration {

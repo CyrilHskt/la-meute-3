@@ -4,6 +4,7 @@ const en: typeof fr = {
   nav: {
     home: "Home",
     governance: "Governance",
+    clan: "The Clan",
   },
   guidedTour: {
     newHereTitle: "New here?",

@@ -6,6 +6,7 @@ export default {
   nav: {
     home: "Accueil",
     governance: "Gouvernance",
+    clan: "Le Clan",
   },
   guidedTour: {
     newHereTitle: "Nouveau ici ?",

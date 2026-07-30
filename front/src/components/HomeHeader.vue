@@ -1,8 +1,6 @@
 <script setup lang="ts">
-import { useI18n } from "vue-i18n";
 import { useLocale } from "../composables/useLocale";
 
-const { t } = useI18n();
 const { locale, setLocale } = useLocale();
 
 // Placeholder for future dark-mode work: a single light theme was
@@ -16,8 +14,6 @@ function onDarkModeTogglePlaceholderClick() {
 
 <template>
   <div class="home-header">
-    <router-link to="/gouvernance" class="home-header__link">{{ t("nav.governance") }}</router-link>
-    <span class="home-header__sep" aria-hidden="true">/</span>
     <div class="lang-switch">
       <button type="button" :class="{ active: locale === 'fr' }" @click="setLocale('fr')">FR</button>
       <span aria-hidden="true">/</span>
@@ -61,20 +57,6 @@ function onDarkModeTogglePlaceholderClick() {
   border: 1px solid $color-border;
   border-radius: $radius-sm;
   font-family: $font-body;
-}
-
-.home-header__link {
-  font-size: $fs-caption;
-  font-weight: 600;
-  color: $color-text;
-}
-.home-header__link:hover,
-.home-header__link:focus {
-  color: $color-orange;
-}
-
-.home-header__sep {
-  color: $color-text-dim;
 }
 
 .lang-switch {
