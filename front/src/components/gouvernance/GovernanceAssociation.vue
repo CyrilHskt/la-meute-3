@@ -66,79 +66,84 @@ const legal = computed(() => [
 </template>
 
 <style lang="scss" scoped>
+.gv-association {
+  background: $color-page-bg;
+}
+
 .gv-assoc-layout {
   max-width: 1080px;
   margin: 0 auto;
-  padding: 2.4rem 1.6rem 4rem;
+  padding: $space-5 $space-3 ($space-5 * 2);
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1.8rem;
+  gap: $space-4;
 }
 @media (max-width: 820px) { .gv-assoc-layout { grid-template-columns: 1fr; } }
 
 .gv-info-card {
   background: $color-card-bg;
   border: 1px solid $color-border;
-  border-radius: 4px;
-  padding: 1.6rem 1.6rem;
+  border-radius: $radius-md;
+  padding: $space-4;
 }
 .gv-info-card--wide { grid-column: 1 / -1; }
 
 .gv-card-title {
-  color: $color-orange;
-  font-family: $font-display;
+  color: $color-orange-dark;
+  font-family: $font-mono;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  font-size: $fs-card-title;
-  margin: 0 0 1.1rem;
+  letter-spacing: 0.06em;
+  font-size: $fs-caption;
+  margin: 0 0 $space-3;
 }
 
 .gv-legal-row {
   display: flex;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.65rem 0;
+  gap: $space-3;
+  padding: $space-2 0;
   border-bottom: 1px solid $color-border;
   font-size: $fs-body;
 
   &:last-child { border-bottom: none; }
 }
 .gv-label { color: $color-text-dim; }
-.gv-value { text-align: right; }
+.gv-value { text-align: right; color: $color-text; }
 
-.gv-doc-list { display: flex; flex-direction: column; gap: 0.6rem; }
+.gv-doc-list { display: flex; flex-direction: column; gap: $space-2; }
 .gv-doc-link {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.8rem 0.9rem;
+  gap: $space-2;
+  padding: $space-2 $space-3;
   border: 1px solid $color-border;
-  border-radius: 3px;
+  border-radius: $radius-sm;
   color: $color-text;
   text-decoration: none;
   font-size: $fs-body;
 
-  &:hover { border-color: $color-orange; }
+  &:hover { border-color: $color-orange-dark; }
   i { color: $color-orange-dark; }
 }
-.gv-doc-meta { margin-left: auto; color: $color-text-dim; font-size: $fs-caption; }
+.gv-doc-meta { margin-left: auto; color: $color-text-dim; font-size: $fs-caption; font-family: $font-mono; }
 
 .gv-board-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  margin-top: 0.4rem;
+  gap: $space-3;
+  margin-top: $space-1;
 }
 @media (max-width: 600px) { .gv-board-grid { grid-template-columns: 1fr; } }
 .gv-board-card { text-align: center; }
 .gv-board-role {
+  font-family: $font-mono;
   font-size: $fs-caption;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: $color-orange-dark;
-  font-weight: 700;
-  margin-bottom: 0.3rem;
+  font-weight: 500;
+  margin-bottom: $space-1;
 }
-.gv-board-name { font-weight: 700; color: $color-black; font-size: $fs-h4; }
+.gv-board-name { font-weight: 600; color: $color-black; font-size: $fs-h4; font-family: $font-display; }
 .gv-board-rank { font-size: $fs-caption; color: $color-text-dim; }
 </style>
