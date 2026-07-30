@@ -72,9 +72,6 @@ onUnmounted(() => {
       <div class="collapse navbar-collapse navbar-right navbar-main-collapse" :class="{ in: menuOpen }">
         <ul class="nav navbar-nav">
           <li><router-link :to="{ path: '/', hash: '#page-top' }" @click="menuOpen = false">{{ t("nav.home") }}</router-link></li>
-          <li><router-link :to="{ path: '/', hash: '#about' }" @click="menuOpen = false">{{ t("nav.about") }}</router-link></li>
-          <li><router-link :to="{ path: '/', hash: '#recruit' }" @click="menuOpen = false">{{ t("nav.recruit") }}</router-link></li>
-          <li><router-link :to="{ path: '/', hash: '#contact' }" @click="menuOpen = false">{{ t("nav.contact") }}</router-link></li>
           <li><router-link to="/gouvernance" @click="menuOpen = false">{{ t("nav.governance") }}</router-link></li>
           <li class="lang-switch">
             <button type="button" :class="{ active: locale === 'fr' }" @click="setLocale('fr')">FR</button>

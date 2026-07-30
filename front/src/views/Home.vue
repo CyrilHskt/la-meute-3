@@ -93,15 +93,13 @@ const { t } = useI18n();
 
     <!-- Recruitment -->
     <section id="recruit" class="carnet-section carnet-section--surface">
-      <div class="container content-section">
-        <p class="carnet-eyebrow text-center">{{ t('nav.recruit') }}</p>
-        <h2 class="text-center">{{ t('home.recruitTitle') }}</h2>
-        <p class="text-justify" v-html="t('home.recruitIntro')"></p>
-        <div class="row carnet-recruit-lists">
-          <ul class="col-lg-6 text-left" v-html="t('home.recruitListLeft')"></ul>
-          <ul class="col-lg-6 text-left" v-html="t('home.recruitListRight')"></ul>
-        </div>
-        <p class="col-lg-12 text-justify" v-html="t('home.recruitOutro')"></p>
+      <div class="container content-section text-center">
+        <p class="carnet-eyebrow">{{ t('nav.recruit') }}</p>
+        <h2>{{ t('home.recruitTitle') }}</h2>
+        <p class="carnet-recruit-text">{{ t('home.recruitIntro') }}</p>
+        <p class="carnet-recruit-text">{{ t('home.recruitEssentials') }}</p>
+        <p class="carnet-recruit-text carnet-recruit-probation">{{ t('home.recruitProbation') }}</p>
+        <a href="https://discord.gg/Wy5rScG" class="carnet-recruit-cta">{{ t('home.recruitCta') }}</a>
       </div>
     </section>
 
@@ -109,7 +107,6 @@ const { t } = useI18n();
     <section id="contact" class="carnet-section">
       <div class="container content-section text-center">
         <p class="carnet-eyebrow">{{ t('nav.contact') }}</p>
-        <h2>{{ t('home.discordTitle') }}</h2>
         <div class="carnet-discord-frame">
           <p class="carnet-discord-caption">{{ t('home.discordEyebrow') }}</p>
           <iframe
@@ -341,14 +338,32 @@ const { t } = useI18n();
   margin: 0 0 $space-3;
 }
 
-.carnet-recruit-lists {
-  margin-top: $space-3;
+.carnet-recruit-text {
+  max-width: 42rem;
+  margin: $space-3 auto 0;
+  font-size: $fs-body;
+  line-height: 20px;
+  color: $color-text;
+}
 
-  ul {
-    font-size: $fs-body;
-    line-height: 20px;
-    color: $color-text;
-  }
+.carnet-recruit-probation {
+  color: $color-text-dim;
+}
+
+.carnet-recruit-cta {
+  display: inline-block;
+  margin-top: $space-4;
+  font-family: $font-mono;
+  font-size: $fs-caption;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: $color-orange-dark;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 2px;
+}
+.carnet-recruit-cta:hover,
+.carnet-recruit-cta:focus {
+  color: $color-orange;
 }
 
 .discord-widget {

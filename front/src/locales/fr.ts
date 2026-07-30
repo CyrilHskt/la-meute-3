@@ -52,12 +52,11 @@ export default {
     recruitTitle: "Recrutements",
     recruitIntro:
       "Nous sommes un petit groupe soudé, pas un serveur ouvert à tous : on prend le temps de se connaître avant d'intégrer quelqu'un, pour que ça tienne dans la durée. Si vous cherchez :",
-    recruitListLeft:
-      "<li>un groupe d'amis qui jouent dans la bonne ambiance ;</li><li>des camarades intelligents qui souhaitent faire du teamplay avant de faire du frag ;</li><li>un groupe uni dont chaque membre s'investit à sa façon pour le bien du groupe ;</li><li>de nombreux projets ;</li><li>une structure d'une exceptionnelle qualité ;</li><li>un staff à l'écoute ;</li><li>un suivi complet de l'actualité ;</li><li>une stabilité et un cadre sain ;</li>",
-    recruitListRight:
-      "<li>une gestion financière claire et stricte (assurée par le compte de l'association et le trésorier) ;</li><li>une justice et une égalité entre les membres ainsi qu'un fonctionnement démocratique ;</li><li>aucun cheat, bien évidemment ;</li><li>des relations amicales et étroites avec les autres équipes ;</li><li>un soutien tout particulier pour les initiatives ;</li><li>des participations aux évènements réels (LAN, fêtes, sorties ...) ;</li><li>un soutient sans faille quelque soit votre niveau de jeu ;</li>",
-    recruitOutro:
-      "<br />A votre arrivée dans la tanière, si vous êtes candidat, voici ce qui se passera : Vous allez tout d'abord présenter votre candidature. Vous serez rapidement intégré au groupe des <b>candidats</b> qui n'a pas accès à énormément de choses sur Discord, mais vous aurez rapidement tous les accès pour nous rejoindre en vocal et en jeu. Une fois le contact établi avec les loups de la Meute et un premier vote en interne effectué en fonction de cet échange, vous serez intégré (ou non) au groupe des <b>louveteaux</b> en quelques semaines. Ce groupe dispose d'un accès conséquent, presque intégral. Le louveteau est considéré comme un loup normal quant à son droit de participer aux soirées, à donner son avis, à proposer des idées, etc... Au bout d'un ou deux mois, quand l'ensemble de la Meute aura pu se faire un avis précis sur son comportement, un nouveau vote sera lancé en interne et il sera finalement intégré officiellement dans la meute avec une petite cérémonie (préparée spécialement en son honneur et unique) et une communication officielle.<br /><br />Si vous pensez vous être reconnu dans la description de notre clan, que vous avez envie de jouer au sein d'un groupe, vous êtes surement fait pour La Meute ! <a href=\"https://discord.gg/Wy5rScG\"><b><u>Rejoignez-nous !</u></b></a>",
+    recruitEssentials:
+      "Bonne entente entre membres, gestion financière transparente, fonctionnement démocratique : c'est notre socle, pas des options.",
+    recruitProbation:
+      "Chaque nouveau membre passe par une période probatoire avant d'être pleinement intégré à la meute.",
+    recruitCta: "Rejoignez-nous sur Discord",
     discordEyebrow: "La vraie vie de la Meute se passe sur Discord",
     discordTitle: "Rejoignez-nous sur Discord",
     discordWidgetTitle: "Widget Discord de La Meute",

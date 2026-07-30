@@ -50,12 +50,11 @@ const en: typeof fr = {
     recruitTitle: "Recruitment",
     recruitIntro:
       "We're a small, tight-knit group, not a server open to everyone: we take the time to get to know someone before bringing them in, so it lasts. If you're looking for:",
-    recruitListLeft:
-      "<li>a group of friends playing in a good atmosphere;</li><li>smart teammates who care about teamplay before frags;</li><li>a united group where everyone pitches in for the group's good, in their own way;</li><li>plenty of projects;</li><li>an exceptionally solid structure;</li><li>a staff that listens;</li><li>thorough follow-up on what's going on;</li><li>stability and a healthy environment;</li>",
-    recruitListRight:
-      "<li>clear, strict financial management (handled through the association's account and the treasurer);</li><li>fairness and equality among members, and democratic decision-making;</li><li>no cheating, obviously;</li><li>friendly, close ties with other teams;</li><li>strong support for initiatives;</li><li>real-life events (LAN parties, get-togethers, outings...);</li><li>unwavering support no matter your skill level;</li>",
-    recruitOutro:
-      "<br />When you arrive in the den as an applicant, here's what happens: you'll first submit your application. You'll quickly be added to the <b>applicants</b> group, which doesn't have access to much on Discord, but you'll get full access to join us in voice and in-game right away. Once contact is made with the Meute's wolves and a first internal vote is held based on that, you'll be added (or not) to the <b>cubs</b> group within a few weeks. That group has substantial, almost full access — a cub is treated like a regular wolf when it comes to joining events, sharing opinions, suggesting ideas, etc. After a month or two, once the whole pack has formed a clear view of your behavior, a new internal vote will be held, and you'll finally be officially inducted into the pack with a small ceremony (specially prepared just for you) and an official announcement.<br /><br />If you recognize yourself in our clan's description, and you want to play as part of a group, La Meute is probably for you! <a href=\"https://discord.gg/Wy5rScG\"><b><u>Join us!</u></b></a>",
+    recruitEssentials:
+      "Good chemistry between members, transparent financial management, democratic decision-making: that's our foundation, not optional extras.",
+    recruitProbation:
+      "Every new member goes through a probation period before being fully inducted into the pack.",
+    recruitCta: "Join us on Discord",
     discordEyebrow: "La Meute's real life happens on Discord",
     discordTitle: "Join us on Discord",
     discordWidgetTitle: "La Meute's Discord widget",
