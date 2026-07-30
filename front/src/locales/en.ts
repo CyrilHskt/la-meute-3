@@ -31,6 +31,18 @@ const en: typeof fr = {
     valuesTitle: "Our principles and values",
     valuesText:
       "Our tag: =CL= for <em>Canis lupus</em>, Latin for <b>wolf</b>. Every wolf is therefore part of this pack. Our virtual world is our den to us. Discord lets us howl at the moon and feel like... well, we communicate, that's the point! :)<br /><br />Our motto sums it up: <b>The strongest aren't those who never fall, but those who always get back up</b>. Our saying is: <b>Victory without risk is triumph without glory</b>.<br /><br />Like any pack worthy of the name, there's a hierarchy. The leader, Mantorn, leads the troops — he's the Alpha wolf. Cymmus is his right hand (the Beta wolf), also in charge of the treasury. Bouldure handles the secretariat. All wolves have rights, but also duties toward their pack.",
+    valueTransparentTitle: "Transparent",
+    valueTransparentText:
+      "Every vote, every expense, every decision is public and verifiable by every member, at all times.",
+    valueSelfGovernedTitle: "Self-governed",
+    valueSelfGovernedText:
+      "No leader, no admin account: the same rules apply to everyone, including the founder.",
+    valueResilientTitle: "Resilient",
+    valueResilientText:
+      "A silent member no longer blocks the group: dormancy and quorum adjust themselves.",
+    valueOpenTitle: "Open",
+    valueOpenText:
+      "Joining, proposing, voting: open to anyone who genuinely gets involved, decided collectively, never behind closed doors.",
     gamesTitle: "What do we play?",
     gamesText:
       "We're currently playing seriously on <b>Squad</b>, where we're building something coherent, serious, and worthwhile. But we also dabble in plenty of other games (we're waiting on Star Citizen, for one).",

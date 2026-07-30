@@ -38,6 +38,36 @@ const { t } = useI18n();
           <article class="carnet-entry">
             <h3>{{ t('home.valuesTitle') }}</h3>
             <p class="text-justify" v-html="t('home.valuesText')"></p>
+            <ul class="carnet-values">
+              <li class="carnet-value">
+                <span class="carnet-value-index mono">01</span>
+                <div>
+                  <h4>{{ t('home.valueTransparentTitle') }}</h4>
+                  <p>{{ t('home.valueTransparentText') }}</p>
+                </div>
+              </li>
+              <li class="carnet-value">
+                <span class="carnet-value-index mono">02</span>
+                <div>
+                  <h4>{{ t('home.valueSelfGovernedTitle') }}</h4>
+                  <p>{{ t('home.valueSelfGovernedText') }}</p>
+                </div>
+              </li>
+              <li class="carnet-value">
+                <span class="carnet-value-index mono">03</span>
+                <div>
+                  <h4>{{ t('home.valueResilientTitle') }}</h4>
+                  <p>{{ t('home.valueResilientText') }}</p>
+                </div>
+              </li>
+              <li class="carnet-value">
+                <span class="carnet-value-index mono">04</span>
+                <div>
+                  <h4>{{ t('home.valueOpenTitle') }}</h4>
+                  <p>{{ t('home.valueOpenText') }}</p>
+                </div>
+              </li>
+            </ul>
           </article>
 
           <article class="carnet-entry">
@@ -152,6 +182,7 @@ const { t } = useI18n();
 .carnet-section {
   padding: $space-5 * 2 0;
   border-top: 1px solid $color-border;
+  background: $color-page-bg;
 }
 .carnet-section--surface {
   background: $color-card-bg;
@@ -196,6 +227,53 @@ const { t } = useI18n();
     font-size: $fs-body;
     line-height: 20px;
     color: $color-text;
+  }
+}
+
+.carnet-values {
+  list-style: none;
+  margin: $space-4 0 0;
+  padding: 0;
+  display: grid;
+  gap: $space-3;
+}
+
+.carnet-value {
+  display: flex;
+  align-items: baseline;
+  gap: $space-3;
+  padding: $space-3 0;
+  border-top: 1px solid $color-border;
+
+  &:first-child {
+    border-top: none;
+    padding-top: 0;
+  }
+
+  h4 {
+    font-family: $font-display;
+    font-size: $fs-h4;
+    font-weight: 600;
+    color: $color-black;
+    margin: 0 0 $space-1;
+  }
+
+  p {
+    font-size: $fs-body;
+    line-height: 20px;
+    color: $color-text-dim;
+    margin: 0;
+  }
+}
+
+.carnet-value-index {
+  flex: none;
+  font-size: $fs-caption;
+  font-weight: 500;
+  color: $color-orange-dark;
+
+  &.mono {
+    font-family: $font-mono;
   }
 }
 

@@ -33,6 +33,18 @@ export default {
     valuesTitle: "Nos principes et valeurs",
     valuesText:
       "Notre tag : =CL= pour <em>Canis lupus</em> qui signifie <b>loup</b> en latin. Chaque loup fait donc partie de cette Meute. Notre univers virtuel est pour nous une tanière. Le discord nous permet de hurler à la lune et de nous sentir le... enfin, nous communiquons, quoi ! :)<br /><br />La devise se résume ainsi : <b>Les plus forts ne sont pas ceux qui ne tombent jamais, mais ceux qui se relèvent toujours</b>. Notre adage est le suivant : <b>A vaincre sans périls, on triomphe sans gloire</b>.<br /><br />Comme dans toute Meute digne de ce nom, il existe une hiérarchie. Le meneur, Mantorn, emmène ses troupes, il est le loup Alpha. Cymmus est son bras droit (le loup Beta), il s'occupe également de la trésorerie. Bouldure s'occupe du secrétariat. Les loups ont tous des droits, mais aussi des devoirs envers leur Meute.",
+    valueTransparentTitle: "Transparente",
+    valueTransparentText:
+      "Chaque vote, chaque dépense, chaque décision est public et vérifiable par tous les membres, en permanence.",
+    valueSelfGovernedTitle: "Autogouvernée",
+    valueSelfGovernedText:
+      "Aucun chef, aucun compte admin : les mêmes règles s'appliquent à tout le monde, y compris au fondateur.",
+    valueResilientTitle: "Résiliente",
+    valueResilientText:
+      "Un membre silencieux ne bloque plus le groupe : la dormance et le quorum s'ajustent d'eux-mêmes.",
+    valueOpenTitle: "Ouverte",
+    valueOpenText:
+      "Rejoindre, proposer, voter : accessible à qui s'investit vraiment, décidé collectivement, jamais à huis clos.",
     gamesTitle: "A quoi jouons-nous ?",
     gamesText:
       "Actuellement, nous évoluons sérieusement sur <b>Squad</b> où nous construisons un jeu cohérent, sérieux et utile. Mais nous surfons aussi sur plein d'autres jeux (nous attendons Starcitizen, par exemple).",
