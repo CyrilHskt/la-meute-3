@@ -10,7 +10,7 @@ import ToastContainer from "./components/ToastContainer.vue";
   <footer>
     <div class="container text-center">
       <p class="credits">
-        Copyright &copy; <b>La Meute 2.0</b> 2007-{{ new Date().getFullYear() }}
+        Copyright &copy; <b>La Meute 3.0</b> 2007-{{ new Date().getFullYear() }}
       </p>
       <VersionBadge />
     </div>

@@ -66,7 +66,7 @@ onUnmounted(() => {
               <path d="M13 27c1.6-2.4 4-3.6 7-3.6s5.4 1.2 7 3.6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
             </svg>
           </span>
-          <span class="brand-label">LA MEUTE 2.0</span>
+          <span class="brand-label">LA MEUTE 3.0</span>
         </router-link>
       </div>
       <div class="collapse navbar-collapse navbar-right navbar-main-collapse" :class="{ in: menuOpen }">

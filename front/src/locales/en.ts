@@ -21,7 +21,7 @@ const en: typeof fr = {
     guidedTour: "Guided tour",
   },
   home: {
-    title: "La meute 2.0",
+    title: "La Meute 3.0",
     logoAlt: "The Meute 2.0 logo",
     tagline: "16 years of team gaming. Friends, laughs, and frags!",
     aboutTitle: "Who are we?",

@@ -23,7 +23,7 @@ export default {
     guidedTour: "Visite guidée",
   },
   home: {
-    title: "La meute 2.0",
+    title: "La Meute 3.0",
     logoAlt: "Le logo de la Meute 2.0",
     tagline: "16 ans de jeu en équipe. Des amis, des rires, du frag !",
     aboutTitle: "Qui sommes-nous ?",
