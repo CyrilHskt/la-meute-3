@@ -538,14 +538,28 @@ export async function buildIndex(ctx) {
     .sort((a, b) => (BigInt(a.total) < BigInt(b.total) ? 1 : -1))
     .slice(0, 20);
 
+  // Same principle as the donations leaderboard above, and for the same
+  // reason: ctx.knownAddresses only grows as scripted scenario steps run
+  // (makeJoin, setup*), so a member who joined by calling
+  // applyForMembership() directly through the live front (bypassing the
+  // demo panel entirely) never made it into that list — the front showed
+  // them a working card (direct contract reads) but they were invisible
+  // everywhere the index is the source (members list, dormancy/cub
+  // counts). Mint/burn events give the exact current membership, exactly
+  // like scripts/sync-dao.js does for the real indexer.
+  const transferLogs = await founder.queryFilter(founder.filters.Transfer());
+  const minted = new Set();
+  const burned = new Set();
+  for (const log of transferLogs) {
+    if (log.args.from === ethers.ZeroAddress) minted.add(log.args.to.toLowerCase());
+    if (log.args.to === ethers.ZeroAddress) burned.add(log.args.from.toLowerCase());
+  }
+  const knownAddresses = [...minted].filter((addr) => !burned.has(addr));
+
   let dormantWolves = 0;
   let cubs = 0;
   const members = [];
-  for (const addr of ctx.knownAddresses) {
-    // card() returns a zeroed struct (so Cub rank) for an address that
-    // never had a card at all — we must first check that the card really
-    // exists (the contract is an ERC721).
-    if ((await founder.balanceOf(addr)) === 0n) continue;
+  for (const addr of knownAddresses) {
     const c = await founder.card(addr);
     const rank = Number(c.rank);
     if (rank === 0) {
@@ -573,10 +587,20 @@ export async function buildIndex(ctx) {
   for (const log of await founder.queryFilter(founder.filters.VoteCast())) bump(log.args.voter, "votesSubmitted");
   for (const log of await founder.queryFilter(founder.filters.ProposalOpened())) bump(log.args.author, "openProposals");
 
+  // Same reasoning as above: ctx.ids only records proposals opened through
+  // a scripted scenario step (openAndGetId) — a proposal opened directly
+  // through the live front never lands there, so it appeared once (via
+  // the front's own direct post-transaction read) then vanished on the
+  // next index-based refresh, forever. ProposalOpened events give every
+  // proposal that actually exists, exactly like scripts/sync-dao.js.
+  const proposalLogs = await founder.queryFilter(founder.filters.ProposalOpened());
+  const proposalIds = [...new Set(proposalLogs.map((log) => log.args.proposalId.toString()))];
+  const proposalAuthors = Object.fromEntries(proposalLogs.map((log) => [log.args.proposalId.toString(), log.args.author]));
+
   const proposals = [];
   let votesCast = 0;
   let openProposals = 0;
-  for (const id of Object.values(ctx.ids)) {
+  for (const id of proposalIds) {
     const p = await founder.proposal(id);
     votesCast += Number(p.approveVotes) + Number(p.rejectVotes) + Number(p.postponeVotes);
     if (!p.executed) openProposals += 1;
@@ -584,7 +608,7 @@ export async function buildIndex(ctx) {
       id: id.toString(),
       proposalType: Number(p.proposalType),
       target: p.target,
-      author: ctx.authors[id.toString()] ?? "0x0000000000000000000000000000000000000000",
+      author: proposalAuthors[id] ?? "0x0000000000000000000000000000000000000000",
       deadline: p.deadline.toString(),
       activeSnapshot: Number(p.activeSnapshot),
       snapshotFrozen: p.snapshotFrozen,

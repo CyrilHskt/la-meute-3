@@ -3,19 +3,22 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useLocale } from "../../composables/useLocale";
 import { useGuidedTour } from "../../composables/useGuidedTour";
-import { decodeEventLog, formatEther, parseEther, type Address, type Log } from "viem";
+import { formatEther, parseEther, type Address } from "viem";
 import { driver } from "driver.js";
 import { useWallet } from "../../composables/useWallet";
-import { useMeute, ProposalType, VoteChoice, type Proposal } from "../../composables/useMeute";
+import { useMeute, ProposalType, type Proposal } from "../../composables/useMeute";
 import { useEthPrice } from "../../composables/useEthPrice";
 import { friendlyContractError } from "../../composables/contractErrors";
 import { useToast } from "../../composables/useToast";
 import { useDiscordLink } from "../../composables/useDiscordLink";
 import { useLocalAutoRefresh } from "../../composables/useLocalAutoRefresh";
-import { CONTRACT_ABI } from "../../contract";
+import { usePagination } from "../../composables/usePagination";
+import { useProposalTx } from "../../composables/useProposalTx";
+import { useProposalFormatting, type PastProposalStatus } from "../../composables/useProposalFormatting";
 import AddressChip from "./AddressChip.vue";
+import ProposalCard from "./ProposalCard.vue";
+import ProposeExpenseForm from "./ProposeExpenseForm.vue";
 import ApplicationChecklist from "./ApplicationChecklist.vue";
-import MemberPicker from "./MemberPicker.vue";
 import WalletInstallModal from "./WalletInstallModal.vue";
 import DiscordConsentModal from "./DiscordConsentModal.vue";
 
@@ -54,9 +57,6 @@ async function onUnlinkDiscord() {
     unlinkPending.value = false;
   }
 }
-
-const txError = ref<string | null>(null);
-const txPending = ref(false);
 
 const role = ref<"visitor" | "cub" | "wolf">("visitor");
 const card = ref<{ rank: number; lastActivity: number; postponements: number } | null>(null);
@@ -223,6 +223,20 @@ async function refreshMembership() {
   await loadCardImage();
 }
 
+const { txError, txPending, runTx } = useProposalTx({
+  publicClient,
+  proposals,
+  refreshProposal,
+  loadAll,
+  refreshMembership,
+  loadBalance,
+  loadMyDonations,
+  address,
+  showToast,
+  now,
+  t,
+});
+
 async function onConnect() {
   txError.value = null;
   try {
@@ -230,88 +244,6 @@ async function onConnect() {
     await Promise.all([refreshMembership(), loadBalance()]);
   } catch (e) {
     txError.value = friendlyContractError(e, t);
-  }
-}
-
-// Simulates the call before sending it: this recovers the real Solidity
-// revert reason (e.g. AlreadyVoted) for a clear message, instead of
-// letting gas estimation fail silently and surface a generic, unrelated
-// RPC message (observed locally: "gas limit exceeds cap"). A transaction
-// that *creates* a proposal (application, confirmation, exclusion,
-// expense) only gets its id once mined — impossible to know it ahead of
-// time like for voting/executing. It's already there, though, in the
-// receipt's events: we decode the receipt looking for a ProposalOpened to
-// extract the id.
-function extractCreatedProposal(logs: readonly Log[]): { id: bigint; author: Address } | undefined {
-  for (const log of logs) {
-    try {
-      const decoded = decodeEventLog({ abi: CONTRACT_ABI, data: log.data, topics: log.topics });
-      if (decoded.eventName === "ProposalOpened") {
-        const args = decoded.args as { proposalId: bigint; author: Address };
-        return { id: args.proposalId, author: args.author };
-      }
-    } catch {
-      // Log from another event (e.g. Transfer from the card mint on an
-      // admission) — not the one we're looking for, keep going.
-    }
-  }
-  return undefined;
-}
-
-// Reflects the action onto the *shared* snapshot (Netlify Blobs) right
-// away, so other members see it without waiting for the job's next pass
-// (up to 5 min). Never blocks the local display nor fails the transaction
-// if this call fails — the fallback job will catch up eventually anyway.
-// See netlify/functions/dao-sync.mts.
-async function patchProposalRemote(id: bigint) {
-  const p = proposals.value.find((existing) => existing.id === id);
-  if (!p) return;
-  try {
-    await fetch("/.netlify/functions/dao-sync?key=patch-proposal", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ proposalId: id.toString(), author: p.author }),
-    });
-  } catch {
-    // Best-effort — see comment above.
-  }
-}
-
-async function runTx(
-  simulateFn: () => Promise<unknown>,
-  writeFn: () => Promise<`0x${string}`>,
-  // Message shown as a toast once the transaction is confirmed — each
-  // caller specifies its own to stay specific to the action.
-  successMessage: string,
-  // Known ahead of time for voting/executing (the id already exists) —
-  // rereads this specific proposal live instead of reloading the whole
-  // snapshot (see useMeute.ts). Without an id, the transaction just
-  // *created* a proposal: its id and author are extracted from the
-  // receipt, see extractCreatedProposal — the author only exists in the
-  // event, never in the on-chain struct reread by refreshProposal.
-  knownProposalId?: bigint,
-) {
-  txError.value = null;
-  txPending.value = true;
-  try {
-    await simulateFn();
-    const hash = await writeFn();
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
-    const created = knownProposalId === undefined ? extractCreatedProposal(receipt.logs) : undefined;
-    const affectedId = knownProposalId ?? created?.id;
-    await Promise.all([
-      affectedId !== undefined ? refreshProposal(affectedId, created?.author) : loadAll(),
-      refreshMembership(),
-      loadBalance(),
-      loadMyDonations(address.value),
-    ]);
-    if (affectedId !== undefined) await patchProposalRemote(affectedId);
-    now.value = Number((await publicClient.getBlock()).timestamp);
-    showToast(successMessage);
-  } catch (e) {
-    txError.value = friendlyContractError(e, t);
-  } finally {
-    txPending.value = false;
   }
 }
 
@@ -337,6 +269,8 @@ function toPickerOption(addr: string) {
 // from everything the front has already seen. Confirm/Exclude have their
 // own dedicated page ("Members" tab): those always target an existing
 // member, better suited to a browsable list than a field to search in.
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
 const knownBeneficiaries = computed(() => {
   const addrs = new Set<string>([
     ...members.value.map((m) => m.address),
@@ -349,7 +283,7 @@ const knownBeneficiaries = computed(() => {
 });
 
 function proposeExpense() {
-  const args = [expenseAddr.value as `0x${string}`, parseEther(expenseAmount.value || "0"), expenseReason.value] as const;
+  const args = [expenseAddr.value as `0x${string}`, parseEther(String(expenseAmount.value || "0")), expenseReason.value] as const;
   return runTx(
     () => readOnlyContract().simulate.proposeExpense(args, { account: address.value! }),
     () => writableContract().write.proposeExpense(args),
@@ -423,63 +357,23 @@ const filteredPastProposals = computed(() => {
 });
 
 const PAGE_SIZE = 5;
-const ongoingPage = ref(1);
-const pastPage = ref(1);
+const {
+  page: ongoingPage,
+  totalPages: totalOngoingPages,
+  pageItems: ongoingProposalsPage,
+} = usePagination(allOngoingProposals, PAGE_SIZE);
+const {
+  page: pastPage,
+  totalPages: totalPastPages,
+  pageItems: pastProposalsPage,
+  reset: resetPastPage,
+} = usePagination(filteredPastProposals, PAGE_SIZE);
 
-const totalOngoingPages = computed(() => Math.max(1, Math.ceil(allOngoingProposals.value.length / PAGE_SIZE)));
-const totalPastPages = computed(() => Math.max(1, Math.ceil(filteredPastProposals.value.length / PAGE_SIZE)));
-
-// If the list shrinks (new data loaded, or filter changed) and we were on
-// a page that no longer exists, go back to the last valid page rather
-// than showing an empty page.
-watch(totalOngoingPages, (max) => { if (ongoingPage.value > max) ongoingPage.value = max; });
-watch(totalPastPages, (max) => { if (pastPage.value > max) pastPage.value = max; });
-watch(pastStatusFilters, () => { pastPage.value = 1; });
-
-const ongoingProposalsPage = computed(() => {
-  const start = (ongoingPage.value - 1) * PAGE_SIZE;
-  return allOngoingProposals.value.slice(start, start + PAGE_SIZE);
-});
-const pastProposalsPage = computed(() => {
-  const start = (pastPage.value - 1) * PAGE_SIZE;
-  return filteredPastProposals.value.slice(start, start + PAGE_SIZE);
-});
+watch(pastStatusFilters, resetPastPage);
 
 const activeTab = ref<"ongoing" | "past">("ongoing");
 
-const typeLabels = computed(() => [
-  t('governance.dao.typeAdmission'),
-  t('governance.dao.typeConfirmation'),
-  t('governance.dao.typeExclusion'),
-  t('governance.dao.typeExpense'),
-]);
-
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-
-// The author isn't in the on-chain struct (only in the ProposalOpened
-// event) — an entry whose author was never captured (e.g. refreshProposal
-// without local history) falls back to the zero address, no point
-// displaying "opened by 0x000...000".
-function authorKnown(p: Proposal): boolean {
-  return p.author.toLowerCase() !== ZERO_ADDRESS;
-}
-
-function proposalPrefix(p: Proposal): string {
-  switch (p.proposalType) {
-    case ProposalType.Admission:
-      return t('governance.dao.prefixAdmission');
-    case ProposalType.Confirmation:
-      return t('governance.dao.prefixConfirmation');
-    case ProposalType.Exclusion:
-      return t('governance.dao.prefixExclusion');
-    default:
-      return t('governance.dao.prefixExpense');
-  }
-}
-
-function proposalSuffix(p: Proposal): string {
-  return p.proposalType === ProposalType.Expense ? `— ${formatEther(p.amount)} ETH (${p.reason})` : "";
-}
+const { typeLabels, authorKnown, proposalPrefix, proposalSuffix, PAST_STATUS_LABELS, pastStatus } = useProposalFormatting(t);
 
 // The Discord link isn't required anywhere on-chain (no privileged role
 // to check it): an applicant who calls applyForMembership() directly,
@@ -508,35 +402,6 @@ function quorumReached(p: Proposal): boolean {
 
 function isApproved(p: Proposal): boolean {
   return quorumReached(p) && p.approveVotes > p.rejectVotes;
-}
-
-// Visual status of a past proposal — distinct from isApproved() above,
-// which only handles the binary case (Admission/Exclusion/Expense).
-// Confirmation has 3 possible outcomes (see Meute.sol, _executeConfirmation):
-// quorum there is computed on for+against+postpone (not just for+against),
-// and "postponed" is neither a success nor a failure — the Cub gets
-// another chance.
-type PastProposalStatus = "approved" | "rejected" | "quorum" | "postponed";
-
-const PAST_STATUS_LABELS = computed<Record<PastProposalStatus, string>>(() => ({
-  approved: t('governance.dao.statusApproved'),
-  rejected: t('governance.dao.statusRejected'),
-  quorum: t('governance.dao.statusQuorum'),
-  postponed: t('governance.dao.statusPostponed'),
-}));
-
-function pastStatus(p: Proposal): PastProposalStatus {
-  const isConfirmation = p.proposalType === ProposalType.Confirmation;
-  const cast = p.approveVotes + p.rejectVotes + (isConfirmation ? p.postponeVotes : 0);
-  const quorumOk = cast * QUORUM_DEN > p.activeSnapshot * QUORUM_NUM;
-  if (!quorumOk) return "quorum";
-
-  if (isConfirmation) {
-    if (p.approveVotes > p.rejectVotes && p.approveVotes > p.postponeVotes) return "approved";
-    if (p.rejectVotes > p.approveVotes && p.rejectVotes > p.postponeVotes) return "rejected";
-    return "postponed";
-  }
-  return p.approveVotes > p.rejectVotes ? "approved" : "rejected";
 }
 
 // Conflict of interest (Meute.sol, vote() -> ConflictOfInterest): the
@@ -801,26 +666,14 @@ function startTour() {
         <div v-if="role === 'wolf'" class="gv-new-prop-panel">
           <h3 class="gv-card-title">{{ t('governance.dao.openProposalTitle') }}</h3>
 
-          <div class="gv-prop-form">
-            <p class="gv-form-label">{{ t('governance.dao.proposeExpense') }}</p>
-            <div class="gv-form-row gv-form-row--wrap">
-              <MemberPicker
-                v-model="expenseAddr"
-                :options="knownBeneficiaries"
-                :placeholder="t('governance.dao.beneficiaryPlaceholder')"
-                :aria-label="t('governance.dao.beneficiaryPlaceholder')"
-              />
-              <input v-model="expenseAmount" type="number" min="0" step="any" inputmode="decimal" :placeholder="t('governance.dao.amountPlaceholder')" />
-              <input v-model="expenseReason" :placeholder="t('governance.dao.reasonPlaceholder')" />
-              <button
-                class="btn btn-primary"
-                :disabled="txPending || !expenseAddr || !expenseAmount"
-                @click="proposeExpense"
-              >
-                {{ t('governance.dao.open') }}
-              </button>
-            </div>
-          </div>
+          <ProposeExpenseForm
+            v-model:address="expenseAddr"
+            v-model:amount="expenseAmount"
+            v-model:reason="expenseReason"
+            :known-beneficiaries="knownBeneficiaries"
+            :tx-pending="txPending"
+            @submit="proposeExpense"
+          />
         </div>
 
         <p v-if="txError" class="gv-error">{{ txError }}</p>
@@ -854,65 +707,29 @@ function startTour() {
         </div>
 
         <div v-if="activeTab === 'ongoing'" class="gv-prop-list">
-          <article v-for="p in ongoingProposalsPage" :key="p.id.toString()" class="gv-prop-card">
-            <div class="gv-prop-head">
-              <span class="gv-prop-head-left">
-                <span class="gv-prop-type">{{ typeLabels[p.proposalType] }}</span>
-                <span v-if="authorKnown(p)" class="gv-prop-author">
-                  {{ t('governance.dao.by') }} <AddressChip :address="p.author" short />
-                </span>
-              </span>
-              <span class="gv-prop-deadline mono" :title="exactDate(p)">{{ countdown(p) }}</span>
-            </div>
-            <p class="gv-prop-title">
-              {{ proposalPrefix(p) }} <AddressChip :address="p.target" short /> {{ proposalSuffix(p) }}
-            </p>
-            <p v-if="applicationWithoutDiscord(p)" class="gv-discord-warning" :title="t('governance.dao.discordMissingTooltip')">
-              {{ t('governance.dao.discordMissingWarning') }}
-            </p>
-            <div class="gv-vote-line">
-              <span class="gv-vote-count gv-vote-count--pour">
-                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8.5 6.5 12 13 4.5" /></svg>
-                {{ t('governance.dao.votesApprove', { count: p.approveVotes }) }}
-              </span>
-              <span class="gv-vote-count gv-vote-count--contre">
-                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8" /></svg>
-                {{ t('governance.dao.votesReject', { count: p.rejectVotes }) }}
-              </span>
-              <span v-if="p.proposalType === ProposalType.Confirmation" class="gv-vote-count gv-vote-count--ajourner">
-                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6">
-                  <path d="M4 2h8M4 14h8M5 2c0 3 2.5 3.6 3 4.5.5-.9 3-1.5 3-4.5M5 14c0-3 2.5-3.6 3-4.5.5.9 3 1.5 3 4.5" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-                {{ t('governance.dao.votesPostpone', { count: p.postponeVotes }) }}
-              </span>
-            </div>
-            <div class="gv-quorum-line">
-              <span :title="quorumTooltip(p)">
-                {{ t('governance.dao.quorumLine', { cast: p.approveVotes + p.rejectVotes, required: requiredQuorum(p), total: p.activeSnapshot }) }}
-              </span>
-            </div>
-            <div class="gv-prop-actions">
-              <template v-if="role === 'wolf' && Number(p.deadline) > now && !isTargetInConflict(p)">
-                <button class="btn btn-primary" :disabled="txPending" @click="vote(p.id, VoteChoice.Approve)">{{ t('governance.dao.approve') }}</button>
-                <button class="btn btn-outline-danger" :disabled="txPending" @click="vote(p.id, VoteChoice.Reject)">{{ t('governance.dao.reject') }}</button>
-                <button
-                  v-if="p.proposalType === ProposalType.Confirmation"
-                  class="btn btn-outline"
-                  :disabled="txPending || postponementBlocked(p)"
-                  :title="postponementBlocked(p) ? t('governance.dao.postponeMaxReached', { max: maxPostponements }) : ''"
-                  @click="vote(p.id, VoteChoice.Postpone)"
-                >
-                  {{ t('governance.dao.postpone') }}
-                </button>
-              </template>
-              <p v-else-if="role === 'wolf' && Number(p.deadline) > now && isTargetInConflict(p)" class="gv-card-note">
-                {{ t('governance.dao.inConflictNote') }}
-              </p>
-              <button v-else-if="Number(p.deadline) <= now" class="btn btn-outline" :disabled="txPending" @click="execute(p.id)">
-                {{ t('governance.dao.execute') }}
-              </button>
-            </div>
-          </article>
+          <ProposalCard
+            v-for="p in ongoingProposalsPage"
+            :key="p.id.toString()"
+            mode="ongoing"
+            :proposal="p"
+            :type-labels="typeLabels"
+            :author-known="authorKnown"
+            :proposal-prefix="proposalPrefix"
+            :proposal-suffix="proposalSuffix"
+            :quorum-tooltip="quorumTooltip"
+            :required-quorum="requiredQuorum"
+            :application-without-discord="applicationWithoutDiscord"
+            :countdown="countdown"
+            :exact-date="exactDate"
+            :role="role"
+            :now="now"
+            :tx-pending="txPending"
+            :is-target-in-conflict="isTargetInConflict"
+            :postponement-blocked="postponementBlocked"
+            :max-postponements="maxPostponements"
+            @vote="(id, choice) => vote(id, choice)"
+            @execute="(id) => execute(id)"
+          />
           <p v-if="!allOngoingProposals.length" class="gv-card-note">
             {{ t('governance.dao.noOngoingProposals') }}
           </p>
@@ -924,48 +741,20 @@ function startTour() {
         </div>
 
         <div v-else class="gv-prop-list">
-          <article
+          <ProposalCard
             v-for="p in pastProposalsPage"
             :key="p.id.toString()"
-            class="gv-prop-card"
-            :class="`gv-prop-card--${pastStatus(p)}`"
-          >
-            <div class="gv-prop-head">
-              <span class="gv-prop-head-left">
-                <span class="gv-prop-type">{{ typeLabels[p.proposalType] }}</span>
-                <span v-if="authorKnown(p)" class="gv-prop-author">
-                  {{ t('governance.dao.by') }} <AddressChip :address="p.author" short />
-                </span>
-              </span>
-              <span class="gv-prop-statut" :class="`gv-prop-statut--${pastStatus(p)}`">
-                {{ PAST_STATUS_LABELS[pastStatus(p)] }}
-              </span>
-            </div>
-            <p class="gv-prop-title">
-              {{ proposalPrefix(p) }} <AddressChip :address="p.target" short /> {{ proposalSuffix(p) }}
-            </p>
-            <div class="gv-vote-line">
-              <span class="gv-vote-count gv-vote-count--pour">
-                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8.5 6.5 12 13 4.5" /></svg>
-                {{ t('governance.dao.votesApprove', { count: p.approveVotes }) }}
-              </span>
-              <span class="gv-vote-count gv-vote-count--contre">
-                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8" /></svg>
-                {{ t('governance.dao.votesReject', { count: p.rejectVotes }) }}
-              </span>
-              <span v-if="p.proposalType === ProposalType.Confirmation" class="gv-vote-count gv-vote-count--ajourner">
-                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6">
-                  <path d="M4 2h8M4 14h8M5 2c0 3 2.5 3.6 3 4.5.5-.9 3-1.5 3-4.5M5 14c0-3 2.5-3.6 3-4.5.5.9 3 1.5 3 4.5" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-                {{ t('governance.dao.votesPostpone', { count: p.postponeVotes }) }}
-              </span>
-            </div>
-            <div class="gv-quorum-line">
-              <span :title="quorumTooltip(p)">
-                {{ t('governance.dao.quorumLine', { cast: p.approveVotes + p.rejectVotes + (p.proposalType === ProposalType.Confirmation ? p.postponeVotes : 0), required: requiredQuorum(p), total: p.activeSnapshot }) }}
-              </span>
-            </div>
-          </article>
+            mode="past"
+            :proposal="p"
+            :type-labels="typeLabels"
+            :author-known="authorKnown"
+            :proposal-prefix="proposalPrefix"
+            :proposal-suffix="proposalSuffix"
+            :quorum-tooltip="quorumTooltip"
+            :required-quorum="requiredQuorum"
+            :past-status="pastStatus"
+            :past-status-labels="PAST_STATUS_LABELS"
+          />
           <p v-if="!pastProposals.length" class="gv-card-note">{{ t('governance.dao.noPastProposals') }}</p>
           <div v-else-if="!filteredPastProposals.length" class="gv-card-note gv-statut-empty">
             <p>{{ t('governance.dao.noFilterMatch') }}</p>
@@ -984,10 +773,6 @@ function startTour() {
 </template>
 
 <style lang="scss" scoped>
-.mono {
-  font-family: $font-mono;
-}
-
 .gv-loading,
 .gv-card-note {
   color: $color-text-dim;
@@ -1088,33 +873,11 @@ function startTour() {
 @media (max-width: 820px) { .gv-layout { grid-template-columns: 1fr; } }
 
 .gv-card-panel,
-.gv-new-prop-panel,
-.gv-prop-card {
+.gv-new-prop-panel {
   background: $color-card-bg;
   border: 1px solid $color-border;
   border-radius: 4px;
   padding: 1.6rem;
-}
-
-// Status of a past proposal: colored left border rather than a tinted
-// background on the whole card — keeps black-on-white text readable
-// (observed: a pale red/green background degraded contrast), and stays
-// readable at a glance while scrolling a long list of cards.
-.gv-prop-card {
-  &--approved { border-left: 4px solid $color-success; }
-  &--rejected { border-left: 4px solid $color-danger; }
-  &--quorum { border-left: 4px solid $color-text-dim; }
-  &--postponed { border-left: 4px solid $color-cub; }
-}
-
-.gv-prop-statut {
-  font-size: $fs-caption;
-  font-weight: 700;
-
-  &--approved { color: $color-success; }
-  &--rejected { color: $color-danger; }
-  &--quorum { color: $color-text-dim; }
-  &--postponed { color: $color-cub; }
 }
 
 .gv-card-title {
@@ -1207,47 +970,6 @@ function startTour() {
   font-size: $fs-caption;
 }
 
-.gv-form-label {
-  font-size: $fs-caption;
-  font-weight: 700;
-  color: $color-black;
-  margin: 0 0 0.5rem;
-}
-.gv-prop-form { margin-bottom: 1.4rem; }
-.gv-form-row {
-  display: flex;
-  gap: 0.6rem;
-
-  &--wrap { flex-wrap: wrap; }
-
-  input {
-    flex: 1;
-    min-width: 120px;
-    box-sizing: border-box;
-    border: 1px solid $color-border;
-    border-radius: 3px;
-    padding: 0.5rem 0.7rem;
-    font: inherit;
-
-    // Hides the native spin arrows (+/-) on `type="number"` fields: they
-    // inflated the field's height relative to its neighbors and clashed
-    // with the rest of the form's style (user feedback: "a bit broken").
-    &::-webkit-inner-spin-button,
-    &::-webkit-outer-spin-button {
-      -webkit-appearance: none;
-      margin: 0;
-    }
-    &[type="number"] {
-      -moz-appearance: textfield;
-    }
-  }
-
-  :deep(.mp-root) {
-    flex: 1;
-    min-width: 160px;
-  }
-}
-
 .gv-tabs {
   display: flex;
   gap: 0.5rem;
@@ -1314,45 +1036,6 @@ function startTour() {
 }
 
 .gv-prop-list { display: flex; flex-direction: column; gap: 1rem; }
-.gv-prop-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem; }
-.gv-prop-head-left { display: flex; align-items: baseline; gap: 0.4rem; }
-.gv-prop-type { font-size: $fs-caption; font-weight: 700; color: $color-orange-dark; text-transform: uppercase; }
-.gv-prop-deadline { font-size: $fs-caption; color: $color-text-dim; }
-.gv-prop-title { font-size: $fs-h4; color: $color-black; margin: 0 0 0.8rem; }
-.gv-discord-warning {
-  font-size: $fs-caption;
-  color: $color-orange-dark;
-  margin: -0.5rem 0 0.8rem;
-}
-.gv-prop-author { font-size: $fs-caption; color: $color-text-dim; text-transform: none; font-weight: 400; }
-.gv-vote-line {
-  display: flex;
-  justify-content: center;
-  gap: 1.2rem;
-  flex-wrap: wrap;
-  font-size: $fs-body;
-  font-weight: 700;
-  color: $color-black;
-  margin-bottom: 0.3rem;
-}
-.gv-vote-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-
-  &--pour svg { color: #2e9e5b; }
-  &--contre svg { color: $color-danger; }
-  &--ajourner svg { color: $color-text-dim; }
-}
-.gv-quorum-line {
-  text-align: center;
-  font-size: $fs-caption;
-  color: $color-text-dim;
-  margin-bottom: 1rem;
-
-  span[title] { cursor: help; }
-}
-.gv-prop-actions { display: flex; justify-content: center; gap: 0.6rem; flex-wrap: wrap; }
 
 .gv-pagination {
   display: flex;
