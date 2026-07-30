@@ -39,6 +39,11 @@ const { t } = useI18n();
 // content, alt/title text) is untouched — this is a structural/visual
 // rework only.
 .carnet {
+  // Now that the hero-only home is short, it no longer fills the legacy
+  // Aries template's `body { background-color: #000 }` (public/css/theme.css)
+  // — without this, the black body bled through below the footer on
+  // anything taller than a short viewport.
+  min-height: 100vh;
   background: $color-page-bg;
   color: $color-text;
 }
