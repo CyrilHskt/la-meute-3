@@ -43,15 +43,17 @@ const reason = defineModel<string>("reason", { required: true });
 
 <style lang="scss" scoped>
 .gv-form-label {
+  font-family: $font-mono;
   font-size: $fs-caption;
-  font-weight: 700;
-  color: $color-black;
-  margin: 0 0 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: $color-orange-dark;
+  margin: 0 0 $space-2;
 }
-.gv-prop-form { margin-bottom: 1.4rem; }
+.gv-prop-form { margin-bottom: $space-4; }
 .gv-form-row {
   display: flex;
-  gap: 0.6rem;
+  gap: $space-2;
 
   &--wrap { flex-wrap: wrap; }
 
@@ -60,9 +62,16 @@ const reason = defineModel<string>("reason", { required: true });
     min-width: 120px;
     box-sizing: border-box;
     border: 1px solid $color-border;
-    border-radius: 3px;
-    padding: 0.5rem 0.7rem;
+    border-radius: $radius-sm;
+    padding: $space-2 $space-2;
     font: inherit;
+    color: $color-text;
+    background: $color-page-bg;
+
+    &:focus {
+      outline: none;
+      border-color: $color-orange-dark;
+    }
 
     // Hides the native spin arrows (+/-) on `type="number"` fields: they
     // inflated the field's height relative to its neighbors and clashed
