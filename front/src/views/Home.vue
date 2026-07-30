@@ -9,9 +9,9 @@ const { t } = useI18n();
     <!-- Intro -->
     <header class="intro">
       <div class="intro-text-block">
-        <h1 class="brand-heading">{{ t('home.title') }}</h1>
-        <p class="intro-text">{{ t('home.tagline') }}</p>
-        <router-link to="/gouvernance?tab=presentation" class="intro-cta intro-cta--dao">{{ t('home.daoTeaser') }} &rarr;</router-link>
+        <h1 class="brand-heading">{{ t('home.heroTitle') }}</h1>
+        <p class="brand-subtitle">{{ t('home.subtitle') }}</p>
+        <p class="intro-motto">{{ t('home.motto') }}</p>
       </div>
       <img
         src="/img/illustrations/hero-wolf-pack-panorama.png"
@@ -66,43 +66,32 @@ const { t } = useI18n();
 }
 
 .intro .brand-heading {
-  font-size: $fs-section-title + 12px;
+  font-size: $fs-section-title + 40px;
   font-family: $font-display;
   font-weight: 700;
   color: $color-black;
-  margin: 0 0 $space-3;
+  margin: 0;
+  line-height: 1;
 }
 
-.intro .intro-text {
-  font-size: $fs-card-title;
-  font-weight: 400;
-  color: $color-text-dim;
-  max-width: 42rem;
-  margin: 0 auto $space-4;
-}
-
-.intro-cta {
-  display: inline-block;
-  font-size: $fs-body;
-  font-weight: 600;
-  color: $color-orange-dark;
-  border-bottom: 1px solid currentColor;
-  padding-bottom: 2px;
-}
-.intro-cta:hover,
-.intro-cta:focus {
-  color: $color-orange;
-}
-
-.intro-cta--dao {
-  margin-top: $space-2;
+.intro .brand-subtitle {
   font-size: $fs-caption;
+  font-weight: 500;
+  font-family: $font-body;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: $color-text-dim;
-  border-bottom-color: $color-border;
+  margin: $space-2 0 0;
 }
-.intro-cta--dao:hover,
-.intro-cta--dao:focus {
+
+.intro .intro-motto {
+  font-family: $font-script;
+  font-weight: 600;
+  font-size: $fs-section-title + 4px;
   color: $color-orange-dark;
+  max-width: 42rem;
+  margin: $space-4 auto 0;
+  line-height: 1.3;
 }
 
 .intro-illustration {

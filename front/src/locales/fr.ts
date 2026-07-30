@@ -20,9 +20,9 @@ export default {
     guidedTour: "Visite guidée",
   },
   home: {
-    title: "La Meute 3.0",
-    tagline: "16 ans de jeu en équipe. Des amis, des rires, du frag !",
-    daoTeaser: "Depuis 2026, nos décisions se votent on-chain",
+    heroTitle: "La Meute",
+    subtitle: "Clan gaming depuis 2007",
+    motto: "À vaincre sans péril, on triomphe sans gloire",
   },
   presentation: {
     eyebrow: "Qui gouverne La Meute ?",

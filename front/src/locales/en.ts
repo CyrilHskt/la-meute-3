@@ -18,9 +18,9 @@ const en: typeof fr = {
     guidedTour: "Guided tour",
   },
   home: {
-    title: "La Meute 3.0",
-    tagline: "16 years of team gaming. Friends, laughs, and frags!",
-    daoTeaser: "Since 2026, our decisions are voted on-chain",
+    heroTitle: "La Meute",
+    subtitle: "Gaming clan since 2007",
+    motto: "To conquer without risk is to triumph without glory",
   },
   presentation: {
     eyebrow: "Who governs La Meute?",

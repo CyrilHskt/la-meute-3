@@ -82,6 +82,11 @@ $font-display: "Inter", -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Ari
 $font-body: "Inter", -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 $font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
 
+// Handwritten/script accent — used sparingly (currently only the Home hero
+// motto) for a "field notebook" handwritten-aside register. Self-hosted via
+// `@fontsource/caveat`, same pattern as Inter/IBM Plex Mono above.
+$font-script: "Caveat", cursive;
+
 // Typographic scale — updated per the "Carnet de meute" reference board.
 // In px, not rem: see historical note above re: bootstrap's `html{font-size:10px}`.
 $fs-caption: 12px; // captions, labels, secondary text
