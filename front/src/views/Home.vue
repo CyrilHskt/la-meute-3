@@ -13,8 +13,8 @@ const { t } = useI18n();
           <div class="row">
             <div class="col-md-8 col-md-offset-2">
               <img
-                src="/img/illustrations/motif-wolf-pack-trio.png"
-                alt="Trois loups sur un promontoire rocheux, montagnes en arrière-plan"
+                src="/img/illustrations/hero-wolf-pack-panorama.png"
+                alt="Une meute de loups veillant sur un panorama de montagnes enneigées et de forêts"
                 class="intro-illustration"
               />
               <h1 class="brand-heading">
@@ -102,11 +102,11 @@ const { t } = useI18n();
 
 .intro-illustration {
   display: block;
-  max-width: 800px;
-  width: 90%;
+  max-width: 1100px;
+  width: 95%;
   height: auto;
   margin: 0 auto $space-4;
-  opacity: 0.9;
+  opacity: 0.92;
   filter: sepia(35%) saturate(70%) contrast(95%);
 }
 
