@@ -2,7 +2,7 @@
   <img src="front/public/img/logo.png" alt="La Meute" width="120" />
 </p>
 
-<h1 align="center">La Meute 3.0 🐺</h1>
+<h1 align="center">La Meute 3.0 🐺 🇫🇷</h1>
 
 <p align="center">
   <b>A gaming association's governance, moved on-chain — no board, no single point of failure.</b>
@@ -18,6 +18,7 @@
   <img alt="front version" src="https://img.shields.io/github/v/tag/CyrilHskt/la-meute-3?filter=front-v*&label=front&color=1d76db" />
   <img alt="network" src="https://img.shields.io/badge/network-Sepolia_testnet-8a2be2" />
   <img alt="made in France" src="https://img.shields.io/badge/made%20in-France-0055A4?labelColor=EF4135" />
+  <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-yellow" /></a>
 </p>
 
 <p align="center">
@@ -111,3 +112,9 @@ plugin (it's never written in plaintext to the repo):
 npx hardhat keystore set SEPOLIA_PRIVATE_KEY
 npx hardhat ignition deploy --network sepolia ignition/modules/<Module>.ts
 ```
+
+## 📄 License
+
+The code is [MIT licensed](LICENSE) — use it, fork it, ship it. "La Meute" the
+name and its logo are not part of that grant and remain the association's
+property; see [TRADEMARK.md](TRADEMARK.md).
