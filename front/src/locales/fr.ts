@@ -126,7 +126,7 @@ export default {
   },
   discordConsent: {
     title: "Avant de continuer",
-    text: "Une fois lié, ton pseudo Discord et ton avatar seront visibles <strong>publiquement</strong>, y compris par des non-membres, à côté de tes votes, tes dons et tes propositions — comme à une AG à main levée. Tu peux délier ton compte à tout moment depuis ta carte de membre, mais l'historique déjà rendu public le reste.",
+    text: "Une fois lié, ton pseudo Discord et ton avatar seront visibles par les autres membres de la Meute — jamais par le public, jamais sur la blockchain — à côté de tes votes, dons et propositions, comme lors d'une AG à main levée entre membres. Tu peux délier ton compte à tout moment depuis ta carte : l'association disparaît alors immédiatement, y compris pour tes votes passés.",
     skip: "Continuer sans lier",
     confirm: "Lier mon compte Discord",
   },

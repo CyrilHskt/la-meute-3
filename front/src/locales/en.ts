@@ -124,7 +124,7 @@ const en: typeof fr = {
   },
   discordConsent: {
     title: "Before you continue",
-    text: "Once linked, your Discord username and avatar will be <strong>publicly</strong> visible, including to non-members, next to your votes, donations, and proposals — like at a show-of-hands general meeting. You can unlink your account at any time from your member card, but the history already made public stays that way.",
+    text: "Once linked, your Discord username and avatar will be visible to other Meute members — never to the public, never on the blockchain — next to your votes, donations, and proposals, like at a show-of-hands general meeting among members. You can unlink your account at any time from your member card: the link disappears immediately, including for your past votes.",
     skip: "Continue without linking",
     confirm: "Link my Discord account",
   },
