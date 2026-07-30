@@ -147,6 +147,10 @@ const { t } = useI18n();
   object-position: bottom;
   opacity: 0.92;
   filter: sepia(35%) saturate(70%) contrast(95%);
+
+  [data-theme="dark"] & {
+    filter: sepia(20%) saturate(60%) contrast(110%) brightness(1.15);
+  }
 }
 
 </style>
