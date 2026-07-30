@@ -35,9 +35,8 @@ const { t } = useI18n();
   // — without this, the black body bled through below the footer on
   // anything taller than a short viewport.
   min-height: 100vh;
-  // NavBar is `navbar-fixed-top` — content needs this offset or it renders
-  // underneath it (observed: the title clipped behind the nav bar).
-  padding-top: var(--navbar-height, 80px);
+  // Home replaces NavBar with the floating HomeHeader (see App.vue), so
+  // unlike every other page it has no fixed masthead to offset for.
   background: $color-page-bg;
   color: $color-text;
 }
@@ -54,7 +53,7 @@ const { t } = useI18n();
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: calc(100vh - var(--navbar-height, 80px));
+  min-height: 100vh;
   padding-top: $space-5;
   text-align: center;
   color: $color-text;

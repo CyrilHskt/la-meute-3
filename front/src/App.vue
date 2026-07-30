@@ -1,11 +1,21 @@
 <script setup lang="ts">
+import { computed } from "vue";
+import { useRoute } from "vue-router";
 import NavBar from "./components/NavBar.vue";
+import HomeHeader from "./components/HomeHeader.vue";
 import VersionBadge from "./components/VersionBadge.vue";
 import ToastContainer from "./components/ToastContainer.vue";
+
+const route = useRoute();
+// Home is a hero-only page with no standard site chrome (Cyril's request):
+// it gets a minimal floating control cluster instead of the full NavBar,
+// which every other route keeps unchanged.
+const isHome = computed(() => route.name === "home");
 </script>
 
 <template>
-  <NavBar />
+  <NavBar v-if="!isHome" />
+  <HomeHeader v-else />
   <router-view />
   <footer>
     <div class="container text-center">
