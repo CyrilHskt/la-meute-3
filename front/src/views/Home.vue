@@ -59,6 +59,7 @@ const { t } = useI18n();
   display: flex;
   flex-direction: column;
   justify-content: center;
+  padding-top: $space-5 * 2;
   min-height: 100vh;
   text-align: center;
   color: $color-text;
@@ -156,7 +157,11 @@ const { t } = useI18n();
   max-width: none;
   height: clamp(260px, 55vh, 650px);
   object-fit: cover;
-  object-position: bottom;
+  // The wolves sit right-of-center in the source image — on narrow
+  // viewports `cover` crops enough width that a centered horizontal
+  // position pushed them near the edge. Shifting the focal point right
+  // keeps them in frame instead of the empty left side of the valley.
+  object-position: 75% bottom;
   opacity: 0.92;
   filter: sepia(35%) saturate(70%) contrast(95%);
 
