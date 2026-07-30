@@ -3,9 +3,6 @@ import type fr from "./fr";
 const en: typeof fr = {
   nav: {
     home: "Home",
-    about: "Our clan",
-    recruit: "Recruitment",
-    contact: "Contact us",
     governance: "Governance",
   },
   guidedTour: {
@@ -24,40 +21,6 @@ const en: typeof fr = {
     title: "La Meute 3.0",
     logoAlt: "The Meute 2.0 logo",
     tagline: "16 years of team gaming. Friends, laughs, and frags!",
-    aboutTitle: "Who are we?",
-    historyTitle: "History and introduction",
-    historyBeat1Title: "2007 — La Meute 1.0",
-    historyBeat1Text: "Founded on Call of Duty 4 by the current leader and a friend. A small clan, aiming for amateur-league level.",
-    historyBeat2Title: "2010 — La Meute 2.0",
-    historyBeat2Text: "Cyril takes sole leadership, the group refocuses and moves through Battlefield, Arma 3, then Squad.",
-    historyBeat3Title: "2015 — The association",
-    historyBeat3Text: "Bylaws filed under the French 1901 law: board, official treasury, legal existence.",
-    historyBeat4Title: "2026 — La Meute 3.0",
-    historyBeat4Text: "Admissions, exclusions, and expenses are now voted on-chain by active members.",
-    valuesTitle: "Our principles and values",
-    valueTransparentTitle: "Transparent",
-    valueTransparentText:
-      "Every vote, every expense, every decision is public and verifiable by every member, at all times.",
-    valueSelfGovernedTitle: "Self-governed",
-    valueSelfGovernedText:
-      "No leader, no admin account: the same rules apply to everyone, including the founder.",
-    valueResilientTitle: "Resilient",
-    valueResilientText:
-      "A silent member no longer blocks the group: dormancy and quorum adjust themselves.",
-    valueOpenTitle: "Open",
-    valueOpenText:
-      "Joining, proposing, voting: open to anyone who genuinely gets involved, decided collectively, never behind closed doors.",
-    recruitTitle: "Recruitment",
-    recruitIntro:
-      "We're a small, tight-knit group, not a server open to everyone: we take the time to get to know someone before bringing them in, so it lasts. If you're looking for:",
-    recruitEssentials:
-      "Good chemistry between members, transparent financial management, democratic decision-making: that's our foundation, not optional extras.",
-    recruitProbation:
-      "Every new member goes through a probation period before being fully inducted into the pack.",
-    recruitCta: "Join us on Discord",
-    discordEyebrow: "La Meute's real life happens on Discord",
-    discordTitle: "Join us on Discord",
-    discordWidgetTitle: "La Meute's Discord widget",
     daoTeaser: "Since 2026, our decisions are voted on-chain",
   },
   presentation: {

@@ -5,9 +5,6 @@
 export default {
   nav: {
     home: "Accueil",
-    about: "Notre clan",
-    recruit: "Recrutement",
-    contact: "Nous contacter",
     governance: "Gouvernance",
   },
   guidedTour: {
@@ -26,40 +23,6 @@ export default {
     title: "La Meute 3.0",
     logoAlt: "Le logo de la Meute 2.0",
     tagline: "16 ans de jeu en équipe. Des amis, des rires, du frag !",
-    aboutTitle: "Qui sommes-nous ?",
-    historyTitle: "Histoire et présentation",
-    historyBeat1Title: "2007 — La Meute 1.0",
-    historyBeat1Text: "Fondée sur Call of Duty 4 par le meneur actuel et un camarade. Un petit clan, l'ambition d'atteindre le niveau amateur.",
-    historyBeat2Title: "2010 — La Meute 2.0",
-    historyBeat2Text: "Cyril reprend seul la tête du groupe, qui se recentre et enchaîne Battlefield, Arma 3, puis Squad.",
-    historyBeat3Title: "2015 — L'association",
-    historyBeat3Text: "Dépôt des statuts loi 1901 : bureau, trésorerie officielle, existence juridique.",
-    historyBeat4Title: "2026 — La Meute 3.0",
-    historyBeat4Text: "Admissions, exclusions et dépenses sont désormais votées on-chain par les membres actifs.",
-    valuesTitle: "Nos principes et valeurs",
-    valueTransparentTitle: "Transparente",
-    valueTransparentText:
-      "Chaque vote, chaque dépense, chaque décision est public et vérifiable par tous les membres, en permanence.",
-    valueSelfGovernedTitle: "Autogouvernée",
-    valueSelfGovernedText:
-      "Aucun chef, aucun compte admin : les mêmes règles s'appliquent à tout le monde, y compris au fondateur.",
-    valueResilientTitle: "Résiliente",
-    valueResilientText:
-      "Un membre silencieux ne bloque plus le groupe : la dormance et le quorum s'ajustent d'eux-mêmes.",
-    valueOpenTitle: "Ouverte",
-    valueOpenText:
-      "Rejoindre, proposer, voter : accessible à qui s'investit vraiment, décidé collectivement, jamais à huis clos.",
-    recruitTitle: "Recrutements",
-    recruitIntro:
-      "Nous sommes un petit groupe soudé, pas un serveur ouvert à tous : on prend le temps de se connaître avant d'intégrer quelqu'un, pour que ça tienne dans la durée. Si vous cherchez :",
-    recruitEssentials:
-      "Bonne entente entre membres, gestion financière transparente, fonctionnement démocratique : c'est notre socle, pas des options.",
-    recruitProbation:
-      "Chaque nouveau membre passe par une période probatoire avant d'être pleinement intégré à la meute.",
-    recruitCta: "Rejoignez-nous sur Discord",
-    discordEyebrow: "La vraie vie de la Meute se passe sur Discord",
-    discordTitle: "Rejoignez-nous sur Discord",
-    discordWidgetTitle: "Widget Discord de La Meute",
     daoTeaser: "Depuis 2026, nos décisions se votent on-chain",
   },
   presentation: {
