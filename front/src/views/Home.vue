@@ -144,11 +144,16 @@ const { t } = useI18n();
   // phone viewport this shrank to under 100px, cropping the wolves out
   // almost entirely (observed at 375px: ~98px tall). An explicit height
   // range keeps a real, deliberate crop at every width instead.
+  // `object-fit: cover` cropped the mountain peaks/wolf head off the top
+  // on very wide viewports (the image has to scale up more than the box
+  // is tall to cover the full width). `contain` never crops — any
+  // leftover space is just the page background, which is the same color
+  // as the illustration's own transparent edges, so no visible seam.
   display: block;
   width: 100%;
   max-width: none;
   height: clamp(220px, 40vh, 520px);
-  object-fit: cover;
+  object-fit: contain;
   object-position: bottom;
   opacity: 0.92;
   filter: sepia(35%) saturate(70%) contrast(95%);
