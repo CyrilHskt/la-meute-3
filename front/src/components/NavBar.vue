@@ -55,7 +55,19 @@ onUnmounted(() => {
         <button type="button" class="navbar-toggle" @click="menuOpen = !menuOpen">
           <i class="fa fa-bars"></i>
         </button>
-        <router-link class="navbar-brand" to="/">LA MEUTE 2.0</router-link>
+        <router-link class="navbar-brand" to="/">
+          <span class="brand-seal" aria-hidden="true">
+            <svg viewBox="0 0 40 40" width="28" height="28">
+              <circle cx="20" cy="20" r="18.5" fill="none" stroke="currentColor" stroke-width="1.3" />
+              <path
+                d="M20 11c-1.2 2-3 3.4-3 6 0 2 1.2 3.4 3 5.5 1.8-2.1 3-3.5 3-5.5 0-2.6-1.8-4-3-6Z"
+                fill="currentColor"
+              />
+              <path d="M13 27c1.6-2.4 4-3.6 7-3.6s5.4 1.2 7 3.6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+            </svg>
+          </span>
+          <span class="brand-label">LA MEUTE 2.0</span>
+        </router-link>
       </div>
       <div class="collapse navbar-collapse navbar-right navbar-main-collapse" :class="{ in: menuOpen }">
         <ul class="nav navbar-nav">
@@ -75,27 +87,79 @@ onUnmounted(() => {
   </nav>
 </template>
 
-<style scoped>
+<style lang="scss" scoped>
+// Overrides theme.css's `.navbar-custom` (v2 Aries template: black bar,
+// uppercase Montserrat, transparent-over-hero/opaque-on-scroll toggle).
+// The new hero has no dark background photo to sit over, so the nav is
+// styled as a stable, always-opaque masthead instead of replicating the
+// transparent/opaque toggle — `scrolled`/`top-nav-collapse` still compute
+// and apply as before (untouched script), they just no longer produce a
+// visual difference here, which is intentional for the ledger-like look.
+.navbar-custom {
+  background: $color-page-bg;
+  border-bottom: 1px solid $color-border;
+  font-family: $font-body;
+  text-transform: none;
+  letter-spacing: normal;
+  color: $color-text;
+}
+
+.navbar-custom .navbar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  font-size: $fs-h4;
+  font-weight: 600;
+  font-family: $font-display;
+  letter-spacing: 0.02em;
+  color: $color-text;
+  text-transform: none;
+}
+
+.navbar-custom .navbar-brand .brand-seal {
+  color: $color-orange;
+  display: inline-flex;
+}
+
+.navbar-custom .navbar-toggle {
+  color: $color-text;
+}
+
+.navbar-custom .nav li a {
+  color: $color-text;
+  font-size: $fs-body;
+  font-weight: 500;
+}
+
+.navbar-custom .nav li a:hover,
+.navbar-custom .nav li a:focus,
+.navbar-custom .nav li.active a {
+  color: $color-orange;
+  background-color: transparent;
+}
+
 .lang-switch {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 15px;
+  gap: $space-1;
+  padding: $space-3;
 }
 .lang-switch button {
   background: none;
   border: none;
   padding: 0;
   font: inherit;
-  color: inherit;
+  font-family: $font-mono;
+  font-size: $fs-caption;
+  color: $color-text-dim;
   cursor: pointer;
-  opacity: 0.6;
+  opacity: 1;
 }
 .lang-switch button.active {
-  opacity: 1;
+  color: $color-orange-dark;
   font-weight: 700;
 }
 .lang-switch span {
-  opacity: 0.5;
+  color: $color-text-dim;
 }
 </style>
