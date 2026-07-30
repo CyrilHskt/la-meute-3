@@ -129,68 +129,70 @@ const emit = defineEmits<{
 .gv-prop-card {
   background: $color-card-bg;
   border: 1px solid $color-border;
-  border-radius: 4px;
-  padding: 1.6rem;
+  border-radius: $radius-md;
+  padding: $space-4;
 }
 
-// Status of a past proposal: colored left border rather than a tinted
-// background on the whole card — keeps black-on-white text readable
-// (observed: a pale red/green background degraded contrast), and stays
-// readable at a glance while scrolling a long list of cards.
+// Ledger row, not an elevated card: a colored left border marks a past
+// proposal's outcome instead of a tinted background — keeps text readable
+// (a pale red/green background degraded contrast) and reads at a glance
+// while scanning a long list of rows.
 .gv-prop-card {
-  &--approved { border-left: 4px solid $color-success; }
-  &--rejected { border-left: 4px solid $color-danger; }
-  &--quorum { border-left: 4px solid $color-text-dim; }
-  &--postponed { border-left: 4px solid $color-cub; }
+  &--approved { border-left: 3px solid $color-success; }
+  &--rejected { border-left: 3px solid $color-danger; }
+  &--quorum { border-left: 3px solid $color-quorum; }
+  &--postponed { border-left: 3px solid $color-cub; }
 }
 
 .gv-prop-statut {
   font-size: $fs-caption;
-  font-weight: 700;
+  font-weight: 600;
 
   &--approved { color: $color-success; }
   &--rejected { color: $color-danger; }
-  &--quorum { color: $color-text-dim; }
+  &--quorum { color: $color-quorum; }
   &--postponed { color: $color-cub; }
 }
 
-.gv-prop-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem; }
-.gv-prop-head-left { display: flex; align-items: baseline; gap: 0.4rem; }
-.gv-prop-type { font-size: $fs-caption; font-weight: 700; color: $color-orange-dark; text-transform: uppercase; }
-.gv-prop-deadline { font-size: $fs-caption; color: $color-text-dim; }
-.gv-prop-title { font-size: $fs-h4; color: $color-black; margin: 0 0 0.8rem; }
+.gv-prop-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: $space-2; }
+.gv-prop-head-left { display: flex; align-items: baseline; gap: $space-1; }
+.gv-prop-type { font-size: $fs-caption; font-weight: 600; color: $color-orange-dark; text-transform: uppercase; letter-spacing: 0.03em; }
+.gv-prop-deadline { font-size: $fs-caption; font-family: $font-mono; color: $color-text-dim; }
+.gv-prop-title { font-size: $fs-h4; font-weight: 600; color: $color-black; margin: 0 0 $space-2; }
 .gv-discord-warning {
   font-size: $fs-caption;
   color: $color-orange-dark;
-  margin: -0.5rem 0 0.8rem;
+  margin: -#{$space-1} 0 $space-2;
 }
 .gv-prop-author { font-size: $fs-caption; color: $color-text-dim; text-transform: none; font-weight: 400; }
 .gv-vote-line {
   display: flex;
   justify-content: center;
-  gap: 1.2rem;
+  gap: $space-4;
   flex-wrap: wrap;
   font-size: $fs-body;
-  font-weight: 700;
+  font-family: $font-mono;
+  font-weight: 500;
   color: $color-black;
-  margin-bottom: 0.3rem;
+  margin-bottom: $space-1;
 }
 .gv-vote-count {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: $space-1;
 
-  &--pour svg { color: #2e9e5b; }
+  &--pour svg { color: $color-success; }
   &--contre svg { color: $color-danger; }
-  &--ajourner svg { color: $color-text-dim; }
+  &--ajourner svg { color: $color-quorum; }
 }
 .gv-quorum-line {
   text-align: center;
   font-size: $fs-caption;
+  font-family: $font-mono;
   color: $color-text-dim;
-  margin-bottom: 1rem;
+  margin-bottom: $space-3;
 
   span[title] { cursor: help; }
 }
-.gv-prop-actions { display: flex; justify-content: center; gap: 0.6rem; flex-wrap: wrap; }
+.gv-prop-actions { display: flex; justify-content: center; gap: $space-2; flex-wrap: wrap; }
 </style>
