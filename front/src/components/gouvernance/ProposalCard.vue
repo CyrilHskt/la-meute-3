@@ -106,7 +106,7 @@ const emit = defineEmits<{
       </span>
     </div>
 
-    <div v-if="mode === 'ongoing'" class="gv-prop-row-actions">
+    <div v-if="mode === 'ongoing'" class="gv-prop-row-actions gv-prop-actions">
       <template v-if="role === 'wolf' && now !== undefined && Number(proposal.deadline) > now && !isTargetInConflict?.(proposal)">
         <button class="btn btn-primary" :disabled="txPending" @click.stop="emit('vote', proposal.id, VoteChoice.Approve)">{{ t('governance.dao.approve') }}</button>
         <button class="btn btn-outline-danger" :disabled="txPending" @click.stop="emit('vote', proposal.id, VoteChoice.Reject)">{{ t('governance.dao.reject') }}</button>
