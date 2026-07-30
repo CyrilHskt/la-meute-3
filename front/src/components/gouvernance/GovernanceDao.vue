@@ -12,6 +12,7 @@ import { friendlyContractError } from "../../composables/contractErrors";
 import { useToast } from "../../composables/useToast";
 import { useDiscordLink } from "../../composables/useDiscordLink";
 import { useLocalAutoRefresh } from "../../composables/useLocalAutoRefresh";
+import { usePagination } from "../../composables/usePagination";
 import { CONTRACT_ABI } from "../../contract";
 import AddressChip from "./AddressChip.vue";
 import ApplicationChecklist from "./ApplicationChecklist.vue";
@@ -423,27 +424,19 @@ const filteredPastProposals = computed(() => {
 });
 
 const PAGE_SIZE = 5;
-const ongoingPage = ref(1);
-const pastPage = ref(1);
+const {
+  page: ongoingPage,
+  totalPages: totalOngoingPages,
+  pageItems: ongoingProposalsPage,
+} = usePagination(allOngoingProposals, PAGE_SIZE);
+const {
+  page: pastPage,
+  totalPages: totalPastPages,
+  pageItems: pastProposalsPage,
+  reset: resetPastPage,
+} = usePagination(filteredPastProposals, PAGE_SIZE);
 
-const totalOngoingPages = computed(() => Math.max(1, Math.ceil(allOngoingProposals.value.length / PAGE_SIZE)));
-const totalPastPages = computed(() => Math.max(1, Math.ceil(filteredPastProposals.value.length / PAGE_SIZE)));
-
-// If the list shrinks (new data loaded, or filter changed) and we were on
-// a page that no longer exists, go back to the last valid page rather
-// than showing an empty page.
-watch(totalOngoingPages, (max) => { if (ongoingPage.value > max) ongoingPage.value = max; });
-watch(totalPastPages, (max) => { if (pastPage.value > max) pastPage.value = max; });
-watch(pastStatusFilters, () => { pastPage.value = 1; });
-
-const ongoingProposalsPage = computed(() => {
-  const start = (ongoingPage.value - 1) * PAGE_SIZE;
-  return allOngoingProposals.value.slice(start, start + PAGE_SIZE);
-});
-const pastProposalsPage = computed(() => {
-  const start = (pastPage.value - 1) * PAGE_SIZE;
-  return filteredPastProposals.value.slice(start, start + PAGE_SIZE);
-});
+watch(pastStatusFilters, resetPastPage);
 
 const activeTab = ref<"ongoing" | "past">("ongoing");
 
