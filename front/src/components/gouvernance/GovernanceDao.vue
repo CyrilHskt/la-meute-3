@@ -780,15 +780,15 @@ function startTour() {
 }
 
 .gv-gate {
-  padding: 1.4rem 1.6rem;
-  margin-bottom: 1.5rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  padding: $space-4;
+  margin-bottom: $space-4;
+  background: $color-card-bg;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
 }
 
 .gv-gate-text {
-  color: rgba(255, 255, 255, 0.75);
+  color: $color-text;
   font-size: $fs-body;
   margin: 0;
 }
@@ -801,11 +801,12 @@ function startTour() {
 .gv-exclusion-note {
   font-size: $fs-caption;
   color: $color-danger;
-  background: rgba(217, 83, 79, 0.08);
-  border: 1px solid rgba(217, 83, 79, 0.25);
-  border-radius: 4px;
-  padding: 0.7rem 0.9rem;
-  margin: 0 0 1rem;
+  background: $color-card-bg;
+  border: 1px solid $color-border;
+  border-left: 3px solid $color-danger;
+  border-radius: $radius-md;
+  padding: $space-2 $space-3;
+  margin: 0 0 $space-3;
   line-height: 1.5;
 }
 
@@ -836,8 +837,8 @@ function startTour() {
 }
 
 .gv-stat-tile {
-  background: $color-card-bg;
-  padding: 1.2rem 1rem;
+  background: $color-page-bg;
+  padding: $space-4 $space-3;
   text-align: center;
 
   .value {
@@ -853,7 +854,6 @@ function startTour() {
   .caption {
     font-size: $fs-caption;
     color: $color-text-dim;
-    text-transform: uppercase;
     letter-spacing: 0.04em;
   }
 }
@@ -861,14 +861,14 @@ function startTour() {
 .gv-layout {
   max-width: 1080px;
   margin: 0 auto;
-  padding: 2.4rem 1.6rem 4rem;
+  padding: $space-5 $space-3 ($space-5 * 2);
   display: grid;
   grid-template-columns: 300px 1fr;
   // Without this, the card panel stretches by default over the whole
   // height of the proposals column (default grid behavior) — a giant
   // empty rectangle as soon as its content is short (visitor/applicant).
   align-items: start;
-  gap: 1.8rem;
+  gap: $space-4;
 }
 @media (max-width: 820px) { .gv-layout { grid-template-columns: 1fr; } }
 
@@ -876,17 +876,17 @@ function startTour() {
 .gv-new-prop-panel {
   background: $color-card-bg;
   border: 1px solid $color-border;
-  border-radius: 4px;
-  padding: 1.6rem;
+  border-radius: $radius-md;
+  padding: $space-4;
 }
 
 .gv-card-title {
-  color: $color-orange;
-  font-family: $font-display;
+  color: $color-orange-dark;
+  font-family: $font-mono;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  font-size: $fs-h4;
-  margin: 0 0 1rem;
+  letter-spacing: 0.06em;
+  font-size: $fs-caption;
+  margin: 0 0 $space-3;
 }
 
 .gv-discord-link-btn {
@@ -921,31 +921,31 @@ function startTour() {
   justify-content: center;
   width: 20px;
   height: 20px;
-  border-radius: 3px;
+  border-radius: $radius-sm;
   border: none;
   background: transparent;
   color: $color-text-dim;
   cursor: pointer;
   padding: 0;
 
-  &:hover:not(:disabled) { color: $color-orange-dark; background: rgba(249, 174, 60, 0.12); }
+  &:hover:not(:disabled) { color: $color-orange-dark; background: $color-page-bg; }
   &:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
 .gv-badge-frame {
-  width: 110px;
-  height: 110px;
-  margin: 0 auto 1rem;
+  width: 96px;
+  height: 96px;
+  margin: 0 auto $space-3;
   border-radius: 50%;
-  background: #fff;
-  border: 3px solid;
+  background: $color-page-bg;
+  border: 2px solid;
   display: flex;
   align-items: center;
   justify-content: center;
 
   img {
-    width: 68px;
-    height: 68px;
+    width: 60px;
+    height: 60px;
   }
 
   &--wolf { border-color: $color-wolf; }
@@ -955,7 +955,7 @@ function startTour() {
 .gv-stat-row {
   display: flex;
   justify-content: space-between;
-  padding: 0.5rem 0;
+  padding: $space-2 0;
   border-bottom: 1px solid $color-border;
   font-size: $fs-caption;
 
@@ -966,41 +966,41 @@ function startTour() {
 .gv-reveil-btn {
   display: block;
   width: 100%;
-  margin: 0.5rem 0;
+  margin: $space-2 0;
   font-size: $fs-caption;
 }
 
 .gv-tabs {
   display: flex;
-  gap: 0.5rem;
+  gap: $space-2;
   border-bottom: 1px solid $color-border;
-  padding-bottom: 1rem;
-  margin-bottom: 1.2rem;
+  padding-bottom: $space-3;
+  margin-bottom: $space-4;
 }
 .gv-tab {
   background: transparent;
   border: 1px solid $color-border;
   color: $color-text-dim;
-  border-radius: 3px;
-  padding: 0.4rem 0.9rem;
+  border-radius: $radius-md;
+  padding: $space-1 $space-3;
+  font-family: $font-mono;
   font-size: $fs-caption;
-  text-transform: uppercase;
   cursor: pointer;
 
-  &--active { background: $color-orange; border-color: $color-orange; color: #fff; }
+  &--active { background: $color-orange-dark; border-color: $color-orange-dark; color: var(--color-rouille-contrast); }
 }
 
 .gv-statut-filters {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1.2rem;
+  gap: $space-2;
+  margin-bottom: $space-4;
 }
 .gv-statut-filters-label {
   font-size: $fs-caption;
   color: $color-text-dim;
-  margin-right: 0.2rem;
+  margin-right: $space-1;
 }
 // Same colors as the corresponding cards' border (see .gv-prop-card--*)
 // — the visual link between a chip and the cards it filters must be
@@ -1009,8 +1009,8 @@ function startTour() {
   background: transparent;
   border: 1px solid $color-border;
   color: $color-text-dim;
-  border-radius: 999px;
-  padding: 0.3rem 0.8rem;
+  border-radius: $radius-md;
+  padding: $space-1 $space-3;
   font-size: $fs-caption;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
@@ -1032,29 +1032,29 @@ function startTour() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.8rem;
+  gap: $space-2;
 }
 
-.gv-prop-list { display: flex; flex-direction: column; gap: 1rem; }
+.gv-prop-list { display: flex; flex-direction: column; gap: $space-3; }
 
 .gv-pagination {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  margin-top: 0.4rem;
+  gap: $space-3;
+  margin-top: $space-1;
 }
 .gv-page-indicator { font-size: $fs-caption; color: $color-text-dim; }
 .gv-page-btn {
   background: transparent;
   border: 1px solid $color-border;
-  border-radius: 3px;
-  padding: 0.4rem 0.9rem;
+  border-radius: $radius-md;
+  padding: $space-1 $space-3;
   font-size: $fs-caption;
   color: $color-text;
   cursor: pointer;
 
-  &:hover:not(:disabled) { border-color: $color-orange; color: $color-orange-dark; }
-  &:disabled { color: #ccc; cursor: not-allowed; }
+  &:hover:not(:disabled) { border-color: $color-orange-dark; color: $color-orange-dark; }
+  &:disabled { color: $color-text-dim; opacity: 0.5; cursor: not-allowed; }
 }
 </style>
