@@ -130,6 +130,11 @@ const { t } = useI18n();
 }
 
 .intro-nav__sep {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6em;
+  line-height: 1;
   color: $color-text-dim;
 }
 
