@@ -106,6 +106,10 @@ export default {
     confirm: "Confirmer",
     inProgress: "En cours…",
   },
+  theme: {
+    switchToDark: "Passer en mode sombre",
+    switchToLight: "Passer en mode clair",
+  },
   addressChip: {
     copy: "Copier l'adresse",
     copied: "Copié !",

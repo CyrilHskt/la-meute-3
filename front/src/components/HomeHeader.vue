@@ -1,15 +1,12 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import { useLocale } from "../composables/useLocale";
+import { useTheme } from "../composables/useTheme";
+import ThemeToggleIcon from "./ThemeToggleIcon.vue";
 
+const { t } = useI18n();
 const { locale, setLocale } = useLocale();
-
-// Placeholder for future dark-mode work: a single light theme was
-// deliberately shipped (see src/styles/_tokens.scss header note), this
-// button just reserves the UI slot for a real toggle later. Intentionally
-// non-functional — not a forgotten TODO.
-function onDarkModeTogglePlaceholderClick() {
-  // no-op: dark mode isn't implemented yet.
-}
+const { theme, toggleTheme } = useTheme();
 </script>
 
 <template>
@@ -21,21 +18,12 @@ function onDarkModeTogglePlaceholderClick() {
     </div>
     <button
       type="button"
-      class="home-header__dark-mode-placeholder"
-      aria-label="Mode sombre (bientôt disponible)"
-      aria-disabled="true"
-      title="Mode sombre (bientôt disponible)"
-      @click="onDarkModeTogglePlaceholderClick"
+      class="home-header__theme-toggle"
+      :aria-label="theme === 'light' ? t('theme.switchToDark') : t('theme.switchToLight')"
+      :title="theme === 'light' ? t('theme.switchToDark') : t('theme.switchToLight')"
+      @click="toggleTheme"
     >
-      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-        <path
-          d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.4"
-          stroke-linejoin="round"
-        />
-      </svg>
+      <ThemeToggleIcon :theme="theme" />
     </button>
   </div>
 </template>
@@ -82,7 +70,7 @@ function onDarkModeTogglePlaceholderClick() {
   color: $color-text-dim;
 }
 
-.home-header__dark-mode-placeholder {
+.home-header__theme-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -90,7 +78,11 @@ function onDarkModeTogglePlaceholderClick() {
   border: none;
   padding: 0;
   color: $color-text-dim;
-  cursor: not-allowed;
-  opacity: 0.5;
+  cursor: pointer;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: $color-orange-dark;
+  }
 }
 </style>

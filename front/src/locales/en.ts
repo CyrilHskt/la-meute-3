@@ -104,6 +104,10 @@ const en: typeof fr = {
     confirm: "Confirm",
     inProgress: "In progress…",
   },
+  theme: {
+    switchToDark: "Switch to dark mode",
+    switchToLight: "Switch to light mode",
+  },
   addressChip: {
     copy: "Copy address",
     copied: "Copied!",

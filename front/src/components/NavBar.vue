@@ -3,9 +3,12 @@ import { ref, onMounted, onUnmounted, computed, nextTick, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useLocale } from "../composables/useLocale";
+import { useTheme } from "../composables/useTheme";
+import ThemeToggleIcon from "./ThemeToggleIcon.vue";
 
 const { t } = useI18n();
 const { locale, setLocale } = useLocale();
+const { theme, toggleTheme } = useTheme();
 
 // Replicates the v2 behavior: the nav is transparent at the top of the
 // homepage (above the hero), and becomes opaque (white background) after
@@ -77,6 +80,17 @@ onUnmounted(() => {
             <button type="button" :class="{ active: locale === 'fr' }" @click="setLocale('fr')">FR</button>
             <span aria-hidden="true">/</span>
             <button type="button" :class="{ active: locale === 'en' }" @click="setLocale('en')">EN</button>
+          </li>
+          <li>
+            <button
+              type="button"
+              class="theme-toggle"
+              :aria-label="theme === 'light' ? t('theme.switchToDark') : t('theme.switchToLight')"
+              :title="theme === 'light' ? t('theme.switchToDark') : t('theme.switchToLight')"
+              @click="toggleTheme"
+            >
+              <ThemeToggleIcon :theme="theme" />
+            </button>
           </li>
         </ul>
       </div>
@@ -158,5 +172,21 @@ onUnmounted(() => {
 }
 .lang-switch span {
   color: $color-text-dim;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: $space-3;
+  color: $color-text-dim;
+  cursor: pointer;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: $color-orange-dark;
+  }
 }
 </style>
