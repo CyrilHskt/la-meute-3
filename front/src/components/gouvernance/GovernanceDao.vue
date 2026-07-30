@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useLocale } from "../../composables/useLocale";
 import { useGuidedTour } from "../../composables/useGuidedTour";
-import { decodeEventLog, formatEther, parseEther, type Address, type Log } from "viem";
+import { formatEther, parseEther, type Address } from "viem";
 import { driver } from "driver.js";
 import { useWallet } from "../../composables/useWallet";
 import { useMeute, ProposalType, type Proposal } from "../../composables/useMeute";
@@ -13,7 +13,7 @@ import { useToast } from "../../composables/useToast";
 import { useDiscordLink } from "../../composables/useDiscordLink";
 import { useLocalAutoRefresh } from "../../composables/useLocalAutoRefresh";
 import { usePagination } from "../../composables/usePagination";
-import { CONTRACT_ABI } from "../../contract";
+import { useProposalTx } from "../../composables/useProposalTx";
 import AddressChip from "./AddressChip.vue";
 import ProposalCard from "./ProposalCard.vue";
 import ApplicationChecklist from "./ApplicationChecklist.vue";
@@ -56,9 +56,6 @@ async function onUnlinkDiscord() {
     unlinkPending.value = false;
   }
 }
-
-const txError = ref<string | null>(null);
-const txPending = ref(false);
 
 const role = ref<"visitor" | "cub" | "wolf">("visitor");
 const card = ref<{ rank: number; lastActivity: number; postponements: number } | null>(null);
@@ -225,6 +222,20 @@ async function refreshMembership() {
   await loadCardImage();
 }
 
+const { txError, txPending, runTx } = useProposalTx({
+  publicClient,
+  proposals,
+  refreshProposal,
+  loadAll,
+  refreshMembership,
+  loadBalance,
+  loadMyDonations,
+  address,
+  showToast,
+  now,
+  t,
+});
+
 async function onConnect() {
   txError.value = null;
   try {
@@ -232,88 +243,6 @@ async function onConnect() {
     await Promise.all([refreshMembership(), loadBalance()]);
   } catch (e) {
     txError.value = friendlyContractError(e, t);
-  }
-}
-
-// Simulates the call before sending it: this recovers the real Solidity
-// revert reason (e.g. AlreadyVoted) for a clear message, instead of
-// letting gas estimation fail silently and surface a generic, unrelated
-// RPC message (observed locally: "gas limit exceeds cap"). A transaction
-// that *creates* a proposal (application, confirmation, exclusion,
-// expense) only gets its id once mined — impossible to know it ahead of
-// time like for voting/executing. It's already there, though, in the
-// receipt's events: we decode the receipt looking for a ProposalOpened to
-// extract the id.
-function extractCreatedProposal(logs: readonly Log[]): { id: bigint; author: Address } | undefined {
-  for (const log of logs) {
-    try {
-      const decoded = decodeEventLog({ abi: CONTRACT_ABI, data: log.data, topics: log.topics });
-      if (decoded.eventName === "ProposalOpened") {
-        const args = decoded.args as { proposalId: bigint; author: Address };
-        return { id: args.proposalId, author: args.author };
-      }
-    } catch {
-      // Log from another event (e.g. Transfer from the card mint on an
-      // admission) — not the one we're looking for, keep going.
-    }
-  }
-  return undefined;
-}
-
-// Reflects the action onto the *shared* snapshot (Netlify Blobs) right
-// away, so other members see it without waiting for the job's next pass
-// (up to 5 min). Never blocks the local display nor fails the transaction
-// if this call fails — the fallback job will catch up eventually anyway.
-// See netlify/functions/dao-sync.mts.
-async function patchProposalRemote(id: bigint) {
-  const p = proposals.value.find((existing) => existing.id === id);
-  if (!p) return;
-  try {
-    await fetch("/.netlify/functions/dao-sync?key=patch-proposal", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ proposalId: id.toString(), author: p.author }),
-    });
-  } catch {
-    // Best-effort — see comment above.
-  }
-}
-
-async function runTx(
-  simulateFn: () => Promise<unknown>,
-  writeFn: () => Promise<`0x${string}`>,
-  // Message shown as a toast once the transaction is confirmed — each
-  // caller specifies its own to stay specific to the action.
-  successMessage: string,
-  // Known ahead of time for voting/executing (the id already exists) —
-  // rereads this specific proposal live instead of reloading the whole
-  // snapshot (see useMeute.ts). Without an id, the transaction just
-  // *created* a proposal: its id and author are extracted from the
-  // receipt, see extractCreatedProposal — the author only exists in the
-  // event, never in the on-chain struct reread by refreshProposal.
-  knownProposalId?: bigint,
-) {
-  txError.value = null;
-  txPending.value = true;
-  try {
-    await simulateFn();
-    const hash = await writeFn();
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
-    const created = knownProposalId === undefined ? extractCreatedProposal(receipt.logs) : undefined;
-    const affectedId = knownProposalId ?? created?.id;
-    await Promise.all([
-      affectedId !== undefined ? refreshProposal(affectedId, created?.author) : loadAll(),
-      refreshMembership(),
-      loadBalance(),
-      loadMyDonations(address.value),
-    ]);
-    if (affectedId !== undefined) await patchProposalRemote(affectedId);
-    now.value = Number((await publicClient.getBlock()).timestamp);
-    showToast(successMessage);
-  } catch (e) {
-    txError.value = friendlyContractError(e, t);
-  } finally {
-    txPending.value = false;
   }
 }
 
