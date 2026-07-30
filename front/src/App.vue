@@ -24,6 +24,17 @@ import ToastContainer from "./components/ToastContainer.vue";
 // not App.vue's own markup. See src/styles/_buttons.scss for rationale.
 @use "./styles/buttons";
 
+// The legacy Aries template (public/css/theme.css) still sets
+// `body { background-color: #000 }`. Every page used to be tall enough
+// (or had its own explicit background) to fully cover it, but the
+// hero-only home page and some shorter governance tabs are now shorter
+// than the viewport on common screen sizes, exposing the black body
+// underneath. Fix it once, globally, instead of patching every view's
+// wrapper individually.
+body {
+  background: $color-page-bg;
+}
+
 // Overrides the legacy Aries template's `body { background: #000; color: #fff }`
 // (public/css/theme.css) for the footer specifically: everything else on the
 // page now uses the carnet-clair palette, but nothing had given the footer
