@@ -115,3 +115,82 @@ const emit = defineEmits<{
     </div>
   </article>
 </template>
+
+<style lang="scss" scoped>
+.mono {
+  font-family: $font-mono;
+}
+
+.gv-card-note {
+  color: $color-text-dim;
+  font-size: $fs-caption;
+}
+
+.gv-prop-card {
+  background: $color-card-bg;
+  border: 1px solid $color-border;
+  border-radius: 4px;
+  padding: 1.6rem;
+}
+
+// Status of a past proposal: colored left border rather than a tinted
+// background on the whole card — keeps black-on-white text readable
+// (observed: a pale red/green background degraded contrast), and stays
+// readable at a glance while scrolling a long list of cards.
+.gv-prop-card {
+  &--approved { border-left: 4px solid $color-success; }
+  &--rejected { border-left: 4px solid $color-danger; }
+  &--quorum { border-left: 4px solid $color-text-dim; }
+  &--postponed { border-left: 4px solid $color-cub; }
+}
+
+.gv-prop-statut {
+  font-size: $fs-caption;
+  font-weight: 700;
+
+  &--approved { color: $color-success; }
+  &--rejected { color: $color-danger; }
+  &--quorum { color: $color-text-dim; }
+  &--postponed { color: $color-cub; }
+}
+
+.gv-prop-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem; }
+.gv-prop-head-left { display: flex; align-items: baseline; gap: 0.4rem; }
+.gv-prop-type { font-size: $fs-caption; font-weight: 700; color: $color-orange-dark; text-transform: uppercase; }
+.gv-prop-deadline { font-size: $fs-caption; color: $color-text-dim; }
+.gv-prop-title { font-size: $fs-h4; color: $color-black; margin: 0 0 0.8rem; }
+.gv-discord-warning {
+  font-size: $fs-caption;
+  color: $color-orange-dark;
+  margin: -0.5rem 0 0.8rem;
+}
+.gv-prop-author { font-size: $fs-caption; color: $color-text-dim; text-transform: none; font-weight: 400; }
+.gv-vote-line {
+  display: flex;
+  justify-content: center;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+  font-size: $fs-body;
+  font-weight: 700;
+  color: $color-black;
+  margin-bottom: 0.3rem;
+}
+.gv-vote-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+
+  &--pour svg { color: #2e9e5b; }
+  &--contre svg { color: $color-danger; }
+  &--ajourner svg { color: $color-text-dim; }
+}
+.gv-quorum-line {
+  text-align: center;
+  font-size: $fs-caption;
+  color: $color-text-dim;
+  margin-bottom: 1rem;
+
+  span[title] { cursor: help; }
+}
+.gv-prop-actions { display: flex; justify-content: center; gap: 0.6rem; flex-wrap: wrap; }
+</style>
