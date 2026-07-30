@@ -19,7 +19,6 @@ const en: typeof fr = {
   },
   home: {
     title: "La Meute 3.0",
-    logoAlt: "The Meute 2.0 logo",
     tagline: "16 years of team gaming. Friends, laughs, and frags!",
     daoTeaser: "Since 2026, our decisions are voted on-chain",
   },

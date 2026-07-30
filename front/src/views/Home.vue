@@ -8,17 +8,16 @@ const { t } = useI18n();
   <div id="page-top" class="carnet">
     <!-- Intro -->
     <header class="intro">
+      <div class="intro-text-block">
+        <h1 class="brand-heading">{{ t('home.title') }}</h1>
+        <p class="intro-text">{{ t('home.tagline') }}</p>
+        <router-link to="/gouvernance?tab=presentation" class="intro-cta intro-cta--dao">{{ t('home.daoTeaser') }} &rarr;</router-link>
+      </div>
       <img
         src="/img/illustrations/hero-wolf-pack-panorama.png"
         alt="Une meute de loups veillant sur un panorama de montagnes enneigées et de forêts"
         class="intro-illustration"
       />
-      <h1 class="brand-heading">
-        {{ t('home.title') }}
-        <img src="/img/logo.png" :alt="t('home.logoAlt')" class="brand-heading-logo" />
-      </h1>
-      <p class="intro-text">{{ t('home.tagline') }}</p>
-      <router-link to="/gouvernance?tab=presentation" class="intro-cta intro-cta--dao">{{ t('home.daoTeaser') }} &rarr;</router-link>
     </header>
   </div>
 </template>
@@ -36,6 +35,9 @@ const { t } = useI18n();
   // — without this, the black body bled through below the footer on
   // anything taller than a short viewport.
   min-height: 100vh;
+  // NavBar is `navbar-fixed-top` — content needs this offset or it renders
+  // underneath it (observed: the title clipped behind the nav bar).
+  padding-top: var(--navbar-height, 80px);
   background: $color-page-bg;
   color: $color-text;
 }
@@ -45,16 +47,22 @@ const { t } = useI18n();
   // Bootstrap `.col-md-8.col-md-offset-2` column (leftover from the old
   // template — left the rest of a wide viewport as dead whitespace, and
   // the hero read as a small floating block instead of "a grand hommage"
-  // (Cyril's words) filling the screen.
+  // (Cyril's words) filling the screen. The illustration is pinned to the
+  // bottom edge (the pack "walking" along the foot of the screen) with the
+  // title block above it — the rest of the page (footer) stays reachable
+  // by scrolling further down.
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   min-height: calc(100vh - var(--navbar-height, 80px));
-  padding: $space-5 $space-4;
+  padding-top: $space-5;
   text-align: center;
   color: $color-text;
   background: $color-page-bg;
+}
+
+.intro-text-block {
+  padding: 0 $space-4;
 }
 
 .intro .brand-heading {
@@ -63,14 +71,6 @@ const { t } = useI18n();
   font-weight: 700;
   color: $color-black;
   margin: 0 0 $space-3;
-  display: inline-flex;
-  align-items: center;
-  gap: $space-3;
-}
-
-.brand-heading-logo {
-  height: 1.1em;
-  width: auto;
 }
 
 .intro .intro-text {
@@ -107,10 +107,12 @@ const { t } = useI18n();
 
 .intro-illustration {
   display: block;
-  max-width: 1600px;
-  width: min(85vw, 1600px);
+  width: 100%;
+  max-width: none;
   height: auto;
-  margin: 0 auto $space-4;
+  max-height: 55vh;
+  object-fit: cover;
+  object-position: bottom;
   opacity: 0.92;
   filter: sepia(35%) saturate(70%) contrast(95%);
 }

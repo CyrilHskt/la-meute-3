@@ -21,7 +21,6 @@ export default {
   },
   home: {
     title: "La Meute 3.0",
-    logoAlt: "Le logo de la Meute 2.0",
     tagline: "16 ans de jeu en équipe. Des amis, des rires, du frag !",
     daoTeaser: "Depuis 2026, nos décisions se votent on-chain",
   },
