@@ -15,8 +15,8 @@ const { t } = useI18n();
         <p class="intro-motto-source">{{ t('home.mottoSource') }}</p>
         <nav class="intro-nav" aria-label="Navigation principale">
           <router-link to="/gouvernance?tab=presentation" class="intro-nav__link">{{ t('nav.clan') }}</router-link>
-          <span class="intro-nav__sep" aria-hidden="true">&middot;</span>
-          <router-link to="/gouvernance?tab=dao" class="intro-nav__link">{{ t('nav.governance') }}</router-link>
+          <span class="intro-nav__sep" aria-hidden="true">|</span>
+          <router-link to="/gouvernance?tab=dao" class="intro-nav__link">{{ t('home.navGovernance') }}</router-link>
         </nav>
       </div>
       <img
