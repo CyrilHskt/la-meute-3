@@ -239,6 +239,7 @@ export default {
       reasonPlaceholder: "Motif",
       open: "Ouvrir",
       proposalsTitle: "Propositions",
+      detailTitle: "Détail de la proposition",
       ongoingTab: "En cours ({count})",
       pastTab: "Passées ({count})",
       filterLabel: "Filtrer :",

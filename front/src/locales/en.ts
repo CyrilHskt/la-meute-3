@@ -237,6 +237,7 @@ const en: typeof fr = {
       reasonPlaceholder: "Reason",
       open: "Open",
       proposalsTitle: "Proposals",
+      detailTitle: "Proposal detail",
       ongoingTab: "Ongoing ({count})",
       pastTab: "Past ({count})",
       filterLabel: "Filter:",
