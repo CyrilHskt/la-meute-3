@@ -94,16 +94,18 @@ watch(
    sync. */
 .gv-dashboard {
   padding-top: var(--navbar-height, 80px);
+  background: $color-page-bg;
+  min-height: 100vh;
 }
 
 .gv-page-tabs {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 1.6rem;
-  background: #111;
-  padding: 0 1.6rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: $space-4;
+  background: $color-page-bg;
+  padding: 0 $space-4;
+  border-bottom: 1px solid $color-border;
   position: sticky;
   top: var(--navbar-height, 80px);
   z-index: 10;
@@ -129,21 +131,21 @@ watch(
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  color: rgba(255, 255, 255, 0.55);
+  color: $color-text-dim;
   font-family: $font-display;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
   font-size: $fs-body;
-  padding: 1.1rem 0.2rem;
+  padding: $space-4 0.2rem $space-3;
   cursor: pointer;
 
-  &:hover { color: #fff; }
+  &:hover { color: $color-text; }
 }
 
 .gv-page-tab--active {
-  color: #fff;
-  border-bottom-color: $color-orange;
+  color: $color-black;
+  border-bottom-color: $color-orange-dark;
 }
 
 .gv-tour-trigger {
@@ -152,20 +154,20 @@ watch(
   justify-self: end;
   display: inline-flex;
   align-items: center;
-  background: $color-orange;
-  border: none;
-  color: $color-black;
-  border-radius: 999px;
-  padding: 0.5rem 1.1rem;
-  font-family: $font-display;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
+  background: transparent;
+  border: 1px solid $color-border;
+  color: $color-text;
+  border-radius: $radius-md;
+  padding: $space-2 $space-3;
+  font-family: $font-body;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
   font-size: $fs-caption;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: border-color 0.15s ease, color 0.15s ease;
 
-  &:hover { background: #ffc46b; }
+  &:hover { border-color: $color-orange-dark; color: $color-orange-dark; }
 }
 
 @media (max-width: 640px) {
@@ -181,15 +183,15 @@ watch(
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #fff;
-  border: 1.5px solid $color-black;
+  background: $color-orange-dark;
+  border: 1.5px solid $color-page-bg;
 
   &::before {
     content: "";
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(195, 91, 43, 0.55);
     animation: gv-tour-pulse-ring 1.8s ease-out infinite;
   }
 }
