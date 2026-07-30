@@ -8,25 +8,17 @@ const { t } = useI18n();
   <div id="page-top" class="carnet">
     <!-- Intro -->
     <header class="intro">
-      <div class="intro-body">
-        <div class="container">
-          <div class="row">
-            <div class="col-md-8 col-md-offset-2">
-              <img
-                src="/img/illustrations/hero-wolf-pack-panorama.png"
-                alt="Une meute de loups veillant sur un panorama de montagnes enneigées et de forêts"
-                class="intro-illustration"
-              />
-              <h1 class="brand-heading">
-                {{ t('home.title') }}
-                <img src="/img/logo.png" :alt="t('home.logoAlt')" class="brand-heading-logo" />
-              </h1>
-              <p class="intro-text">{{ t('home.tagline') }}</p>
-              <router-link to="/gouvernance?tab=presentation" class="intro-cta intro-cta--dao">{{ t('home.daoTeaser') }} &rarr;</router-link>
-            </div>
-          </div>
-        </div>
-      </div>
+      <img
+        src="/img/illustrations/hero-wolf-pack-panorama.png"
+        alt="Une meute de loups veillant sur un panorama de montagnes enneigées et de forêts"
+        class="intro-illustration"
+      />
+      <h1 class="brand-heading">
+        {{ t('home.title') }}
+        <img src="/img/logo.png" :alt="t('home.logoAlt')" class="brand-heading-logo" />
+      </h1>
+      <p class="intro-text">{{ t('home.tagline') }}</p>
+      <router-link to="/gouvernance?tab=presentation" class="intro-cta intro-cta--dao">{{ t('home.daoTeaser') }} &rarr;</router-link>
     </header>
   </div>
 </template>
@@ -49,12 +41,20 @@ const { t } = useI18n();
 }
 
 .intro {
-  display: block;
-  padding: ($space-5 * 2) 0 ($space-5 * 2);
+  // Fills the screen below the navbar rather than sitting in a narrow
+  // Bootstrap `.col-md-8.col-md-offset-2` column (leftover from the old
+  // template — left the rest of a wide viewport as dead whitespace, and
+  // the hero read as a small floating block instead of "a grand hommage"
+  // (Cyril's words) filling the screen.
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - var(--navbar-height, 80px));
+  padding: $space-5 $space-4;
   text-align: center;
   color: $color-text;
   background: $color-page-bg;
-  background-image: none;
 }
 
 .intro .brand-heading {
@@ -107,8 +107,8 @@ const { t } = useI18n();
 
 .intro-illustration {
   display: block;
-  max-width: 1100px;
-  width: 95%;
+  max-width: 1600px;
+  width: min(85vw, 1600px);
   height: auto;
   margin: 0 auto $space-4;
   opacity: 0.92;
