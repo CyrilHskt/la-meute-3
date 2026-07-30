@@ -28,11 +28,15 @@ export default {
     tagline: "16 ans de jeu en équipe. Des amis, des rires, du frag !",
     aboutTitle: "Qui sommes-nous ?",
     historyTitle: "Histoire et présentation",
-    historyText:
-      "Créée en décembre 2007 de l'envie du meneur actuel et avec l'aide d'un camarade de jeux. La Meute dans sa première mouture évoluait sur Call of Duty 4. Son ambition était alors d'atteindre les sommets des ligues pour amateurs. Elle recrutait en ce sens et la formule fonctionnait.<br /><br />Petit à petit, les attentes des uns et des autres ont évolué jusqu'à ce que la Meute se scinde en deux groupes. Les hardcores gamers fidèles à l'idée originelle et les casuals gamers qui préféraient jouer plus fun afin d'éviter les prises de tête d'après-match.<br /><br />La Meute mua alors pour passer en version 2.0 en août 2010. Quelles nouveautés ? Une partie des loups a quitté la tanière pour aller fonder une équipe qui correspondait plus à leurs attentes. La deuxième partie, le noyau dur, a persévéré et La Meute a retravaillé ses bases. Elle a successivement évolué sur BF : BC2, BF3, GW2, Arma 3 et a désormais posé ses valises sur Squad !<br /><br />Quatre ans après sa création, La Meute est devenue une association officielle au sens de l'article 5 de la loi de juillet 1901. Elle se dote d'un bureau solide composé de membres responsables, d'une trésorerie claire, officielle et juste et d'une existence juridique. Ce statut lui confère une stabilité accrue et pérenne ! 16 ans plus tard, La Meute 2.0 est toujours là !",
+    historyBeat1Title: "2007 — La Meute 1.0",
+    historyBeat1Text: "Fondée sur Call of Duty 4 par le meneur actuel et un camarade. Un petit clan, l'ambition d'atteindre le niveau amateur.",
+    historyBeat2Title: "2010 — La Meute 2.0",
+    historyBeat2Text: "Cyril reprend seul la tête du groupe, qui se recentre et enchaîne Battlefield, Arma 3, puis Squad.",
+    historyBeat3Title: "2015 — L'association",
+    historyBeat3Text: "Dépôt des statuts loi 1901 : bureau, trésorerie officielle, existence juridique.",
+    historyBeat4Title: "2026 — La Meute 3.0",
+    historyBeat4Text: "Admissions, exclusions et dépenses sont désormais votées on-chain par les membres actifs.",
     valuesTitle: "Nos principes et valeurs",
-    valuesText:
-      "Notre tag : =CL= pour <em>Canis lupus</em> qui signifie <b>loup</b> en latin. Chaque loup fait donc partie de cette Meute. Notre univers virtuel est pour nous une tanière. Le discord nous permet de hurler à la lune et de nous sentir le... enfin, nous communiquons, quoi ! :)<br /><br />La devise se résume ainsi : <b>Les plus forts ne sont pas ceux qui ne tombent jamais, mais ceux qui se relèvent toujours</b>. Notre adage est le suivant : <b>A vaincre sans périls, on triomphe sans gloire</b>.<br /><br />Comme dans toute Meute digne de ce nom, il existe une hiérarchie. Le meneur, Mantorn, emmène ses troupes, il est le loup Alpha. Cymmus est son bras droit (le loup Beta), il s'occupe également de la trésorerie. Bouldure s'occupe du secrétariat. Les loups ont tous des droits, mais aussi des devoirs envers leur Meute.",
     valueTransparentTitle: "Transparente",
     valueTransparentText:
       "Chaque vote, chaque dépense, chaque décision est public et vérifiable par tous les membres, en permanence.",
@@ -45,33 +49,30 @@ export default {
     valueOpenTitle: "Ouverte",
     valueOpenText:
       "Rejoindre, proposer, voter : accessible à qui s'investit vraiment, décidé collectivement, jamais à huis clos.",
-    gamesTitle: "A quoi jouons-nous ?",
-    gamesText:
-      "Actuellement, nous évoluons sérieusement sur <b>Squad</b> où nous construisons un jeu cohérent, sérieux et utile. Mais nous surfons aussi sur plein d'autres jeux (nous attendons Starcitizen, par exemple).",
-    squadLogoAlt: "logo squad",
-    starcitizenLogoAlt: "logo starcitizen",
     recruitTitle: "Recrutements",
     recruitIntro:
-      "Notre principale force réside dans chacun de nos loups. Nous <b>sélectionnons minutieusement</b> chaque recrue pour s'assurer qu'elle collera parfaitement avec l'esprit du clan. Pour son bien-être ainsi que pour celui du clan.<br /><br />Tout d'abord, nous recherchons des personnes matures âgées au moins de 18 ans (et même de 20-25 ans si possible). Et ces personnes doivent être sûres de ce qu'elles cherchent, car nous sommes sûrs de ce que nous leur proposons. A savoir :",
+      "Nous sommes un petit groupe soudé, pas un serveur ouvert à tous : on prend le temps de se connaître avant d'intégrer quelqu'un, pour que ça tienne dans la durée. Si vous cherchez :",
     recruitListLeft:
       "<li>un groupe d'amis qui jouent dans la bonne ambiance ;</li><li>des camarades intelligents qui souhaitent faire du teamplay avant de faire du frag ;</li><li>un groupe uni dont chaque membre s'investit à sa façon pour le bien du groupe ;</li><li>de nombreux projets ;</li><li>une structure d'une exceptionnelle qualité ;</li><li>un staff à l'écoute ;</li><li>un suivi complet de l'actualité ;</li><li>une stabilité et un cadre sain ;</li>",
     recruitListRight:
-      "<li>une gestion financière claire et stricte (assurée par le compte de l'association et le trésorier) ;</li><li>une justice et une égalité entre les membres ainsi qu'un fonctionnement démocratique ;</li><li>aucun cheat, bien évidemment ;</li><li>des relations amicales et étroites avec les autres équipes ;</li><li>un soutien tout particulier pour les initiatives ;</li><li>des participations aux évènements réels (LAN, fêtes, sorties ...) ;</li><li>un soutient sans faille quelque soit votre niveau de jeu ;</li><li>et de nombreux autres aspects qui ne peuvent être décrits en une phrase !</li>",
+      "<li>une gestion financière claire et stricte (assurée par le compte de l'association et le trésorier) ;</li><li>une justice et une égalité entre les membres ainsi qu'un fonctionnement démocratique ;</li><li>aucun cheat, bien évidemment ;</li><li>des relations amicales et étroites avec les autres équipes ;</li><li>un soutien tout particulier pour les initiatives ;</li><li>des participations aux évènements réels (LAN, fêtes, sorties ...) ;</li><li>un soutient sans faille quelque soit votre niveau de jeu ;</li>",
     recruitOutro:
       "<br />A votre arrivée dans la tanière, si vous êtes candidat, voici ce qui se passera : Vous allez tout d'abord présenter votre candidature. Vous serez rapidement intégré au groupe des <b>candidats</b> qui n'a pas accès à énormément de choses sur Discord, mais vous aurez rapidement tous les accès pour nous rejoindre en vocal et en jeu. Une fois le contact établi avec les loups de la Meute et un premier vote en interne effectué en fonction de cet échange, vous serez intégré (ou non) au groupe des <b>louveteaux</b> en quelques semaines. Ce groupe dispose d'un accès conséquent, presque intégral. Le louveteau est considéré comme un loup normal quant à son droit de participer aux soirées, à donner son avis, à proposer des idées, etc... Au bout d'un ou deux mois, quand l'ensemble de la Meute aura pu se faire un avis précis sur son comportement, un nouveau vote sera lancé en interne et il sera finalement intégré officiellement dans la meute avec une petite cérémonie (préparée spécialement en son honneur et unique) et une communication officielle.<br /><br />Si vous pensez vous être reconnu dans la description de notre clan, que vous avez envie de jouer au sein d'un groupe, vous êtes surement fait pour La Meute ! <a href=\"https://discord.gg/Wy5rScG\"><b><u>Rejoignez-nous !</u></b></a>",
+    discordEyebrow: "La vraie vie de la Meute se passe sur Discord",
     discordTitle: "Rejoignez-nous sur Discord",
     discordWidgetTitle: "Widget Discord de La Meute",
+    daoTeaser: "Depuis 2026, nos décisions se votent on-chain",
   },
   presentation: {
     eyebrow: "Qui gouverne La Meute ?",
     sectionTitle: "Une association, augmentée par une DAO",
-    intro: "La Meute est une association loi 1901 depuis 2019. Depuis 2026, ses décisions internes — admission, exclusion, dépenses — sont votées on-chain par ses membres actifs. L'association reste l'entité légale ; la DAO en est l'outil de délibération.",
+    intro: "La Meute est une association loi 1901 depuis 2015. Depuis 2026, ses décisions internes — admission, exclusion, dépenses — sont votées on-chain par ses membres actifs. L'association reste l'entité légale ; la DAO en est l'outil de délibération.",
     timelineStartVersion: "V1 — Le clan",
     timelineStartTitle: "La Meute 1.0",
-    timelineStartText: "Création informelle en 2016 : un groupe de joueurs, sans structure ni règles écrites.",
+    timelineStartText: "Création informelle en 2007 : un groupe de joueurs, sans structure ni règles écrites.",
     timelineAssocVersion: "V2 — L'association",
     timelineAssocTitle: "La Meute 2.0",
-    timelineAssocText: "Dépôt des statuts en 2019 : passage en association loi 1901, bureau élu, existence légale.",
+    timelineAssocText: "Dépôt des statuts en 2015 : passage en association loi 1901, bureau élu, existence légale.",
     timelineDaoVersion: "V3 — La DAO",
     timelineDaoTitle: "La Meute 3.0",
     timelineDaoText: "Les décisions internes de l'association sont désormais votées on-chain par ses membres actifs.",
@@ -327,6 +328,11 @@ export default {
     daoSnapshotLoadFailed: "Impossible de charger l'instantané DAO (HTTP {status})",
   },
   association: {
+    identityTitle: "Le tag et la devise",
+    identityText:
+      "Notre tag : =CL= pour <em>Canis lupus</em>, « loup » en latin. Chaque loup fait partie de cette Meute.<br /><br />Notre devise : <b>Les plus forts ne sont pas ceux qui ne tombent jamais, mais ceux qui se relèvent toujours</b>. Notre adage : <b>A vaincre sans périls, on triomphe sans gloire</b>.",
+    boardHierarchyNote:
+      "Le meneur, Mantorn, est le loup Alpha. Cymmus, son bras droit (loup Beta), s'occupe de la trésorerie. Bouldure s'occupe du secrétariat.",
     legalInfoTitle: "Informations légales",
     documentsTitle: "Documents",
     boardTitle: "Bureau",

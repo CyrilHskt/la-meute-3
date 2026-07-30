@@ -60,6 +60,12 @@ const legal = computed(() => [
             <div class="gv-board-rank">{{ member.rank }}</div>
           </div>
         </div>
+        <p class="gv-board-hierarchy-note">{{ t('association.boardHierarchyNote') }}</p>
+      </div>
+
+      <div class="gv-info-card gv-info-card--wide">
+        <h3 class="gv-card-title">{{ t('association.identityTitle') }}</h3>
+        <p class="gv-identity-text" v-html="t('association.identityText')"></p>
       </div>
     </div>
   </section>
@@ -146,4 +152,18 @@ const legal = computed(() => [
 }
 .gv-board-name { font-weight: 600; color: $color-black; font-size: $fs-h4; font-family: $font-display; }
 .gv-board-rank { font-size: $fs-caption; color: $color-text-dim; }
+.gv-board-hierarchy-note {
+  margin: $space-3 0 0;
+  padding-top: $space-3;
+  border-top: 1px solid $color-border;
+  font-size: $fs-caption;
+  color: $color-text-dim;
+  text-align: center;
+}
+.gv-identity-text {
+  font-size: $fs-body;
+  line-height: 20px;
+  color: $color-text;
+  margin: 0;
+}
 </style>

@@ -26,11 +26,15 @@ const en: typeof fr = {
     tagline: "16 years of team gaming. Friends, laughs, and frags!",
     aboutTitle: "Who are we?",
     historyTitle: "History and introduction",
-    historyText:
-      "Founded in December 2007 out of the current leader's drive, with a gaming buddy's help. In its first form, La Meute played on Call of Duty 4, aiming to reach the top of amateur leagues. It recruited accordingly, and the formula worked.<br /><br />Little by little, expectations diverged until La Meute split into two groups: hardcore gamers loyal to the original idea, and casual gamers who preferred to play for fun and skip the post-match drama.<br /><br />La Meute then evolved into version 2.0 in August 2010. What changed? Some of the wolves left the den to found a team that better matched their expectations. The other part, the hard core, kept going and reworked La Meute's foundations. It successively moved through BF: BC2, BF3, GW2, Arma 3, and has now settled on Squad!<br /><br />Four years after its creation, La Meute became an official association under Article 5 of the July 1901 law. It equipped itself with a solid board of responsible members, a clear, official, and fair treasury, and a legal existence. That status gave it lasting stability — 16 years later, La Meute 2.0 is still here!",
+    historyBeat1Title: "2007 — La Meute 1.0",
+    historyBeat1Text: "Founded on Call of Duty 4 by the current leader and a friend. A small clan, aiming for amateur-league level.",
+    historyBeat2Title: "2010 — La Meute 2.0",
+    historyBeat2Text: "Cyril takes sole leadership, the group refocuses and moves through Battlefield, Arma 3, then Squad.",
+    historyBeat3Title: "2015 — The association",
+    historyBeat3Text: "Bylaws filed under the French 1901 law: board, official treasury, legal existence.",
+    historyBeat4Title: "2026 — La Meute 3.0",
+    historyBeat4Text: "Admissions, exclusions, and expenses are now voted on-chain by active members.",
     valuesTitle: "Our principles and values",
-    valuesText:
-      "Our tag: =CL= for <em>Canis lupus</em>, Latin for <b>wolf</b>. Every wolf is therefore part of this pack. Our virtual world is our den to us. Discord lets us howl at the moon and feel like... well, we communicate, that's the point! :)<br /><br />Our motto sums it up: <b>The strongest aren't those who never fall, but those who always get back up</b>. Our saying is: <b>Victory without risk is triumph without glory</b>.<br /><br />Like any pack worthy of the name, there's a hierarchy. The leader, Mantorn, leads the troops — he's the Alpha wolf. Cymmus is his right hand (the Beta wolf), also in charge of the treasury. Bouldure handles the secretariat. All wolves have rights, but also duties toward their pack.",
     valueTransparentTitle: "Transparent",
     valueTransparentText:
       "Every vote, every expense, every decision is public and verifiable by every member, at all times.",
@@ -43,33 +47,30 @@ const en: typeof fr = {
     valueOpenTitle: "Open",
     valueOpenText:
       "Joining, proposing, voting: open to anyone who genuinely gets involved, decided collectively, never behind closed doors.",
-    gamesTitle: "What do we play?",
-    gamesText:
-      "We're currently playing seriously on <b>Squad</b>, where we're building something coherent, serious, and worthwhile. But we also dabble in plenty of other games (we're waiting on Star Citizen, for one).",
-    squadLogoAlt: "Squad logo",
-    starcitizenLogoAlt: "Star Citizen logo",
     recruitTitle: "Recruitment",
     recruitIntro:
-      "Our main strength lies in each of our wolves. We <b>carefully select</b> every recruit to make sure they'll fit the clan's spirit — for their own well-being as much as the clan's.<br /><br />First, we're looking for mature people, at least 18 years old (ideally 20-25). And they need to be sure of what they're looking for, because we're sure of what we're offering. Namely:",
+      "We're a small, tight-knit group, not a server open to everyone: we take the time to get to know someone before bringing them in, so it lasts. If you're looking for:",
     recruitListLeft:
       "<li>a group of friends playing in a good atmosphere;</li><li>smart teammates who care about teamplay before frags;</li><li>a united group where everyone pitches in for the group's good, in their own way;</li><li>plenty of projects;</li><li>an exceptionally solid structure;</li><li>a staff that listens;</li><li>thorough follow-up on what's going on;</li><li>stability and a healthy environment;</li>",
     recruitListRight:
-      "<li>clear, strict financial management (handled through the association's account and the treasurer);</li><li>fairness and equality among members, and democratic decision-making;</li><li>no cheating, obviously;</li><li>friendly, close ties with other teams;</li><li>strong support for initiatives;</li><li>real-life events (LAN parties, get-togethers, outings...);</li><li>unwavering support no matter your skill level;</li><li>and plenty of other things that can't be summed up in one sentence!</li>",
+      "<li>clear, strict financial management (handled through the association's account and the treasurer);</li><li>fairness and equality among members, and democratic decision-making;</li><li>no cheating, obviously;</li><li>friendly, close ties with other teams;</li><li>strong support for initiatives;</li><li>real-life events (LAN parties, get-togethers, outings...);</li><li>unwavering support no matter your skill level;</li>",
     recruitOutro:
       "<br />When you arrive in the den as an applicant, here's what happens: you'll first submit your application. You'll quickly be added to the <b>applicants</b> group, which doesn't have access to much on Discord, but you'll get full access to join us in voice and in-game right away. Once contact is made with the Meute's wolves and a first internal vote is held based on that, you'll be added (or not) to the <b>cubs</b> group within a few weeks. That group has substantial, almost full access — a cub is treated like a regular wolf when it comes to joining events, sharing opinions, suggesting ideas, etc. After a month or two, once the whole pack has formed a clear view of your behavior, a new internal vote will be held, and you'll finally be officially inducted into the pack with a small ceremony (specially prepared just for you) and an official announcement.<br /><br />If you recognize yourself in our clan's description, and you want to play as part of a group, La Meute is probably for you! <a href=\"https://discord.gg/Wy5rScG\"><b><u>Join us!</u></b></a>",
+    discordEyebrow: "La Meute's real life happens on Discord",
     discordTitle: "Join us on Discord",
     discordWidgetTitle: "La Meute's Discord widget",
+    daoTeaser: "Since 2026, our decisions are voted on-chain",
   },
   presentation: {
     eyebrow: "Who governs La Meute?",
     sectionTitle: "An association, enhanced by a DAO",
-    intro: "La Meute has been a French 1901 non-profit since 2019. Since 2026, its internal decisions — admission, exclusion, expenses — are voted on-chain by its active members. The association remains the legal entity; the DAO is its deliberation tool.",
+    intro: "La Meute has been a French 1901 non-profit since 2015. Since 2026, its internal decisions — admission, exclusion, expenses — are voted on-chain by its active members. The association remains the legal entity; the DAO is its deliberation tool.",
     timelineStartVersion: "V1 — The clan",
     timelineStartTitle: "La Meute 1.0",
-    timelineStartText: "Informal founding in 2016: a group of players, with no structure or written rules.",
+    timelineStartText: "Informal founding in 2007: a group of players, with no structure or written rules.",
     timelineAssocVersion: "V2 — The association",
     timelineAssocTitle: "La Meute 2.0",
-    timelineAssocText: "Bylaws filed in 2019: became a French 1901 non-profit, elected board, legal existence.",
+    timelineAssocText: "Bylaws filed in 2015: became a French 1901 non-profit, elected board, legal existence.",
     timelineDaoVersion: "V3 — The DAO",
     timelineDaoTitle: "La Meute 3.0",
     timelineDaoText: "The association's internal decisions are now voted on-chain by its active members.",
@@ -325,6 +326,11 @@ const en: typeof fr = {
     daoSnapshotLoadFailed: "Could not load the DAO snapshot (HTTP {status})",
   },
   association: {
+    identityTitle: "The tag and the motto",
+    identityText:
+      "Our tag: =CL= for <em>Canis lupus</em>, Latin for wolf. Every wolf is part of this pack.<br /><br />Our motto: <b>The strongest aren't those who never fall, but those who always get back up</b>. Our saying: <b>Victory without risk is triumph without glory</b>.",
+    boardHierarchyNote:
+      "The leader, Mantorn, is the Alpha wolf. Cymmus, his right hand (Beta wolf), handles the treasury. Bouldure handles the secretariat.",
     legalInfoTitle: "Legal information",
     documentsTitle: "Documents",
     boardTitle: "Board",

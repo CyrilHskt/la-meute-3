@@ -18,6 +18,8 @@ const { t } = useI18n();
               </h1>
               <p class="intro-text">{{ t('home.tagline') }}</p>
               <a href="#about" class="intro-cta">{{ t('nav.about') }} &darr;</a>
+              <br />
+              <router-link to="/gouvernance?tab=presentation" class="intro-cta intro-cta--dao">{{ t('home.daoTeaser') }} &rarr;</router-link>
             </div>
           </div>
         </div>
@@ -32,12 +34,28 @@ const { t } = useI18n();
         <div class="carnet-entries">
           <article class="carnet-entry">
             <h3>{{ t('home.historyTitle') }}</h3>
-            <p class="text-justify" v-html="t('home.historyText')"></p>
+            <ol class="carnet-timeline">
+              <li class="carnet-timeline-beat">
+                <h4>{{ t('home.historyBeat1Title') }}</h4>
+                <p>{{ t('home.historyBeat1Text') }}</p>
+              </li>
+              <li class="carnet-timeline-beat">
+                <h4>{{ t('home.historyBeat2Title') }}</h4>
+                <p>{{ t('home.historyBeat2Text') }}</p>
+              </li>
+              <li class="carnet-timeline-beat">
+                <h4>{{ t('home.historyBeat3Title') }}</h4>
+                <p>{{ t('home.historyBeat3Text') }}</p>
+              </li>
+              <li class="carnet-timeline-beat">
+                <h4>{{ t('home.historyBeat4Title') }}</h4>
+                <p>{{ t('home.historyBeat4Text') }}</p>
+              </li>
+            </ol>
           </article>
 
           <article class="carnet-entry">
             <h3>{{ t('home.valuesTitle') }}</h3>
-            <p class="text-justify" v-html="t('home.valuesText')"></p>
             <ul class="carnet-values">
               <li class="carnet-value">
                 <span class="carnet-value-index mono">01</span>
@@ -69,15 +87,6 @@ const { t } = useI18n();
               </li>
             </ul>
           </article>
-
-          <article class="carnet-entry">
-            <h3>{{ t('home.gamesTitle') }}</h3>
-            <p v-html="t('home.gamesText')"></p>
-            <div class="carnet-game-logos">
-              <img src="/img/games/squad.png" :alt="t('home.squadLogoAlt')" />
-              <img src="/img/games/starcitizen.png" :alt="t('home.starcitizenLogoAlt')" />
-            </div>
-          </article>
         </div>
       </div>
     </section>
@@ -99,21 +108,20 @@ const { t } = useI18n();
     <!-- Discord -->
     <section id="contact" class="carnet-section">
       <div class="container content-section text-center">
-        <div class="row">
-          <div class="col-lg-12">
-            <p class="carnet-eyebrow">{{ t('nav.contact') }}</p>
-            <h2>{{ t('home.discordTitle') }}</h2>
-            <iframe
-              class="discord-widget"
-              src="https://discord.com/widget?id=126035011441786880&theme=dark"
-              width="350"
-              height="500"
-              allowtransparency="true"
-              frameborder="0"
-              sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
-              :title="t('home.discordWidgetTitle')"
-            ></iframe>
-          </div>
+        <p class="carnet-eyebrow">{{ t('nav.contact') }}</p>
+        <h2>{{ t('home.discordTitle') }}</h2>
+        <div class="carnet-discord-frame">
+          <p class="carnet-discord-caption">{{ t('home.discordEyebrow') }}</p>
+          <iframe
+            class="discord-widget"
+            src="https://discord.com/widget?id=126035011441786880&theme=dark"
+            width="350"
+            height="500"
+            allowtransparency="true"
+            frameborder="0"
+            sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+            :title="t('home.discordWidgetTitle')"
+          ></iframe>
         </div>
       </div>
     </section>
@@ -177,6 +185,17 @@ const { t } = useI18n();
 .intro-cta:hover,
 .intro-cta:focus {
   color: $color-orange;
+}
+
+.intro-cta--dao {
+  margin-top: $space-2;
+  font-size: $fs-caption;
+  color: $color-text-dim;
+  border-bottom-color: $color-border;
+}
+.intro-cta--dao:hover,
+.intro-cta--dao:focus {
+  color: $color-orange-dark;
 }
 
 .carnet-section {
@@ -277,16 +296,49 @@ const { t } = useI18n();
   }
 }
 
-.carnet-game-logos {
-  display: flex;
-  gap: $space-4;
-  align-items: center;
-  margin-top: $space-3;
+.carnet-timeline {
+  list-style: none;
+  margin: $space-3 0 0;
+  padding: 0;
+  display: grid;
+  gap: $space-3;
+}
 
-  img {
-    max-height: 48px;
-    width: auto;
+.carnet-timeline-beat {
+  padding: $space-2 0 $space-2 $space-4;
+  border-left: 2px solid $color-border;
+
+  h4 {
+    font-family: $font-mono;
+    font-size: $fs-caption;
+    letter-spacing: 0.04em;
+    color: $color-orange-dark;
+    font-weight: 600;
+    margin: 0 0 $space-1;
   }
+
+  p {
+    font-size: $fs-body;
+    line-height: 20px;
+    color: $color-text;
+    margin: 0;
+  }
+}
+
+.carnet-discord-frame {
+  margin: $space-4 auto 0;
+  max-width: 380px;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  padding: $space-4;
+  background: $color-card-bg;
+}
+
+.carnet-discord-caption {
+  font-family: $font-mono;
+  font-size: $fs-caption;
+  color: $color-text-dim;
+  margin: 0 0 $space-3;
 }
 
 .carnet-recruit-lists {
