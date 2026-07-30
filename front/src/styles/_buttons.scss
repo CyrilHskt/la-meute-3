@@ -1,0 +1,74 @@
+@use "tokens" as *;
+
+// Global button hierarchy for the "Carnet de meute" direction.
+//
+// `.btn`/`.btn-primary`/`.btn-outline`/`.btn-outline-danger` are used
+// across every governance component but were previously left to
+// bootstrap.min.css's defaults (`.btn-primary` = Bootstrap blue,
+// `.btn-outline`/`.btn-outline-danger` = unstyled, since Bootstrap 3 never
+// shipped those two classes at all). This is the first time these classes
+// get real rules, defined once here instead of duplicated per component.
+//
+// Only ONE filled/loud style exists (`.btn-primary`, rouille) — everything
+// else is outline/ghost, so no context ever shows more than one equally
+// loud colored action ("traffic light row") side by side.
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-1;
+  font-family: $font-body;
+  font-size: $fs-body;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: $space-2 $space-3;
+  border-radius: $radius-md;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease-in-out,
+    border-color 0.15s ease-in-out,
+    color 0.15s ease-in-out;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+.btn-primary {
+  background: $color-orange-dark;
+  border-color: $color-orange-dark;
+  color: var(--color-rouille-contrast);
+
+  &:hover:not(:disabled),
+  &:focus-visible:not(:disabled) {
+    background: $color-orange;
+    border-color: $color-orange;
+  }
+}
+
+.btn-outline {
+  background: transparent;
+  border-color: $color-border;
+  color: $color-text;
+
+  &:hover:not(:disabled),
+  &:focus-visible:not(:disabled) {
+    border-color: $color-text-dim;
+    background: $color-page-bg;
+  }
+}
+
+.btn-outline-danger {
+  background: transparent;
+  border-color: $color-danger;
+  color: $color-danger;
+
+  &:hover:not(:disabled),
+  &:focus-visible:not(:disabled) {
+    background: $color-danger;
+    color: var(--color-rouille-contrast);
+  }
+}

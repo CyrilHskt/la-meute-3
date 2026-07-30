@@ -17,3 +17,10 @@ import ToastContainer from "./components/ToastContainer.vue";
   </footer>
   <ToastContainer />
 </template>
+
+<style lang="scss">
+// Unscoped on purpose: this is the global button hierarchy shared by every
+// governance component (`.btn`/`.btn-primary`/`.btn-outline`/`.btn-outline-danger`),
+// not App.vue's own markup. See src/styles/_buttons.scss for rationale.
+@use "./styles/buttons";
+</style>
