@@ -1,4 +1,4 @@
-import { ref, readonly } from "vue";
+import { ref, readonly, watch } from "vue";
 import type { Address } from "viem";
 import { useWallet } from "./useWallet";
 import { useDiscordLink } from "./useDiscordLink";
@@ -136,6 +136,73 @@ const session = ref<string | null>(null);
 const isAuthorized = ref(false);
 const membershipError = ref<"network" | null>(null);
 
+// Persisted across reloads (sessionStorage, not localStorage: cleared when
+// the tab closes, consistent with the ~30 min server-side session rather
+// than a "remember me forever" pattern) — without this, every reload asked
+// for a new signature even though the server-side session was still valid.
+// The stored value is never trusted blindly: it's only reused if its
+// address matches the wallet currently connected, otherwise switching
+// accounts (or a stale/corrupted entry from a previous visit) could apply
+// someone else's session. No client-side TTL check here — the server
+// already re-validates expiry on every request (loadAll()'s 401 handling
+// below), a client-side decode would just duplicate that.
+const SESSION_STORAGE_KEY = "meute-session";
+
+function readStoredSession(): { address: string; token: string } | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { address?: unknown; token?: unknown };
+    if (typeof parsed.address !== "string" || typeof parsed.token !== "string") return null;
+    return { address: parsed.address, token: parsed.token };
+  } catch {
+    return null;
+  }
+}
+
+function clearStoredSession() {
+  try {
+    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+  } catch {
+    // Storage unavailable (e.g. private browsing) — nothing to clear.
+  }
+}
+
+const { address: walletAddress } = useWallet();
+
+// One-shot restore per address change: fires once the wallet address is
+// known (either right away if a session had been kept in memory, or once
+// tryRestoreConnection() resolves on page load) and reapplies a
+// still-matching stored session so loadAll() can reuse it without asking
+// for a new signature. A mismatched or corrupted entry simply falls
+// through — the page stays in its "members-only" state pending a fresh
+// signature, same as if nothing had been stored.
+watch(
+  walletAddress,
+  (addr) => {
+    if (!addr) return;
+    const stored = readStoredSession();
+    if (stored && stored.address.toLowerCase() === addr.toLowerCase()) {
+      session.value = stored.token;
+      isAuthorized.value = true;
+    }
+  },
+  { immediate: true },
+);
+
+watch(session, (token) => {
+  if (token && walletAddress.value) {
+    try {
+      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ address: walletAddress.value, token }));
+    } catch {
+      // Storage unavailable (e.g. private browsing) — the session still
+      // works for the current tab, just won't survive a reload.
+    }
+  } else {
+    clearStoredSession();
+  }
+});
+
 // connect() (explicit click) AND MetaMask's `accountsChanged` event
 // (triggered by that same click, right on the very first authorization)
 // can both call verifyMembershipAndLoad() for the same address in near
@@ -195,6 +262,7 @@ export function useMeute() {
     members.value = [];
     myDonations.value = 0n;
     setLinks({});
+    clearStoredSession();
   }
 
   /** Proof of Meute membership: verifies the on-chain balance, signs a
