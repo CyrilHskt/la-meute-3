@@ -351,7 +351,7 @@ const knownBeneficiaries = computed(() => {
 });
 
 function proposeExpense() {
-  const args = [expenseAddr.value as `0x${string}`, parseEther(expenseAmount.value || "0"), expenseReason.value] as const;
+  const args = [expenseAddr.value as `0x${string}`, parseEther(String(expenseAmount.value || "0")), expenseReason.value] as const;
   return runTx(
     () => readOnlyContract().simulate.proposeExpense(args, { account: address.value! }),
     () => writableContract().write.proposeExpense(args),
