@@ -1121,10 +1121,10 @@ function startTour() {
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 
-  &--approved.gv-statut-chip--active { background: $color-success; border-color: $color-success; color: #fff; }
-  &--rejected.gv-statut-chip--active { background: $color-danger; border-color: $color-danger; color: #fff; }
-  &--quorum.gv-statut-chip--active { background: $color-text-dim; border-color: $color-text-dim; color: #fff; }
-  &--postponed.gv-statut-chip--active { background: $color-cub; border-color: $color-cub; color: #fff; }
+  &--approved.gv-statut-chip--active { background: $color-success; border-color: $color-success; color: $color-on-accent; }
+  &--rejected.gv-statut-chip--active { background: $color-danger; border-color: $color-danger; color: $color-on-accent; }
+  &--quorum.gv-statut-chip--active { background: $color-text-dim; border-color: $color-text-dim; color: $color-on-accent; }
+  &--postponed.gv-statut-chip--active { background: $color-cub; border-color: $color-cub; color: $color-on-accent; }
 }
 .gv-statut-clear {
   background: none;

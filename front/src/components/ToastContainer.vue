@@ -41,8 +41,12 @@ const { toasts, dismissToast } = useToast();
   display: flex;
   align-items: center;
   gap: $space-2;
-  background: $color-black;
-  color: $color-page-bg;
+  // Deliberately always-dark chrome, not the theme-driven $color-black/
+  // $color-page-bg pair: those flip to light-on-dark under
+  // [data-theme="dark"], which would break the white-based .toast-close
+  // hover state below and change the toast's identity between themes.
+  background: #1b1a18;
+  color: #f5f0ea;
   border-radius: $radius-md;
   padding: $space-3;
   font-size: $fs-caption;

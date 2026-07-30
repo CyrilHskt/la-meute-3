@@ -157,7 +157,7 @@ const voteStep = computed<StepState>(() => (props.application ? "current" : "tod
   font-size: $fs-caption;
   margin-top: 0.1rem;
 }
-.acl-step--done .acl-marker { background: $color-success; color: #fff; }
+.acl-step--done .acl-marker { background: $color-success; color: $color-on-accent; }
 .acl-step--current .acl-marker { background: $color-orange-dark; color: var(--color-rouille-contrast); }
 .acl-step--todo .acl-marker { background: $color-page-bg; color: $color-text-dim; border: 1px solid $color-border; }
 

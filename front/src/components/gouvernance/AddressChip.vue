@@ -14,12 +14,6 @@ const props = defineProps<{
   // shown separately just above: without this, this component displayed
   // it a second time (observed by the user, visual duplicate).
   addressOnly?: boolean;
-  // Historically used to switch to bright icons/text for the dashboard's
-  // old dark shell (#111). The dashboard is light now (carnet-de-meute),
-  // so this currently has no visual effect — kept as a no-op prop rather
-  // than removed, since dark surfaces may come back later (e.g. a future
-  // explicit dark theme toggle) and callers already pass it.
-  dark?: boolean;
 }>();
 
 const { discordLinkFor } = useDiscordLink();
@@ -46,7 +40,7 @@ async function copy() {
 </script>
 
 <template>
-  <span class="addr-chip" :class="{ 'addr-chip--dark': dark }">
+  <span class="addr-chip">
     <template v-if="link">
       <img class="addr-avatar" :src="link.avatarUrl" alt="" />
       <span class="addr-username" :title="address">{{ link.username }}</span>
@@ -91,9 +85,6 @@ async function copy() {
   gap: 0.35rem;
   font-size: $fs-caption;
 }
-
-// No-op today (see the `dark` prop's comment above) — this class is only
-// applied by callers that opt in via the `dark` prop, none currently do.
 
 .addr-actions {
   display: inline-flex;
