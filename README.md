@@ -1,9 +1,32 @@
-# La Meute 3.0
+<p align="center">
+  <img src="front/public/img/logo.png" alt="La Meute" width="120" />
+</p>
 
-Decentralized governance prototype for a French non-profit (loi 1901 association).
-Alyra certification project — RS6515.
+<h1 align="center">La Meute 3.0 🐺</h1>
 
-## The problem
+<p align="center">
+  <b>A gaming association's governance, moved on-chain — no board, no single point of failure.</b>
+</p>
+
+<p align="center">
+  <kbd>Solidity 0.8.28</kbd> · <kbd>Hardhat 3</kbd> · <kbd>Vue 3</kbd> · <kbd>viem</kbd> · <kbd>Sepolia</kbd>
+</p>
+
+<p align="center">
+  <a href="https://github.com/CyrilHskt/la-meute-3/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/CyrilHskt/la-meute-3/actions/workflows/ci.yml/badge.svg?branch=main" /></a>
+  <img alt="contract version" src="https://img.shields.io/github/v/tag/CyrilHskt/la-meute-3?filter=contract-v*&label=contract&color=5319e7" />
+  <img alt="front version" src="https://img.shields.io/github/v/tag/CyrilHskt/la-meute-3?filter=front-v*&label=front&color=1d76db" />
+  <img alt="network" src="https://img.shields.io/badge/network-Sepolia_testnet-8a2be2" />
+  <img alt="made in France" src="https://img.shields.io/badge/made%20in-France-0055A4?labelColor=EF4135" />
+</p>
+
+<p align="center">
+  Alyra certification project — RS6515, <i>Développer une application décentralisée avec les technologies blockchain</i>
+</p>
+
+---
+
+## 🐺 The problem
 
 La Meute 2.0 is a 25-year-old gaming association with about fifteen members. It's
 falling asleep: voting turnout keeps dropping, and the president has to chase members
@@ -20,7 +43,7 @@ a bank account in the treasurer's name, and handing it over means redoing the by
 the prefecture paperwork, and the bank mandate. The two problems are really one:
 **everything rests on a single person.**
 
-## The prototype
+## 🔗 The prototype
 
 La Meute 3.0 moves the association's governance onto a public blockchain:
 
@@ -29,8 +52,8 @@ La Meute 3.0 moves the association's governance onto a public blockchain:
 - **A two-tier membership cycle**, drawn from the association's real practices:
   applicant → Cub (probationary, three months) → Wolf (permanent), with confirmation
   decided by a three-outcome vote: confirm, postpone, or reject.
-- **Dormancy** — a Wolf who hasn't voted in a year drops out of quorum without losing
-  anything or being penalized, and a single vote wakes them back up. Quorum
+- **Dormancy** — a Wolf who hasn't voted in six months drops out of quorum without
+  losing anything or being penalized, and a single vote wakes them back up. Quorum
   self-repairs: the pack only measures itself against those who are present.
 - **No board.** Once deployed, the contract has no owner, no pause, no emergency
   function. The president holds no technical power at all.
@@ -42,17 +65,27 @@ This is a thought experiment — "what if we turned the Meute into a DAO?" — n
 production project. The loi 1901 legal shell remains; only the governance mechanics
 are moved on-chain.
 
-## Documentation
+## ✅ What's in the box
+
+| | |
+|---|---|
+| 🗳️ **Governance** | Admission, confirmation, exclusion, expense and donation proposals — all on-chain, all publicly auditable |
+| 🃏 **Membership card** | Soulbound ERC-721, one per member, carries rank and activity |
+| 💤 **Self-healing quorum** | Dormant members are excluded from quorum math, and can be pruned from the active set to keep it cheap to compute |
+| 🌐 **Front-end** | Vue 3 dashboard — wallet connect, live governance feed, French/English toggle |
+| 🔐 **Security-reviewed** | Reentrancy tested with a real attack contract, CI enforces the front's ABI never drifts from the compiled contract |
+
+## 📚 Documentation
 
 - [Cahier des charges](docs/cahier-des-charges.md) — context, scope, state machine,
   token rationale, security, accepted limitations.
 
-## Stack
+## 🧱 Stack
 
-Solidity 0.8.28 · Hardhat 3 · OpenZeppelin 5.6 · ethers v6 · mocha
+Solidity 0.8.28 · Hardhat 3 · OpenZeppelin 5.6 · Vue 3 · TypeScript · viem
 Deployed via Hardhat Ignition on a public testnet (Sepolia). No real ETH involved.
 
-## Commands
+## ⚙️ Commands
 
 ### Tests
 
