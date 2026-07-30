@@ -20,7 +20,7 @@ const { t } = useI18n();
         </nav>
       </div>
       <img
-        src="/img/illustrations/hero-wolf-pack-panorama.png"
+        src="/img/illustrations/hero-wolf-pack-panorama.webp"
         alt="Une meute de loups veillant sur un panorama de montagnes enneigées et de forêts"
         class="intro-illustration"
       />
