@@ -17,6 +17,11 @@ const { t } = useI18n();
                 <img src="/img/logo.png" :alt="t('home.logoAlt')" class="brand-heading-logo" />
               </h1>
               <p class="intro-text">{{ t('home.tagline') }}</p>
+              <img
+                src="/img/illustrations/motif-wolf-pack-trio.png"
+                alt="Trois loups sur un promontoire rocheux, montagnes en arrière-plan"
+                class="intro-illustration"
+              />
               <a href="#about" class="intro-cta">{{ t('nav.about') }} &darr;</a>
               <br />
               <router-link to="/gouvernance?tab=presentation" class="intro-cta intro-cta--dao">{{ t('home.daoTeaser') }} &rarr;</router-link>
@@ -56,6 +61,11 @@ const { t } = useI18n();
 
           <article class="carnet-entry">
             <h3>{{ t('home.valuesTitle') }}</h3>
+            <img
+              src="/img/illustrations/motif-notebook.png"
+              alt="Un carnet en cuir tamponné d'une empreinte de patte, avec un stylo"
+              class="values-illustration"
+            />
             <ul class="carnet-values">
               <li class="carnet-value">
                 <span class="carnet-value-index mono">01</span>
@@ -90,6 +100,13 @@ const { t } = useI18n();
         </div>
       </div>
     </section>
+
+    <!-- Section break -->
+    <img
+      src="/img/illustrations/motif-mountains-line.png"
+      alt="Une chaîne de montagnes bordée de pins, en dessin au trait"
+      class="section-break-illustration"
+    />
 
     <!-- Recruitment -->
     <section id="recruit" class="carnet-section carnet-section--surface">
@@ -193,6 +210,38 @@ const { t } = useI18n();
 .intro-cta--dao:hover,
 .intro-cta--dao:focus {
   color: $color-orange-dark;
+}
+
+.intro-illustration {
+  display: block;
+  max-width: 220px;
+  width: 100%;
+  height: auto;
+  margin: 0 auto $space-4;
+  opacity: 0.85;
+  filter: sepia(35%) saturate(70%) contrast(95%);
+}
+
+.values-illustration {
+  display: block;
+  max-width: 120px;
+  width: 100%;
+  height: auto;
+  margin: 0 0 $space-3;
+  opacity: 0.85;
+  filter: sepia(35%) saturate(70%) contrast(95%);
+}
+
+.section-break-illustration {
+  display: block;
+  max-width: 360px;
+  width: 100%;
+  height: auto;
+  margin: 0 auto;
+  padding: $space-4 0;
+  opacity: 0.7;
+  filter: sepia(35%) saturate(70%) contrast(95%);
+  background: $color-page-bg;
 }
 
 .carnet-section {
