@@ -6,7 +6,7 @@ import { useGuidedTour } from "../../composables/useGuidedTour";
 import { decodeEventLog, formatEther, parseEther, type Address, type Log } from "viem";
 import { driver } from "driver.js";
 import { useWallet } from "../../composables/useWallet";
-import { useMeute, ProposalType, VoteChoice, type Proposal } from "../../composables/useMeute";
+import { useMeute, ProposalType, type Proposal } from "../../composables/useMeute";
 import { useEthPrice } from "../../composables/useEthPrice";
 import { friendlyContractError } from "../../composables/contractErrors";
 import { useToast } from "../../composables/useToast";
@@ -15,6 +15,7 @@ import { useLocalAutoRefresh } from "../../composables/useLocalAutoRefresh";
 import { usePagination } from "../../composables/usePagination";
 import { CONTRACT_ABI } from "../../contract";
 import AddressChip from "./AddressChip.vue";
+import ProposalCard from "./ProposalCard.vue";
 import ApplicationChecklist from "./ApplicationChecklist.vue";
 import MemberPicker from "./MemberPicker.vue";
 import WalletInstallModal from "./WalletInstallModal.vue";
@@ -847,65 +848,29 @@ function startTour() {
         </div>
 
         <div v-if="activeTab === 'ongoing'" class="gv-prop-list">
-          <article v-for="p in ongoingProposalsPage" :key="p.id.toString()" class="gv-prop-card">
-            <div class="gv-prop-head">
-              <span class="gv-prop-head-left">
-                <span class="gv-prop-type">{{ typeLabels[p.proposalType] }}</span>
-                <span v-if="authorKnown(p)" class="gv-prop-author">
-                  {{ t('governance.dao.by') }} <AddressChip :address="p.author" short />
-                </span>
-              </span>
-              <span class="gv-prop-deadline mono" :title="exactDate(p)">{{ countdown(p) }}</span>
-            </div>
-            <p class="gv-prop-title">
-              {{ proposalPrefix(p) }} <AddressChip :address="p.target" short /> {{ proposalSuffix(p) }}
-            </p>
-            <p v-if="applicationWithoutDiscord(p)" class="gv-discord-warning" :title="t('governance.dao.discordMissingTooltip')">
-              {{ t('governance.dao.discordMissingWarning') }}
-            </p>
-            <div class="gv-vote-line">
-              <span class="gv-vote-count gv-vote-count--pour">
-                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8.5 6.5 12 13 4.5" /></svg>
-                {{ t('governance.dao.votesApprove', { count: p.approveVotes }) }}
-              </span>
-              <span class="gv-vote-count gv-vote-count--contre">
-                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8" /></svg>
-                {{ t('governance.dao.votesReject', { count: p.rejectVotes }) }}
-              </span>
-              <span v-if="p.proposalType === ProposalType.Confirmation" class="gv-vote-count gv-vote-count--ajourner">
-                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6">
-                  <path d="M4 2h8M4 14h8M5 2c0 3 2.5 3.6 3 4.5.5-.9 3-1.5 3-4.5M5 14c0-3 2.5-3.6 3-4.5.5.9 3 1.5 3 4.5" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-                {{ t('governance.dao.votesPostpone', { count: p.postponeVotes }) }}
-              </span>
-            </div>
-            <div class="gv-quorum-line">
-              <span :title="quorumTooltip(p)">
-                {{ t('governance.dao.quorumLine', { cast: p.approveVotes + p.rejectVotes, required: requiredQuorum(p), total: p.activeSnapshot }) }}
-              </span>
-            </div>
-            <div class="gv-prop-actions">
-              <template v-if="role === 'wolf' && Number(p.deadline) > now && !isTargetInConflict(p)">
-                <button class="btn btn-primary" :disabled="txPending" @click="vote(p.id, VoteChoice.Approve)">{{ t('governance.dao.approve') }}</button>
-                <button class="btn btn-outline-danger" :disabled="txPending" @click="vote(p.id, VoteChoice.Reject)">{{ t('governance.dao.reject') }}</button>
-                <button
-                  v-if="p.proposalType === ProposalType.Confirmation"
-                  class="btn btn-outline"
-                  :disabled="txPending || postponementBlocked(p)"
-                  :title="postponementBlocked(p) ? t('governance.dao.postponeMaxReached', { max: maxPostponements }) : ''"
-                  @click="vote(p.id, VoteChoice.Postpone)"
-                >
-                  {{ t('governance.dao.postpone') }}
-                </button>
-              </template>
-              <p v-else-if="role === 'wolf' && Number(p.deadline) > now && isTargetInConflict(p)" class="gv-card-note">
-                {{ t('governance.dao.inConflictNote') }}
-              </p>
-              <button v-else-if="Number(p.deadline) <= now" class="btn btn-outline" :disabled="txPending" @click="execute(p.id)">
-                {{ t('governance.dao.execute') }}
-              </button>
-            </div>
-          </article>
+          <ProposalCard
+            v-for="p in ongoingProposalsPage"
+            :key="p.id.toString()"
+            mode="ongoing"
+            :proposal="p"
+            :type-labels="typeLabels"
+            :author-known="authorKnown"
+            :proposal-prefix="proposalPrefix"
+            :proposal-suffix="proposalSuffix"
+            :quorum-tooltip="quorumTooltip"
+            :required-quorum="requiredQuorum"
+            :application-without-discord="applicationWithoutDiscord"
+            :countdown="countdown"
+            :exact-date="exactDate"
+            :role="role"
+            :now="now"
+            :tx-pending="txPending"
+            :is-target-in-conflict="isTargetInConflict"
+            :postponement-blocked="postponementBlocked"
+            :max-postponements="maxPostponements"
+            @vote="(id, choice) => vote(id, choice)"
+            @execute="(id) => execute(id)"
+          />
           <p v-if="!allOngoingProposals.length" class="gv-card-note">
             {{ t('governance.dao.noOngoingProposals') }}
           </p>
@@ -917,48 +882,20 @@ function startTour() {
         </div>
 
         <div v-else class="gv-prop-list">
-          <article
+          <ProposalCard
             v-for="p in pastProposalsPage"
             :key="p.id.toString()"
-            class="gv-prop-card"
-            :class="`gv-prop-card--${pastStatus(p)}`"
-          >
-            <div class="gv-prop-head">
-              <span class="gv-prop-head-left">
-                <span class="gv-prop-type">{{ typeLabels[p.proposalType] }}</span>
-                <span v-if="authorKnown(p)" class="gv-prop-author">
-                  {{ t('governance.dao.by') }} <AddressChip :address="p.author" short />
-                </span>
-              </span>
-              <span class="gv-prop-statut" :class="`gv-prop-statut--${pastStatus(p)}`">
-                {{ PAST_STATUS_LABELS[pastStatus(p)] }}
-              </span>
-            </div>
-            <p class="gv-prop-title">
-              {{ proposalPrefix(p) }} <AddressChip :address="p.target" short /> {{ proposalSuffix(p) }}
-            </p>
-            <div class="gv-vote-line">
-              <span class="gv-vote-count gv-vote-count--pour">
-                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8.5 6.5 12 13 4.5" /></svg>
-                {{ t('governance.dao.votesApprove', { count: p.approveVotes }) }}
-              </span>
-              <span class="gv-vote-count gv-vote-count--contre">
-                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8" /></svg>
-                {{ t('governance.dao.votesReject', { count: p.rejectVotes }) }}
-              </span>
-              <span v-if="p.proposalType === ProposalType.Confirmation" class="gv-vote-count gv-vote-count--ajourner">
-                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6">
-                  <path d="M4 2h8M4 14h8M5 2c0 3 2.5 3.6 3 4.5.5-.9 3-1.5 3-4.5M5 14c0-3 2.5-3.6 3-4.5.5.9 3 1.5 3 4.5" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-                {{ t('governance.dao.votesPostpone', { count: p.postponeVotes }) }}
-              </span>
-            </div>
-            <div class="gv-quorum-line">
-              <span :title="quorumTooltip(p)">
-                {{ t('governance.dao.quorumLine', { cast: p.approveVotes + p.rejectVotes + (p.proposalType === ProposalType.Confirmation ? p.postponeVotes : 0), required: requiredQuorum(p), total: p.activeSnapshot }) }}
-              </span>
-            </div>
-          </article>
+            mode="past"
+            :proposal="p"
+            :type-labels="typeLabels"
+            :author-known="authorKnown"
+            :proposal-prefix="proposalPrefix"
+            :proposal-suffix="proposalSuffix"
+            :quorum-tooltip="quorumTooltip"
+            :required-quorum="requiredQuorum"
+            :past-status="pastStatus"
+            :past-status-labels="PAST_STATUS_LABELS"
+          />
           <p v-if="!pastProposals.length" class="gv-card-note">{{ t('governance.dao.noPastProposals') }}</p>
           <div v-else-if="!filteredPastProposals.length" class="gv-card-note gv-statut-empty">
             <p>{{ t('governance.dao.noFilterMatch') }}</p>
