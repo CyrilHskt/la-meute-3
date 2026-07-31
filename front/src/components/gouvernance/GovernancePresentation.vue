@@ -124,16 +124,24 @@ const values = computed(() => [
 
     <div class="gv-values">
       <h3 class="gv-section-title gv-values-title">{{ t('presentation.valuesTitle') }}</h3>
-      <ul class="gv-values-grid">
-        <li v-for="value in values" :key="value.title" class="gv-value-item">
-          <span class="gv-value-index mono">{{ value.index }}</span>
-          <img :src="value.icon" :alt="value.iconAlt" class="gv-value-icon" width="56" height="56" loading="lazy" />
-          <div>
-            <h4>{{ value.title }}</h4>
-            <p>{{ value.text }}</p>
-          </div>
-        </li>
-      </ul>
+      <div class="gv-values-layout">
+        <ul class="gv-values-grid">
+          <li v-for="value in values" :key="value.title" class="gv-value-item">
+            <span class="gv-value-index mono">{{ value.index }}</span>
+            <img :src="value.icon" :alt="value.iconAlt" class="gv-value-icon" width="56" height="56" loading="lazy" />
+            <div>
+              <h4>{{ value.title }}</h4>
+              <p>{{ value.text }}</p>
+            </div>
+          </li>
+        </ul>
+        <img
+          src="/img/illustrations/motif-wolf-pack-trio.png"
+          alt="Trio de loups formant la meute"
+          class="gv-values-illustration"
+          loading="lazy"
+        />
+      </div>
     </div>
 
     <div class="gv-faq">
@@ -347,11 +355,41 @@ const values = computed(() => [
 }
 
 .gv-values {
-  max-width: 760px;
+  max-width: 1080px;
   margin: 0 auto ($space-5 * 1.5);
   padding: 0 $space-3;
 }
 .gv-values-title { text-align: center; margin-bottom: $space-4; }
+
+.gv-values-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: $space-5;
+  align-items: center;
+}
+@media (max-width: 820px) {
+  .gv-values-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.gv-values-illustration {
+  width: 100%;
+  max-width: 220px;
+  justify-self: center;
+  opacity: 0.92;
+  filter: sepia(35%) saturate(70%) contrast(95%);
+
+  [data-theme="dark"] & {
+    filter: invert(1) sepia(15%) hue-rotate(180deg) saturate(70%) brightness(1.05);
+  }
+}
+@media (max-width: 820px) {
+  .gv-values-illustration {
+    max-width: 160px;
+    order: -1;
+  }
+}
 
 .gv-values-grid {
   list-style: none;
