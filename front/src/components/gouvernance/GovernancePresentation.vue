@@ -144,12 +144,12 @@ const values = computed(() => [
     </div>
 
     <div class="gv-section-divider" aria-hidden="true">
-      <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
-        <circle cx="5" cy="5.5" r="1.5" />
-        <circle cx="11" cy="5.5" r="1.5" />
-        <circle cx="3.3" cy="9" r="1.3" />
-        <circle cx="12.7" cy="9" r="1.3" />
-        <ellipse cx="8" cy="11" rx="3.2" ry="2.4" />
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+        <ellipse cx="12" cy="16.2" rx="6" ry="5" />
+        <circle cx="5" cy="9" r="2.3" />
+        <circle cx="9.6" cy="5.3" r="2.6" />
+        <circle cx="14.4" cy="5.3" r="2.6" />
+        <circle cx="19" cy="9" r="2.3" />
       </svg>
     </div>
 
