@@ -1,7 +1,7 @@
 import { ref, readonly, watch } from "vue";
 import type { Address } from "viem";
 import { useWallet } from "./useWallet";
-import { useDiscordLink } from "./useDiscordLink";
+import { useDiscordLink, type DiscordLink } from "./useDiscordLink";
 // Direct `i18n.global.t` rather than `useI18n()`: this composable is also
 // invoked from useWallet.ts's connect()/accountsChanged handlers, outside
 // any component's setup() — `useI18n()` requires an active component
@@ -85,6 +85,9 @@ interface DaoIndex {
   memberActivity: Record<string, { votesSubmitted: number; openProposals: number }>;
   topDonors: { address: Address; total: string }[];
   members: { address: Address; rank: number; dormant: boolean }[];
+  // Only present on the ?key=index reread path (the ?key=governance
+  // response carries it as a sibling of `index`, not inside it).
+  discordLinks?: Record<string, DiscordLink>;
 }
 
 export interface Member {
@@ -254,6 +257,11 @@ function applyIndex(index: DaoIndex) {
 
   topDonors.value = (index.topDonors ?? []).map((d) => ({ address: d.address, total: BigInt(d.total) }));
   members.value = index.members ?? [];
+
+  // Absent on the ?key=governance path (runVerification calls setLinks
+  // itself with the sibling field) — never overwrite with {} there, that
+  // would wipe links the caller is about to set.
+  if (index.discordLinks) setLinks(index.discordLinks);
 }
 
 // Declared at module level, not inside useMeute(): they only ever touch

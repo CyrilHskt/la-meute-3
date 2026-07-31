@@ -251,10 +251,20 @@ async function handleGovernance(req: Request): Promise<Response> {
   const verified = await verifyMembership(body.wallet ?? null, body.signature ?? null, body.nonce ?? null);
   if (verified instanceof Response) return verified;
 
-  const store = getStore("dao");
-  const index = (await store.get("index", { type: "json" })) ?? DEFAULT_INDEX;
-  const discordLinks = (await store.get("discord-links", { type: "json" })) ?? DEFAULT_DISCORD_LINKS;
+  const { index, discordLinks } = await readIndexAndDiscordLinks();
   return Response.json({ session: createSession(verified.wallet), index, discordLinks });
+}
+
+/** The two members-only read paths (?key=governance and ?key=index) must
+ *  return the same thing: reading the index without the Discord table left
+ *  every member showing as unlinked after a plain page refresh, since only
+ *  the signature path ever populated it front-side. */
+async function readIndexAndDiscordLinks() {
+  const store = getStore("dao");
+  return {
+    index: (await store.get("index", { type: "json" })) ?? DEFAULT_INDEX,
+    discordLinks: (await store.get("discord-links", { type: "json" })) ?? DEFAULT_DISCORD_LINKS,
+  };
 }
 
 /** Rereads the snapshot for an already-authenticated member — only checks
@@ -271,9 +281,8 @@ async function handleIndexAuth(url: URL): Promise<Response> {
   if (!verifySession(sessionToken, wallet)) {
     return new Response("Invalid or expired session — reconnect your wallet.", { status: 401 });
   }
-  const store = getStore("dao");
-  const value = await store.get("index", { type: "json" });
-  return Response.json(value ?? DEFAULT_INDEX);
+  const { index, discordLinks } = await readIndexAndDiscordLinks();
+  return Response.json({ ...(index as Record<string, unknown>), discordLinks });
 }
 
 export default async (req: Request) => {
