@@ -98,6 +98,17 @@ const { t } = useI18n();
   // force-fill a taller box; here the illustration itself never scales
   // beyond its height-driven size, only the visible slice of it changes.
   //
+  // Tying the render height directly to `100dvh` meant a tall browser
+  // window (e.g. a maximized 1080p+ desktop, taller than the ~950px this
+  // was tuned against) scaled the image up further, which *increased* how
+  // much got cropped off the sides — the opposite of "occupies the most
+  // space" that prompted this approach, and read as having "lost" the
+  // wolves/mountains rather than gained them. `min(100dvh, 950px)` on
+  // `.intro-bg`'s height caps that growth: past 950px of viewport height,
+  // extra room becomes empty page background above the (now fixed-size)
+  // image instead of scaling — zoom stays capped, `background-position:
+  // bottom` still keeps it pinned to the bottom edge.
+  //
   // On narrow/tall viewports (portrait phones) the same height-driven
   // sizing would crop away most of the scene if centered — instead of
   // shrinking to fit everything (`contain`), portrait keeps the same
@@ -122,8 +133,17 @@ const { t } = useI18n();
   inset: 0;
   background-image: url("/img/illustrations/hero-wolf-pack-panorama-v6.webp");
   background-repeat: no-repeat;
-  background-position: bottom center;
-  background-size: auto 100%;
+  // 75% (not 50% center) — at typical desktop window widths, `background-size:
+  // auto 100%` crops laterally (see `.intro`'s comment above), and a centered
+  // crop pushes the wolf pack (source asset, 1983×793px, wolves at roughly
+  // x=1380–1650, i.e. already right-of-center) out of frame between
+  // ~1024–1536px wide. 75% keeps the pack in frame across that whole range
+  // (verified: visible source window stays within [846,1701] at 1024px up to
+  // [285,1888] at 1920px, both comfortably containing 1380–1650) at the cost
+  // of the compass/map prop (far left, ~x=40–330) being cropped out below
+  // ~1920px wide — an acceptable trade since the pack is the focal point.
+  background-position: 75% bottom;
+  background-size: auto min(100dvh, 950px);
   opacity: 0.92;
   filter: sepia(35%) saturate(70%) contrast(95%);
 
