@@ -44,11 +44,18 @@ async function loadMyRank() {
 }
 const amIAWolf = computed(() => myRank.value === 1);
 
+// `.catch` rather than a bare call: an RPC failure here used to reject
+// unhandled and leave `myRank` silently null (i.e. "not a Wolf"), hiding
+// the confirm/exclude actions with nothing reported anywhere.
+function refreshMyRank() {
+  void loadMyRank().catch((e) => console.error("loadMyRank failed", e));
+}
+
 onMounted(async () => {
   await loadAll();
-  loadMyRank();
+  refreshMyRank();
 });
-watch(address, loadMyRank);
+watch(address, refreshMyRank);
 
 // See GovernanceDao.vue: without resetting scroll to 0 when the members
 // list disappears (disconnect), the scroll position stays where it was on

@@ -181,9 +181,13 @@ watch(isAuthorized, (authorized) => {
 watch(
   address,
   () => {
-    refreshMembership();
-    loadBalance();
-    loadMyDonations(address.value);
+    // These three are fire-and-forget, so an RPC failure (contract address
+    // briefly pointing at un-deployed code, flaky node) used to reject
+    // unhandled and leave `role` silently stuck on "visitor" with nothing
+    // logged anywhere.
+    void refreshMembership().catch((e) => console.error("refreshMembership failed", e));
+    void loadBalance().catch((e) => console.error("loadBalance failed", e));
+    void loadMyDonations(address.value).catch((e) => console.error("loadMyDonations failed", e));
   },
   { immediate: true },
 );
@@ -296,23 +300,38 @@ async function proposeExpense(expenseAddress: string, expenseAmount: string | nu
   if (!txError.value) expenseModalOpen.value = false;
 }
 
-function vote(id: bigint, choice: number) {
+// A target's `postponements` counter moves when a Confirmation is
+// executed (Meute.sol, _execute), so the cache above goes stale after any
+// transaction touching a Confirmation — leaving the Postpone button
+// enabled past MAX_POSTPONEMENTS and sending the user straight into an
+// InvalidChoice revert. Dropping the entry makes the watch on `proposals`
+// reread it.
+async function invalidatePostponements(id: bigint) {
+  const proposal = proposals.value.find((p) => p.id === id);
+  if (!proposal || proposal.proposalType !== ProposalType.Confirmation) return;
+  postponementsByTarget.value.delete(proposal.target.toLowerCase());
+  await loadConfirmationPostponements();
+}
+
+async function vote(id: bigint, choice: number) {
   const args = [id, choice] as const;
-  return runTx(
+  await runTx(
     () => readOnlyContract().simulate.vote(args, { account: address.value! }),
     () => writableContract().write.vote(args),
     t('governance.dao.voteToast'),
     id,
   );
+  if (!txError.value) await invalidatePostponements(id);
 }
-function execute(id: bigint) {
+async function execute(id: bigint) {
   const args = [id] as const;
-  return runTx(
+  await runTx(
     () => readOnlyContract().simulate.execute(args, { account: address.value! }),
     () => writableContract().write.execute(args),
     t('governance.dao.executeToast'),
     id,
   );
+  if (!txError.value) await invalidatePostponements(id);
 }
 
 const isDormant = computed(() => !!card.value && now.value - card.value.lastActivity > dormancyDelay.value);
