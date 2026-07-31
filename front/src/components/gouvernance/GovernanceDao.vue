@@ -606,8 +606,8 @@ function startTour() {
         <div class="gv-main-list">
         <p v-if="txError" class="gv-error">{{ txError }}</p>
 
-        <template v-if="isAuthorized">
         <h3 class="gv-card-title" style="margin-top: 2rem">{{ t('governance.dao.proposalsTitle') }}</h3>
+        <template v-if="isAuthorized">
         <div class="gv-tabs">
           <button class="gv-tab" :class="{ 'gv-tab--active': activeTab === 'ongoing' }" @click="activeTab = 'ongoing'">
             {{ t('governance.dao.ongoingTab', { count: ongoingProposals.length + closedNotExecutedProposals.length }) }}
@@ -699,6 +699,7 @@ function startTour() {
           </nav>
         </div>
         </template>
+        <p v-else class="gv-card-note">{{ t('governance.dao.proposalsLockedNote') }}</p>
         </div>
 
         <aside v-if="selectedProposal" class="gv-detail-panel">
@@ -785,10 +786,12 @@ function startTour() {
       </main>
 
       <aside class="gv-side-column">
-      <div v-if="role === 'wolf'" class="gv-new-prop-panel">
+      <div class="gv-new-prop-panel">
         <h3 class="gv-card-title">{{ t('governance.dao.openProposalTitle') }}</h3>
 
-        <SubmitProposalPanel @select-expense="expenseModalOpen = true" />
+        <p v-if="!isAuthorized" class="gv-card-note">{{ t('governance.dao.submitLockedNote') }}</p>
+        <p v-else-if="role !== 'wolf'" class="gv-card-note">{{ t('governance.dao.submitWolvesOnlyNote') }}</p>
+        <SubmitProposalPanel v-else @select-expense="expenseModalOpen = true" />
       </div>
 
       <aside class="gv-card-panel">
@@ -886,6 +889,17 @@ function startTour() {
 </template>
 
 <style lang="scss" scoped>
+.gv-dao {
+  // Overrides the legacy Aries template's `section { background-color:
+  // #f9f9f9; color: #333; overflow: hidden }` (public/css/theme.css),
+  // which otherwise bleeds through as a visible white/beige seam wherever
+  // this section's own children don't have an opaque background of their
+  // own (e.g. the gaps in `.gv-layout`) — same class of bug already fixed
+  // on the Brand page's `<section>` elements.
+  background: $color-page-bg;
+  color: $color-text;
+}
+
 .gv-loading,
 .gv-card-note {
   color: $color-text-dim;
