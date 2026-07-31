@@ -105,6 +105,7 @@ watch(
 
 .gv-dashboard-content {
   min-width: 0;
+  container-type: inline-size;
 }
 
 .gv-sidebar {

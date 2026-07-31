@@ -163,7 +163,7 @@ const emit = defineEmits<{
   &:focus-visible { outline: none; }
 }
 
-@media (max-width: 700px) {
+@container (max-width: 700px) {
   .gv-prop-row {
     grid-template-columns: 1fr;
     grid-template-areas:
@@ -202,14 +202,14 @@ const emit = defineEmits<{
 .gv-prop-row-status { grid-area: status; text-align: right; }
 .gv-prop-row-actions { grid-area: actions; display: flex; justify-content: flex-end; gap: $space-2; flex-wrap: wrap; }
 
-@media (max-width: 700px) {
+@container (max-width: 700px) {
   .gv-prop-row-status,
   .gv-prop-row-actions { text-align: left; justify-content: flex-start; }
 }
 
 .gv-prop-type { font-size: $fs-caption; font-weight: 600; color: $color-orange-dark; text-transform: uppercase; letter-spacing: 0.03em; }
 .gv-prop-deadline { font-size: $fs-caption; font-family: $font-mono; color: $color-text-dim; }
-.gv-prop-title { font-size: $fs-h4; font-weight: 600; color: $color-black; margin: 0 0 $space-2; }
+.gv-prop-title { font-size: $fs-h4; font-weight: 600; color: $color-black; margin: 0 0 $space-2; max-width: 70ch; }
 .gv-discord-warning {
   font-size: $fs-caption;
   color: $color-orange-dark;
@@ -225,6 +225,7 @@ const emit = defineEmits<{
   font-weight: 500;
   color: $color-black;
   margin-bottom: $space-1;
+  max-width: 70ch;
 }
 .gv-vote-count {
   display: inline-flex;
@@ -239,6 +240,7 @@ const emit = defineEmits<{
   font-size: $fs-caption;
   font-family: $font-mono;
   color: $color-text-dim;
+  max-width: 70ch;
 
   span[title] { cursor: help; }
 }

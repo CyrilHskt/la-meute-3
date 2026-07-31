@@ -972,7 +972,12 @@ function startTour() {
 }
 
 .gv-layout {
-  max-width: 1080px;
+  // Derived from row ergonomics, not a screenshot: fixed 300px right
+  // column + gap + a proposals-list column capped around ~1250-1300px —
+  // past that, a proposal row starts reading as a shallow banner rather
+  // than a card, so further viewport width should become page margin
+  // instead of feeding the list column indefinitely.
+  max-width: 1600px;
   margin: 0 auto;
   padding: $space-5 $space-3 ($space-5 * 2);
   display: grid;
@@ -984,7 +989,7 @@ function startTour() {
   gap: $space-4;
 }
 
-@media (max-width: 820px) {
+@container (max-width: 820px) {
   .gv-layout {
     grid-template-columns: 1fr;
   }
@@ -1180,7 +1185,7 @@ function startTour() {
   gap: $space-2;
 }
 
-.gv-prop-list { display: flex; flex-direction: column; gap: $space-3; }
+.gv-prop-list { display: flex; flex-direction: column; gap: $space-3; container-type: inline-size; }
 
 // `.gv-main` (not `.gv-layout`/the viewport) is what actually constrains
 // how much room `.gv-main-columns` has — since #107 gave `.gv-layout` a
@@ -1240,6 +1245,10 @@ function startTour() {
 }
 .gv-detail-rows {
   margin: $space-2 0;
+
+  .gv-stat-row span:last-child {
+    max-width: 70ch;
+  }
 }
 
 .gv-pagination {
