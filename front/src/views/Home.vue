@@ -48,27 +48,45 @@ const { t } = useI18n();
 }
 
 .intro {
-  // Fills the screen below the navbar rather than sitting in a narrow
-  // Bootstrap `.col-md-8.col-md-offset-2` column (leftover from the old
-  // template — left the rest of a wide viewport as dead whitespace, and
-  // the hero read as a small floating block instead of "a grand hommage"
-  // (Cyril's words) filling the screen. The illustration is pinned to the
-  // bottom edge (the pack "walking" along the foot of the screen) with the
-  // title block above it — the rest of the page (footer) stays reachable
-  // by scrolling further down.
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding-top: $space-5 * 2;
-  min-height: 100vh;
+  // First attempt overlaid the text on an `object-fit: cover` image
+  // stretched to fill a `min-height: 100vh` box — on this asset's aspect
+  // ratio (~2.5:1, much wider/flatter than a typical viewport) that meant
+  // scaling the image up a lot just to cover the extra height, which read
+  // as an ugly, over-zoomed crop rather than "a landscape." Cyril's ask:
+  // the illustration keeps its own natural landscape proportions (never
+  // cropped/zoomed to force-fill the viewport), full width, and the text
+  // sits overlaid in the sky band near the top — closer to the original
+  // reference mockup than a full-bleed hero-banner treatment.
+  position: relative;
   text-align: center;
   color: $color-text;
   background: $color-page-bg;
 }
 
 .intro-text-block {
+  position: absolute;
+  top: 6%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  width: 100%;
+  max-width: 900px;
   padding: 0 $space-4;
-  margin-bottom: $space-5;
+}
+
+@media (max-width: 760px) {
+  .intro-text-block {
+    // At this asset's aspect ratio (~2.5:1), a narrow viewport gives the
+    // image so little rendered height that overlaid text has nowhere to
+    // sit without overflowing it entirely (observed: the title spilled
+    // over the whole image). Below this width, go back to a normal-flow
+    // stack — text first, full-width image below it — instead of forcing
+    // an overlay that doesn't have room to work.
+    position: static;
+    transform: none;
+    max-width: none;
+    padding: $space-5 * 2 $space-4 $space-4;
+  }
 }
 
 .intro .brand-heading {
@@ -151,28 +169,12 @@ const { t } = useI18n();
 }
 
 .intro-illustration {
-  // `height: auto` let the panorama's wide aspect ratio dictate the
-  // height from `width: 100%` alone — fine on desktop, but on a narrow
-  // phone viewport this shrank to under 100px, cropping the wolves out
-  // almost entirely (observed at 375px: ~98px tall). An explicit height
-  // range keeps a real, deliberate crop at every width instead.
-  // `contain` (tried after `cover` cropped the mountain peaks/wolf head on
-  // very wide viewports) avoided cropping but left visible empty margins
-  // on the sides instead — the source asset's aspect ratio just didn't
-  // match a wide short banner. Fixed at the asset level instead: this
-  // export has a generous sky margin baked in above the peaks specifically
-  // as crop safety room, so `cover` (edge-to-edge, no side gaps) crops
-  // into that empty margin instead of the artwork itself.
+  // Full width, natural aspect ratio (no cover-crop, no forced height) —
+  // the landscape stays a landscape at every screen size instead of being
+  // zoomed/cropped to fill an arbitrary viewport height.
   display: block;
   width: 100%;
-  max-width: none;
-  height: clamp(260px, 55vh, 650px);
-  object-fit: cover;
-  // The wolves sit right-of-center in the source image — on narrow
-  // viewports `cover` crops enough width that a centered horizontal
-  // position pushed them near the edge. Shifting the focal point right
-  // keeps them in frame instead of the empty left side of the valley.
-  object-position: 75% bottom;
+  height: auto;
   opacity: 0.92;
   filter: sepia(35%) saturate(70%) contrast(95%);
 
