@@ -57,6 +57,16 @@ const { t } = useI18n();
   // cropped/zoomed to force-fill the viewport), full width, and the text
   // sits overlaid in the sky band near the top — closer to the original
   // reference mockup than a full-bleed hero-banner treatment.
+  // Pins the (naturally-sized) image group to the bottom of the first
+  // screen instead of letting it sit right under the text with leftover
+  // blank space below — the extra room moves above instead, so the title
+  // has more breathing room and appears to float in "sky" that's part
+  // page background, part the image's own painted sky (the two blend
+  // together since $color-page-bg is close in tone to the artwork's sky).
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 100vh;
   position: relative;
   text-align: center;
   color: $color-text;
