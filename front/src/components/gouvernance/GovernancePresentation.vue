@@ -144,6 +144,16 @@ const values = computed(() => [
       </div>
     </div>
 
+    <div class="gv-section-divider" aria-hidden="true">
+      <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+        <circle cx="5" cy="5.5" r="1.5" />
+        <circle cx="11" cy="5.5" r="1.5" />
+        <circle cx="3.3" cy="9" r="1.3" />
+        <circle cx="12.7" cy="9" r="1.3" />
+        <ellipse cx="8" cy="11" rx="3.2" ry="2.4" />
+      </svg>
+    </div>
+
     <div class="gv-faq">
       <details v-for="(item, i) in faq" :key="item.q" class="gv-faq-item" :open="i === 0">
         <summary>{{ item.q }}</summary>
@@ -316,6 +326,30 @@ const values = computed(() => [
   letter-spacing: 0.06em;
   margin-bottom: $space-1;
   color: $color-orange-dark;
+}
+
+.gv-section-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 820px;
+  margin: 0 auto ($space-5 * 1.5);
+  padding: 0 $space-3;
+  color: $color-orange-dark;
+  opacity: 0.6;
+
+  &::before,
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: $color-border;
+  }
+
+  svg {
+    flex: none;
+    margin: 0 $space-3;
+  }
 }
 
 .gv-faq {
