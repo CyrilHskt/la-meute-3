@@ -15,7 +15,7 @@ export default {
   dashboard: {
     tabPresentation: "Présentation",
     tabAssociation: "Association 1901",
-    tabMembers: "Membres",
+    tabMembers: "Gestion de la Meute",
     tabDao: "Gouvernance DAO",
     tabDonations: "Dons",
     guidedTour: "Visite guidée",

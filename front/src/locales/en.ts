@@ -13,7 +13,7 @@ const en: typeof fr = {
   dashboard: {
     tabPresentation: "Presentation",
     tabAssociation: "Association 1901",
-    tabMembers: "Members",
+    tabMembers: "Pack Management",
     tabDao: "DAO Governance",
     tabDonations: "Donations",
     guidedTour: "Guided tour",
