@@ -43,28 +43,34 @@ const emit = defineEmits<{
 
 <style lang="scss" scoped>
 .gv-submit-prop-tiles {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: $space-2;
+  display: flex;
+  flex-direction: column;
 }
 
 .gv-prop-tile {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
   gap: $space-2;
-  text-align: center;
-  border: 1px solid $color-border;
-  border-radius: $radius-sm;
-  padding: $space-3 $space-2;
-  background: $color-page-bg;
+  text-align: left;
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid $color-border;
+  padding: $space-2 $space-1;
+  background: none;
   font: inherit;
   color: $color-text;
   cursor: pointer;
 
+  &:last-child {
+    border-bottom: none;
+  }
+
   &--enabled:hover {
-    border-color: $color-orange-dark;
     color: $color-orange-dark;
+    background: $color-page-bg;
   }
 
   &--disabled {
@@ -73,14 +79,20 @@ const emit = defineEmits<{
   }
 }
 
+.gv-prop-tile svg {
+  flex-shrink: 0;
+}
+
 .gv-prop-tile-label {
   font-family: $font-mono;
   font-size: $fs-caption;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  white-space: nowrap;
 }
 
 .gv-prop-tile-badge {
+  margin-left: auto;
   font-size: 0.7rem;
   border: 1px solid $color-border;
   border-radius: $radius-sm;
