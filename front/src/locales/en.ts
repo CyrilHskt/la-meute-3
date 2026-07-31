@@ -26,7 +26,6 @@ const en: typeof fr = {
     navGovernance: "The Governance",
   },
   presentation: {
-    eyebrow: "Who governs La Meute?",
     sectionTitle: "An association, enhanced by a DAO",
     intro: "La Meute has been a French 1901 non-profit since 2015. Since 2026, its internal decisions — admission, exclusion, expenses — are voted on-chain by its active members. The association remains the legal entity; the DAO is its deliberation tool.",
     timelineStartVersion: "V1 — The clan",
@@ -51,6 +50,7 @@ const en: typeof fr = {
     faq2A: "The two overlap through people, not through the system: the association's president, treasurer, and secretary are currently three Wolves, but nothing in the contract requires it. These are two distinct governances that coexist — one legal, one decision-making.",
     faq3Q: "Why not put everything on-chain, including the legal status?",
     faq3A: "Because no blockchain replaces the state as of today: opening a bank account, signing a lease, or being recognized by a sports federation all require a legal entity. The DAO handles internal deliberation, not legal existence.",
+    faqTitle: "Questions we get asked",
     valuesTitle: "Our principles and values",
     valueTransparentTitle: "Transparent",
     valueTransparentText:

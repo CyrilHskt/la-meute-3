@@ -28,7 +28,6 @@ export default {
     navGovernance: "La Gouvernance",
   },
   presentation: {
-    eyebrow: "Qui gouverne La Meute ?",
     sectionTitle: "Une association, augmentée par une DAO",
     intro: "La Meute est une association loi 1901 depuis 2015. Depuis 2026, ses décisions internes — admission, exclusion, dépenses — sont votées on-chain par ses membres actifs. L'association reste l'entité légale ; la DAO en est l'outil de délibération.",
     timelineStartVersion: "V1 — Le clan",
@@ -53,6 +52,7 @@ export default {
     faq2A: "Les deux se recoupent par les personnes, pas par le système : le président, le trésorier et le secrétaire de l'association sont aujourd'hui trois Loups, mais rien dans le contrat ne l'impose. Ce sont deux gouvernances distinctes qui coexistent — l'une légale, l'autre décisionnelle.",
     faq3Q: "Pourquoi ne pas tout mettre on-chain, y compris le statut légal ?",
     faq3A: "Parce qu'aucune blockchain ne remplace l'état à ce jour : pour ouvrir un compte bancaire, signer un bail de local ou être reconnue par une fédération sportive, il faut une personne morale. La DAO gère la délibération interne, pas l'existence légale.",
+    faqTitle: "Les questions qu'on nous pose",
     valuesTitle: "Nos principes et valeurs",
     valueTransparentTitle: "Transparente",
     valueTransparentText:

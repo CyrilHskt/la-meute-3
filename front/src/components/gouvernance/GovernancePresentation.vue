@@ -68,7 +68,6 @@ const values = computed(() => [
 <template>
   <section class="gv-presentation">
     <div class="gv-intro-hero">
-      <p class="gv-eyebrow">{{ t('presentation.eyebrow') }}</p>
       <h2 class="gv-section-title">{{ t('presentation.sectionTitle') }}</h2>
       <p>{{ t('presentation.intro') }}</p>
     </div>
@@ -155,6 +154,7 @@ const values = computed(() => [
     </div>
 
     <div class="gv-faq">
+      <h3 class="gv-section-title gv-faq-title">{{ t('presentation.faqTitle') }}</h3>
       <details v-for="(item, i) in faq" :key="item.q" class="gv-faq-item" :open="i === 0">
         <summary>{{ item.q }}</summary>
         <p>{{ item.a }}</p>
@@ -357,6 +357,7 @@ const values = computed(() => [
   margin: 0 auto ($space-5 * 1.5);
   padding: 0 $space-3;
 }
+.gv-faq-title { text-align: center; margin-bottom: $space-4; }
 .gv-faq-item {
   border-bottom: 1px solid $color-border;
 
