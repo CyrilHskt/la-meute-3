@@ -971,7 +971,7 @@ function startTour() {
   margin: 0 auto;
   padding: $space-5 $space-3 ($space-5 * 2);
   display: grid;
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: 240px 1fr;
   // Without this, the card panel stretches by default over the whole
   // height of the proposals column (default grid behavior) — a giant
   // empty rectangle as soon as its content is short (visitor/applicant).
