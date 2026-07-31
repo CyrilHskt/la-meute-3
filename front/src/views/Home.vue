@@ -54,49 +54,32 @@ const { t } = useI18n();
   // scaling the image up a lot just to cover the extra height, which read
   // as an ugly, over-zoomed crop rather than "a landscape." Cyril's ask:
   // the illustration keeps its own natural landscape proportions (never
-  // cropped/zoomed to force-fill the viewport), full width, and the text
-  // sits overlaid in the sky band near the top — closer to the original
-  // reference mockup than a full-bleed hero-banner treatment.
-  // Pins the (naturally-sized) image group to the bottom of the first
-  // screen instead of letting it sit right under the text with leftover
-  // blank space below — the extra room moves above instead, so the title
-  // has more breathing room and appears to float in "sky" that's part
-  // page background, part the image's own painted sky (the two blend
-  // together since $color-page-bg is close in tone to the artwork's sky).
+  // cropped/zoomed to force-fill the viewport).
+  //
+  // A second version positioned the text absolutely at `top: 6%` of this
+  // 100vh container — fragile: that percentage is relative to the
+  // *viewport*, not to the image, so the gap between the title and the
+  // artwork changed unpredictably with screen height (too tight on a
+  // short laptop, an oversized void on a tall monitor) and needed a
+  // separate hand-tuned mobile breakpoint to avoid the text overlapping
+  // the image entirely. Plain flow + `margin-top: auto` on the image
+  // fixes both: the text block sits at its natural size wherever it
+  // falls, the image is pushed to the bottom of whatever room is left,
+  // and it degrades to a normal stack on short screens automatically —
+  // no viewport-relative math, no separate mobile rule needed.
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
   min-height: 100vh;
-  position: relative;
+  padding-top: $space-5 * 2;
   text-align: center;
   color: $color-text;
   background: $color-page-bg;
 }
 
 .intro-text-block {
-  position: absolute;
-  top: 6%;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1;
-  width: 100%;
-  max-width: 900px;
   padding: 0 $space-4;
-}
-
-@media (max-width: 760px) {
-  .intro-text-block {
-    // At this asset's aspect ratio (~2.5:1), a narrow viewport gives the
-    // image so little rendered height that overlaid text has nowhere to
-    // sit without overflowing it entirely (observed: the title spilled
-    // over the whole image). Below this width, go back to a normal-flow
-    // stack — text first, full-width image below it — instead of forcing
-    // an overlay that doesn't have room to work.
-    position: static;
-    transform: none;
-    max-width: none;
-    padding: $space-5 * 2 $space-4 $space-4;
-  }
+  margin: 0 auto $space-5;
+  max-width: 900px;
 }
 
 .intro .brand-heading {
@@ -181,10 +164,13 @@ const { t } = useI18n();
 .intro-illustration {
   // Full width, natural aspect ratio (no cover-crop, no forced height) —
   // the landscape stays a landscape at every screen size instead of being
-  // zoomed/cropped to fill an arbitrary viewport height.
+  // zoomed/cropped to fill an arbitrary viewport height. `margin-top: auto`
+  // is what pushes it to the bottom of `.intro`'s flex column, independent
+  // of viewport height or text length (see the comment on `.intro`).
   display: block;
   width: 100%;
   height: auto;
+  margin-top: auto;
   opacity: 0.92;
   filter: sepia(35%) saturate(70%) contrast(95%);
 
