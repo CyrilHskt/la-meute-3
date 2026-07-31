@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { usePackSize } from "../../composables/usePackSize";
 
 const { t } = useI18n();
+const { totalWolves, totalCubs } = usePackSize();
+
+const discordInviteUrl = "https://discord.gg/Wy5rScG";
 
 // Public association documents — PDFs dropped in public/docs/, no
 // on-chain logic, just a list of links to keep up to date.
@@ -66,6 +70,32 @@ const legal = computed(() => [
       <div class="gv-info-card gv-info-card--wide">
         <h3 class="gv-card-title">{{ t('association.identityTitle') }}</h3>
         <p class="gv-identity-text" v-html="t('association.identityText')"></p>
+      </div>
+
+      <div class="gv-info-card">
+        <h3 class="gv-card-title">{{ t('association.joinTitle') }}</h3>
+        <p class="gv-join-text">{{ t('association.joinText') }}</p>
+        <a :href="discordInviteUrl" class="gv-join-cta" target="_blank" rel="noopener">{{ t('association.joinCta') }}</a>
+      </div>
+
+      <div class="gv-info-card">
+        <h3 class="gv-card-title">{{ t('association.packSizeTitle') }}</h3>
+        <!--
+          Placeholder pending issue #99 (public totalWolves()/totalCubs()
+          getters, requires a contract change + redeploy — out of scope
+          here). Intentionally unwired: renders "—" rather than a guessed
+          number until usePackSize.ts has real data to return.
+        -->
+        <div class="gv-pack-size-tiles">
+          <div class="gv-pack-size-tile">
+            <div class="gv-pack-size-value">{{ totalWolves ?? '—' }}</div>
+            <div class="gv-pack-size-label">{{ t('association.packSizeWolves') }}</div>
+          </div>
+          <div class="gv-pack-size-tile">
+            <div class="gv-pack-size-value">{{ totalCubs ?? '—' }}</div>
+            <div class="gv-pack-size-label">{{ t('association.packSizeCubs') }}</div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -165,5 +195,50 @@ const legal = computed(() => [
   line-height: 20px;
   color: $color-text;
   margin: 0;
+}
+
+.gv-join-text {
+  margin: 0 0 $space-3;
+  font-size: $fs-body;
+  line-height: 1.6;
+  color: $color-text-dim;
+}
+.gv-join-cta {
+  display: inline-block;
+  font-family: $font-mono;
+  font-size: $fs-caption;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: $color-orange-dark;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 2px;
+}
+.gv-join-cta:hover,
+.gv-join-cta:focus {
+  color: $color-orange;
+}
+
+.gv-pack-size-tiles {
+  display: flex;
+  gap: 1px;
+  background: $color-border;
+  margin-top: $space-1;
+}
+.gv-pack-size-tile {
+  flex: 1;
+  background: $color-page-bg;
+  padding: $space-3;
+  text-align: center;
+}
+.gv-pack-size-value {
+  font-family: $font-mono;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: $color-black;
+}
+.gv-pack-size-label {
+  font-size: $fs-caption;
+  color: $color-text-dim;
+  letter-spacing: 0.04em;
 }
 </style>

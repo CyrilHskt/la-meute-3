@@ -322,6 +322,12 @@ const en: typeof fr = {
     legalRegisteredOn: "Registered on",
     legalRnaNumber: "RNA number",
     toComplete: "— to complete —",
+    joinTitle: "Join us",
+    joinText: "We're not actively recruiting, but we stay open. If the vibe and how we run things sound like you, come talk to us on Discord.",
+    joinCta: "Join the Discord →",
+    packSizeTitle: "Pack size",
+    packSizeWolves: "Wolves",
+    packSizeCubs: "Cubs",
   },
 };
 

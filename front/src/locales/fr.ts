@@ -324,5 +324,11 @@ export default {
     legalRegisteredOn: "Déclarée le",
     legalRnaNumber: "N° RNA",
     toComplete: "— à compléter —",
+    joinTitle: "Nous rejoindre",
+    joinText: "On ne recrute pas activement, mais on reste ouverts. Si l'ambiance et le fonctionnement vous parlent, venez discuter sur Discord.",
+    joinCta: "Rejoindre le Discord →",
+    packSizeTitle: "Effectifs de la Meute",
+    packSizeWolves: "Loups",
+    packSizeCubs: "Louveteaux",
   },
 };
