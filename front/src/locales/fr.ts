@@ -47,22 +47,12 @@ export default {
     highlight3Title: "Pensée pour les cycles de dormance",
     highlight3Text: "Le contrat détecte les Loups dormants et ajuste automatiquement le quorum.",
     viewGovernanceCta: "Voir la gouvernance en direct",
-    whyDaoTitle: "Pourquoi passer sur une DAO ?",
-    whyDaoIntro: "Pas pour remplacer Discord — les sondages informels y restent. Trois problèmes concrets, propres à l'historique de La Meute, que ni Discord ni le papier ne résolvent.",
-    advantage1Title: "Infalsifiable et résilient",
-    advantage1Text: "Un vote décisif n'est plus modifiable après coup, ni suspendu à la disponibilité d'un serveur Discord ou d'un carnet de comptes-rendus. Aucun serveur, aucun compte admin, aucun papier à perdre.",
-    advantage2Title: "Trésorerie consultable en direct",
-    advantage2Text: "Le solde et l'historique des dépenses sont visibles à tout moment, par tout le monde — plus besoin d'attendre l'AG et le rapport du trésorier pour connaître l'état des comptes.",
-    advantage3Title: "Pensée pour les cycles de dormance",
-    advantage3Text: "Un bon jeu sort, tout le monde revient, puis l'activité retombe à 2-3 membres jusqu'au prochain — depuis toujours. Le contrat détecte les Loups dormants et ajuste automatiquement le quorum, au lieu de bloquer l'association pendant les creux.",
     faq1Q: "Qui a le dernier mot : l'association ou la DAO ?",
     faq1A: "Juridiquement, l'association 1901 reste seule habilitée à contracter, encaisser et dépenser — c'est elle qui existe aux yeux de la loi. En pratique, le bureau applique fidèlement les votes de la DAO : le contrat ne fait qu'exécuter ce que les statuts délèguent déjà à l'assemblée de ses membres.",
     faq2Q: "Le bureau de l'association correspond-il aux \"Loups\" de la DAO ?",
     faq2A: "Les deux se recoupent par les personnes, pas par le système : le président, le trésorier et le secrétaire de l'association sont aujourd'hui trois Loups, mais rien dans le contrat ne l'impose. Ce sont deux gouvernances distinctes qui coexistent — l'une légale, l'autre décisionnelle.",
     faq3Q: "Pourquoi ne pas tout mettre on-chain, y compris le statut légal ?",
     faq3A: "Parce qu'aucune blockchain ne remplace l'état à ce jour : pour ouvrir un compte bancaire, signer un bail de local ou être reconnue par une fédération sportive, il faut une personne morale. La DAO gère la délibération interne, pas l'existence légale.",
-    faq4Q: "Où trouver les documents officiels de l'association ?",
-    faq4A: "Statuts, comptes-rendus d'assemblée générale et composition du bureau sont publiés dans l'onglet Association 1901.",
     valuesTitle: "Nos principes et valeurs",
     valueTransparentTitle: "Transparente",
     valueTransparentText:
@@ -76,14 +66,6 @@ export default {
     valueOpenTitle: "Ouverte",
     valueOpenText:
       "Rejoindre, proposer, voter : accessible à qui s'investit vraiment, décidé collectivement, jamais à huis clos.",
-    recruitTitle: "Recrutements",
-    recruitIntro:
-      "Nous sommes un petit groupe soudé, pas un serveur ouvert à tous : on prend le temps de se connaître avant d'intégrer quelqu'un, pour que ça tienne dans la durée. Si vous cherchez :",
-    recruitEssentials:
-      "Bonne entente entre membres, gestion financière transparente, fonctionnement démocratique : c'est notre socle, pas des options.",
-    recruitProbation:
-      "Chaque nouveau membre passe par une période probatoire avant d'être pleinement intégré à la meute.",
-    recruitCta: "Rejoignez-nous sur Discord",
   },
   versionBadge: {
     title: "Versions & mises à jour",

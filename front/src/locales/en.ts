@@ -45,22 +45,12 @@ const en: typeof fr = {
     highlight3Title: "Built for dormancy cycles",
     highlight3Text: "The contract detects dormant Wolves and automatically adjusts the quorum.",
     viewGovernanceCta: "See governance live",
-    whyDaoTitle: "Why move to a DAO?",
-    whyDaoIntro: "Not to replace Discord — informal polls stay there. Three concrete problems, specific to La Meute's history, that neither Discord nor paper solve.",
-    advantage1Title: "Tamper-proof and resilient",
-    advantage1Text: "A decisive vote can no longer be altered after the fact, nor depend on a Discord server or a notebook of meeting minutes staying available. No server, no admin account, no paper to lose.",
-    advantage2Title: "Treasury visible in real time",
-    advantage2Text: "The balance and expense history are visible at any time, by anyone — no more waiting for the AGM and the treasurer's report to know where the accounts stand.",
-    advantage3Title: "Built for dormancy cycles",
-    advantage3Text: "A good game comes out, everyone's back, then activity drops to 2-3 members until the next one — it's always been that way. The contract detects dormant Wolves and automatically adjusts the quorum, instead of blocking the association during the lulls.",
     faq1Q: "Who has the final say: the association or the DAO?",
     faq1A: "Legally, the 1901 association remains the only one entitled to contract, collect, and spend — it's the one that exists in the eyes of the law. In practice, the board faithfully applies the DAO's votes: the contract only executes what the bylaws already delegate to the members' assembly.",
     faq2Q: "Does the association's board match the DAO's \"Wolves\"?",
     faq2A: "The two overlap through people, not through the system: the association's president, treasurer, and secretary are currently three Wolves, but nothing in the contract requires it. These are two distinct governances that coexist — one legal, one decision-making.",
     faq3Q: "Why not put everything on-chain, including the legal status?",
     faq3A: "Because no blockchain replaces the state as of today: opening a bank account, signing a lease, or being recognized by a sports federation all require a legal entity. The DAO handles internal deliberation, not legal existence.",
-    faq4Q: "Where can I find the association's official documents?",
-    faq4A: "Bylaws, general meeting minutes, and the board's composition are published under the Association 1901 tab.",
     valuesTitle: "Our principles and values",
     valueTransparentTitle: "Transparent",
     valueTransparentText:
@@ -74,14 +64,6 @@ const en: typeof fr = {
     valueOpenTitle: "Open",
     valueOpenText:
       "Joining, proposing, voting: open to anyone who genuinely gets involved, decided collectively, never behind closed doors.",
-    recruitTitle: "Recruitment",
-    recruitIntro:
-      "We're a small, tight-knit group, not a server open to everyone: we take the time to get to know someone before bringing them in, so it lasts. If you're looking for:",
-    recruitEssentials:
-      "Good chemistry between members, transparent financial management, democratic decision-making: that's our foundation, not optional extras.",
-    recruitProbation:
-      "Every new member goes through a probation period before being fully inducted into the pack.",
-    recruitCta: "Join us on Discord",
   },
   versionBadge: {
     title: "Versions & updates",

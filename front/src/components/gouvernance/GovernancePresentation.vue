@@ -21,26 +21,16 @@ const timelineDao = computed(() => ({
   text: t('presentation.timelineDaoText'),
 }));
 
-// Reused as-is from the arguments already present in "Why move to a DAO?"
-// further down the page — condensed here to highlight V3 in the timeline,
-// not a new write-up.
 const daoHighlights = computed(() => [
   { title: t('presentation.highlight1Title'), text: t('presentation.highlight1Text') },
   { title: t('presentation.highlight2Title'), text: t('presentation.highlight2Text') },
   { title: t('presentation.highlight3Title'), text: t('presentation.highlight3Text') },
 ]);
 
-const advantages = computed(() => [
-  { title: t('presentation.advantage1Title'), text: t('presentation.advantage1Text') },
-  { title: t('presentation.advantage2Title'), text: t('presentation.advantage2Text') },
-  { title: t('presentation.advantage3Title'), text: t('presentation.advantage3Text') },
-]);
-
 const faq = computed(() => [
   { q: t('presentation.faq1Q'), a: t('presentation.faq1A') },
   { q: t('presentation.faq2Q'), a: t('presentation.faq2A') },
   { q: t('presentation.faq3Q'), a: t('presentation.faq3A') },
-  { q: t('presentation.faq4Q'), a: t('presentation.faq4A') },
 ]);
 
 const values = computed(() => [
@@ -108,17 +98,6 @@ const values = computed(() => [
       </div>
     </div>
 
-    <div class="gv-why-dao">
-      <h3 class="gv-section-title gv-why-dao-title">{{ t('presentation.whyDaoTitle') }}</h3>
-      <p class="gv-why-dao-intro">{{ t('presentation.whyDaoIntro') }}</p>
-      <div class="gv-advantage-grid">
-        <div v-for="adv in advantages" :key="adv.title" class="gv-advantage-card">
-          <h4>{{ adv.title }}</h4>
-          <p>{{ adv.text }}</p>
-        </div>
-      </div>
-    </div>
-
     <div class="gv-values">
       <h3 class="gv-section-title gv-values-title">{{ t('presentation.valuesTitle') }}</h3>
       <ul class="gv-values-grid">
@@ -137,14 +116,6 @@ const values = computed(() => [
         <summary>{{ item.q }}</summary>
         <p>{{ item.a }}</p>
       </details>
-    </div>
-
-    <div class="gv-recruit">
-      <h3 class="gv-section-title gv-recruit-title">{{ t('presentation.recruitTitle') }}</h3>
-      <p class="gv-recruit-text">{{ t('presentation.recruitIntro') }}</p>
-      <p class="gv-recruit-text">{{ t('presentation.recruitEssentials') }}</p>
-      <p class="gv-recruit-text gv-recruit-probation">{{ t('presentation.recruitProbation') }}</p>
-      <a href="https://discord.gg/Wy5rScG" class="gv-recruit-cta">{{ t('presentation.recruitCta') }}</a>
     </div>
   </section>
 </template>
@@ -314,33 +285,6 @@ const values = computed(() => [
   color: $color-orange-dark;
 }
 
-.gv-why-dao {
-  max-width: 1000px;
-  margin: $space-1 auto ($space-5 * 1.5);
-  padding: 0 $space-3;
-}
-.gv-why-dao-title { text-align: center; margin-bottom: $space-2; }
-.gv-why-dao-intro {
-  text-align: center;
-  color: $color-text-dim;
-  font-size: $fs-body;
-  max-width: 640px;
-  margin: 0 auto $space-4;
-}
-.gv-advantage-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: $space-4;
-}
-@media (max-width: 700px) { .gv-advantage-grid { grid-template-columns: 1fr; } }
-.gv-advantage-card {
-  text-align: center;
-  padding: $space-1 $space-2;
-
-  h4 { margin: 0 0 $space-1; font-family: $font-display; font-size: $fs-h4; color: $color-black; }
-  p { margin: 0; font-size: $fs-body; color: $color-text-dim; line-height: 1.55; }
-}
-
 .gv-faq {
   max-width: 820px;
   margin: 0 auto ($space-5 * 1.5);
@@ -431,38 +375,4 @@ const values = computed(() => [
   }
 }
 
-.gv-recruit {
-  max-width: 640px;
-  margin: 0 auto ($space-5 * 1.5);
-  padding: 0 $space-3;
-  text-align: center;
-}
-.gv-recruit-title { margin-bottom: $space-3; }
-
-.gv-recruit-text {
-  margin: $space-3 0 0;
-  font-size: $fs-body;
-  line-height: 1.7;
-  color: $color-text-dim;
-}
-
-.gv-recruit-probation {
-  color: $color-text-dim;
-}
-
-.gv-recruit-cta {
-  display: inline-block;
-  margin-top: $space-4;
-  font-family: $font-mono;
-  font-size: $fs-caption;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: $color-orange-dark;
-  border-bottom: 1px solid currentColor;
-  padding-bottom: 2px;
-}
-.gv-recruit-cta:hover,
-.gv-recruit-cta:focus {
-  color: $color-orange;
-}
 </style>
