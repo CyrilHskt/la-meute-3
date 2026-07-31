@@ -1182,15 +1182,32 @@ function startTour() {
 
 .gv-prop-list { display: flex; flex-direction: column; gap: $space-3; }
 
+// `.gv-main` (not `.gv-layout`/the viewport) is what actually constrains
+// how much room `.gv-main-columns` has — since #107 gave `.gv-layout` a
+// 300px right column, `.gv-main`'s own width is capped well below
+// `.gv-layout`'s 1080px max-width regardless of viewport size. A
+// viewport-width media query for the split breakpoint (the previous
+// `@media (min-width: 900px)`) could therefore never fire correctly: past
+// a certain viewport width, `.gv-layout` simply stops growing, so `.gv-main`
+// never reaches 900px no matter how wide the browser window gets — the
+// split kept triggering anyway (viewport ≥900px, easy to satisfy) while
+// `.gv-main`'s real width was only ~750px, squeezing the list column into
+// single-word line wraps. A container query measures `.gv-main`'s actual
+// available width instead of the viewport's, so it only splits when there's
+// truly enough room.
+.gv-main {
+  container-type: inline-size;
+}
+
 .gv-main-columns {
   display: grid;
   grid-template-columns: 1fr;
   gap: $space-4;
   align-items: start;
 }
-// The detail panel sits beside the list on wide viewports (list stays
-// visible/reachable) and stacks full-width below it on narrow ones.
-@media (min-width: 900px) {
+// 680px leaves the list a reasonable ~320px minimum once the 340px detail
+// panel and the gap are subtracted (320 + 340 + $space-4 ≈ 680).
+@container (min-width: 680px) {
   .gv-main-columns--split { grid-template-columns: minmax(0, 1fr) 340px; }
 }
 .gv-main-list { min-width: 0; }
