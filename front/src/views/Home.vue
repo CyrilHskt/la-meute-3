@@ -81,6 +81,10 @@ const { t } = useI18n();
 }
 
 .intro .brand-subtitle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-3;
   font-size: $fs-body;
   font-weight: 500;
   font-family: $font-body;
@@ -88,6 +92,13 @@ const { t } = useI18n();
   text-transform: uppercase;
   color: $color-text-dim;
   margin: $space-3 0 0;
+}
+.intro .brand-subtitle::before,
+.intro .brand-subtitle::after {
+  content: "";
+  width: 32px;
+  height: 1px;
+  background: $color-text-dim;
 }
 
 .intro .intro-motto {
