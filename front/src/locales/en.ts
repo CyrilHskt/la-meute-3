@@ -202,6 +202,7 @@ const en: typeof fr = {
       votesSubmitted: "↳ Votes submitted",
       myOpenProposals: "↳ Open proposals",
       totalDonations: "↳ Total donations",
+      moreDetails: "More details",
       openProposalTitle: "Open a proposal",
       typeBinaryPoll: "Yes/No poll",
       typeMultiChoicePoll: "Multiple-choice poll",

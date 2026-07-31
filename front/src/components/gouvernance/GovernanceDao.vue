@@ -118,6 +118,20 @@ async function loadBalance() {
   myBalance.value = await publicClient.getBalance({ address: address.value });
 }
 
+// The wolf card is teleported into Dashboard.vue's sidebar
+// (#gv-member-card-slot). That target is a sibling rendered earlier in
+// the same initial synchronous mount pass, but Vue's `<Teleport>`
+// resolves its `to` target via `document.querySelector` at the moment
+// *this* component mounts — before the whole app tree has actually been
+// committed to the document in some cases, the slot isn't there yet
+// (observed: "Failed to locate Teleport target", then a hard crash on
+// the very first branch switch e.g. anonymous -> connected). Delaying
+// the Teleport by one mount tick guarantees the target already exists.
+const cardTeleportReady = ref(false);
+onMounted(() => {
+  cardTeleportReady.value = true;
+});
+
 onMounted(async () => {
   await loadAll();
   fee.value = (await readOnlyContract().read.fee()) as bigint;
@@ -601,6 +615,7 @@ function startTour() {
     <p v-if="error" class="gv-error">{{ t('common.readError', { error }) }}</p>
 
     <div class="gv-layout">
+      <Teleport v-if="cardTeleportReady" to="#gv-member-card-slot">
       <aside class="gv-card-panel">
         <template v-if="!address">
           <p class="gv-card-title">{{ t('governance.dao.myCard') }}</p>
@@ -673,20 +688,24 @@ function startTour() {
             <span>{{ t('governance.dao.postponements') }}</span>
             <span>{{ card?.postponements ?? 0 }} / {{ maxPostponements }}</span>
           </div>
-          <div class="gv-stat-row gv-stat-row--sub">
-            <span>{{ t('governance.dao.votesSubmitted') }}</span>
-            <span>{{ myActivity.votesSubmitted }}</span>
-          </div>
-          <div class="gv-stat-row gv-stat-row--sub">
-            <span>{{ t('governance.dao.myOpenProposals') }}</span>
-            <span>{{ myActivity.openProposals }}</span>
-          </div>
-          <div class="gv-stat-row gv-stat-row--sub">
-            <span>{{ t('governance.dao.totalDonations') }}</span>
-            <span>{{ formatEther(myDonations) }} ETH</span>
-          </div>
+          <details class="gv-card-more">
+            <summary>{{ t('governance.dao.moreDetails') }}</summary>
+            <div class="gv-stat-row gv-stat-row--sub">
+              <span>{{ t('governance.dao.votesSubmitted') }}</span>
+              <span>{{ myActivity.votesSubmitted }}</span>
+            </div>
+            <div class="gv-stat-row gv-stat-row--sub">
+              <span>{{ t('governance.dao.myOpenProposals') }}</span>
+              <span>{{ myActivity.openProposals }}</span>
+            </div>
+            <div class="gv-stat-row gv-stat-row--sub">
+              <span>{{ t('governance.dao.totalDonations') }}</span>
+              <span>{{ formatEther(myDonations) }} ETH</span>
+            </div>
+          </details>
         </template>
       </aside>
+      </Teleport>
 
       <main class="gv-main">
         <div class="gv-main-columns" :class="{ 'gv-main-columns--split': !!selectedProposal }">
@@ -971,21 +990,30 @@ function startTour() {
   margin: 0 auto;
   padding: $space-5 $space-3 ($space-5 * 2);
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 1fr;
   // Without this, the card panel stretches by default over the whole
   // height of the proposals column (default grid behavior) — a giant
   // empty rectangle as soon as its content is short (visitor/applicant).
   align-items: start;
   gap: $space-4;
 }
-@media (max-width: 820px) { .gv-layout { grid-template-columns: 1fr; } }
 
-.gv-card-panel,
 .gv-new-prop-panel {
   background: $color-card-bg;
   border: 1px solid $color-border;
   border-radius: $radius-md;
   padding: $space-4;
+}
+
+// The card panel now only ever renders teleported into the page sidebar
+// (see Dashboard.vue's #gv-member-card-slot), so it's tuned directly for
+// that narrow, compact context rather than the wide grid column it used
+// to occupy.
+.gv-card-panel {
+  background: $color-card-bg;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  padding: $space-3;
 }
 
 .gv-card-title {
@@ -1041,9 +1069,9 @@ function startTour() {
 }
 
 .gv-badge-frame {
-  width: 96px;
-  height: 96px;
-  margin: 0 auto $space-3;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto $space-2;
   border-radius: 50%;
   background: $color-page-bg;
   border: 2px solid;
@@ -1052,8 +1080,8 @@ function startTour() {
   justify-content: center;
 
   img {
-    width: 60px;
-    height: 60px;
+    width: 40px;
+    height: 40px;
   }
 
   &--wolf { border-color: $color-wolf; }
@@ -1063,12 +1091,25 @@ function startTour() {
 .gv-stat-row {
   display: flex;
   justify-content: space-between;
-  padding: $space-2 0;
+  padding: $space-1 0;
   border-bottom: 1px solid $color-border;
   font-size: $fs-caption;
 
   &--sub { color: $color-text-dim; }
   &[title] { cursor: help; }
+}
+
+.gv-card-more {
+  margin-top: $space-2;
+
+  summary {
+    cursor: pointer;
+    color: $color-text-dim;
+    font-size: $fs-caption;
+    padding: $space-1 0;
+  }
+
+  .gv-stat-row:last-child { border-bottom: none; }
 }
 
 .gv-reveil-btn {

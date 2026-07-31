@@ -71,6 +71,7 @@ watch(
         {{ tab.label }}
       </button>
     </nav>
+    <div v-show="activeTab === 'dao'" id="gv-member-card-slot" class="gv-member-card-slot"></div>
     <button v-if="activeTab === 'dao'" class="gv-tour-trigger" type="button" @click="requestTour">
       {{ t('dashboard.guidedTour') }}
       <span v-if="showTourPulse" class="gv-tour-pulse" aria-hidden="true"></span>
@@ -126,6 +127,10 @@ watch(
   gap: $space-1;
 }
 
+.gv-member-card-slot {
+  width: 100%;
+}
+
 .gv-sidebar-tab {
   background: transparent;
   border: none;
@@ -151,7 +156,13 @@ watch(
 
 @media (max-width: 820px) {
   .gv-dashboard {
-    grid-template-columns: 1fr;
+    // `minmax(0, 1fr)` rather than a bare `1fr`: the sidebar is a wrapping
+    // flex row whose card slot uses a percentage `flex-basis` — against a
+    // grid track's implicit (content-based) width, that percentage falls
+    // back to the item's unconstrained max-content size, which blew the
+    // whole row (and the page) out to ~600px wide on top of a 400px
+    // viewport (observed). A `0` track minimum breaks that feedback loop.
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .gv-sidebar {
@@ -159,19 +170,23 @@ watch(
     top: var(--navbar-height, 80px);
     height: auto;
     flex-direction: row;
+    // Without this, the card slot's `flex: 1 1 100%` below has nowhere to
+    // wrap to — it would just get squeezed into the same scrollable row
+    // as the tabs instead of dropping to its own full-width row.
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: $space-3;
-    padding: 0 $space-4;
+    padding: 0 $space-4 $space-3;
     border-right: none;
     border-bottom: 1px solid $color-border;
     z-index: 10;
-    overflow-x: auto;
   }
 
   .gv-sidebar-links {
     flex-direction: row;
     gap: 1.2rem;
+    overflow-x: auto;
   }
 
   .gv-sidebar-tab {
@@ -185,6 +200,12 @@ watch(
     border-left-color: transparent;
     border-bottom-color: $color-orange-dark;
     background: transparent;
+  }
+
+  .gv-member-card-slot {
+    flex: 1 1 100%;
+    order: 3;
+    padding-top: $space-3;
   }
 }
 

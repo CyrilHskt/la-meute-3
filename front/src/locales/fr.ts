@@ -204,6 +204,7 @@ export default {
       votesSubmitted: "↳ Votes soumis",
       myOpenProposals: "↳ Propositions ouvertes",
       totalDonations: "↳ Dons cumulés",
+      moreDetails: "Plus de détails",
       openProposalTitle: "Ouvrir une proposition",
       typeBinaryPoll: "Sondage Oui/Non",
       typeMultiChoicePoll: "Sondage choix multiples",
