@@ -144,13 +144,7 @@ const values = computed(() => [
     </div>
 
     <div class="gv-section-divider" aria-hidden="true">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-        <ellipse cx="12" cy="16.2" rx="6" ry="5" />
-        <circle cx="5" cy="9" r="2.3" />
-        <circle cx="9.6" cy="5.3" r="2.6" />
-        <circle cx="14.4" cy="5.3" r="2.6" />
-        <circle cx="19" cy="9" r="2.3" />
-      </svg>
+      <img src="/img/illustrations/motif-pawprint.png" alt="" class="gv-divider-paw" />
     </div>
 
     <div class="gv-faq">
@@ -349,6 +343,19 @@ const values = computed(() => [
   svg {
     flex: none;
     margin: 0 $space-3;
+  }
+}
+
+.gv-divider-paw {
+  flex: none;
+  width: 28px;
+  height: auto;
+  margin: 0 $space-3;
+  opacity: 0.85;
+  filter: sepia(35%) saturate(70%) contrast(95%);
+
+  [data-theme="dark"] & {
+    filter: invert(1) sepia(15%) hue-rotate(180deg) saturate(70%) brightness(1.05);
   }
 }
 
