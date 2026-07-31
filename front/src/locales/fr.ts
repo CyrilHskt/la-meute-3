@@ -25,7 +25,8 @@ export default {
     subtitle: "Clan gaming depuis 2007",
     motto: "À vaincre sans péril, on triomphe sans gloire",
     mottoSource: "— Corneille, Le Cid",
-    navGovernance: "La Gouvernance",
+    navDiscoverClan: "Découvrir le Clan",
+    navExploreGovernance: "Explorer la Gouvernance",
   },
   presentation: {
     sectionTitle: "Une association, augmentée par une DAO",

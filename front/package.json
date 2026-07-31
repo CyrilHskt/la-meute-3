@@ -12,7 +12,7 @@
     "test:functions": "node --test --import tsx netlify/functions/**/*.test.{ts,mts}"
   },
   "dependencies": {
-    "@fontsource/caveat": "^5.3.0",
+    "@fontsource/eb-garamond": "^5.3.0",
     "@fontsource/ibm-plex-mono": "^5.3.0",
     "@fontsource/inter": "^5.3.0",
     "@netlify/blobs": "^10.7.9",

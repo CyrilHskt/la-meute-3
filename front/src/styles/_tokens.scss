@@ -112,10 +112,10 @@ $font-display: "Inter", -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Ari
 $font-body: "Inter", -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 $font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
 
-// Handwritten/script accent — used sparingly (currently only the Home hero
-// motto) for a "field notebook" handwritten-aside register. Self-hosted via
-// `@fontsource/caveat`, same pattern as Inter/IBM Plex Mono above.
-$font-script: "Caveat", cursive;
+// Italic serif accent — used sparingly (currently only the Home hero
+// motto) for an elegant "field notebook" quotation register. Self-hosted
+// via `@fontsource/eb-garamond`, same pattern as Inter/IBM Plex Mono above.
+$font-script: "EB Garamond", Georgia, serif;
 
 // Typographic scale — updated per the "Carnet de meute" reference board.
 // In px, not rem: see historical note above re: bootstrap's `html{font-size:10px}`.
@@ -124,6 +124,7 @@ $fs-body: 14px; // paragraphs, line-height 20px
 $fs-h4: 16px; // card subtitles, line-height 24px
 $fs-card-title: 20px; // card/section title, line-height 28px
 $fs-section-title: 28px; // page/section title, line-height 36px
+$fs-hero: 92px; // Home hero brand title only, line-height 1
 
 // Spacing scale (px) — use these instead of ad hoc margin/padding values.
 $space-1: 4px;

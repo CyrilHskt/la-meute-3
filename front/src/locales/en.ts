@@ -23,7 +23,8 @@ const en: typeof fr = {
     subtitle: "Gaming clan since 2007",
     motto: "To conquer without risk is to triumph without glory",
     mottoSource: "— Corneille, Le Cid",
-    navGovernance: "The Governance",
+    navDiscoverClan: "Discover the Clan",
+    navExploreGovernance: "Explore the Governance",
   },
   presentation: {
     sectionTitle: "An association, enhanced by a DAO",
