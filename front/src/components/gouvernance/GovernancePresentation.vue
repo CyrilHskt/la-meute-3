@@ -128,7 +128,7 @@ const values = computed(() => [
         <ul class="gv-values-grid">
           <li v-for="value in values" :key="value.title" class="gv-value-item">
             <span class="gv-value-index mono">{{ value.index }}</span>
-            <img :src="value.icon" :alt="value.iconAlt" class="gv-value-icon" width="56" height="56" loading="lazy" />
+            <img :src="value.icon" :alt="value.iconAlt" class="gv-value-icon" width="80" height="80" loading="lazy" />
             <div>
               <h4>{{ value.title }}</h4>
               <p>{{ value.text }}</p>
@@ -136,8 +136,8 @@ const values = computed(() => [
           </li>
         </ul>
         <img
-          src="/img/illustrations/motif-wolf-pack-trio.png"
-          alt="Trio de loups formant la meute"
+          src="/img/illustrations/motif-branch.png"
+          alt="Branche de sapin gravée"
           class="gv-values-illustration"
           loading="lazy"
         />
@@ -409,7 +409,7 @@ const values = computed(() => [
 
 .gv-values-illustration {
   width: 100%;
-  max-width: 220px;
+  max-width: 340px;
   justify-self: center;
   opacity: 0.92;
   filter: sepia(35%) saturate(70%) contrast(95%);
@@ -420,7 +420,7 @@ const values = computed(() => [
 }
 @media (max-width: 820px) {
   .gv-values-illustration {
-    max-width: 160px;
+    max-width: 220px;
     order: -1;
   }
 }
@@ -475,8 +475,8 @@ const values = computed(() => [
 .gv-value-icon {
   flex: none;
   align-self: center;
-  width: 48px;
-  height: 48px;
+  width: 80px;
+  height: 80px;
   object-fit: contain;
   opacity: 0.92;
   filter: sepia(35%) saturate(70%) contrast(95%);
@@ -488,8 +488,8 @@ const values = computed(() => [
 
 @media (max-width: 480px) {
   .gv-value-icon {
-    width: 40px;
-    height: 40px;
+    width: 56px;
+    height: 56px;
   }
 }
 
