@@ -135,7 +135,7 @@ export default {
   },
   donations: {
     title: "Dons",
-    intro: "Un don est ouvert à n'importe qui — membre de la meute ou non. Il n'a rien à voir avec la cotisation d'adhésion : l'ETH rejoint directement la trésorerie du contrat, immédiatement disponible pour une future dépense votée par les Loups.",
+    intro: "Un don est ouvert à n'importe qui, membre de la meute ou non — rien à voir avec la cotisation d'adhésion. L'ETH rejoint directement la trésorerie du contrat, disponible pour une future dépense votée par les Loups.",
     connectPrompt: "Connecte ton wallet pour faire un don.",
     amountPlaceholder: "Montant en ETH",
     donate: "Donner",

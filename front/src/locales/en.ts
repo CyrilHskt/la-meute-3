@@ -133,7 +133,7 @@ const en: typeof fr = {
   },
   donations: {
     title: "Donations",
-    intro: "A donation is open to anyone — member of the pack or not. It has nothing to do with the membership fee: the ETH joins the contract's treasury directly, immediately available for a future expense voted by the Wolves.",
+    intro: "A donation is open to anyone, member of the pack or not — nothing to do with the membership fee. The ETH joins the contract's treasury directly, available for a future expense voted by the Wolves.",
     connectPrompt: "Connect your wallet to make a donation.",
     amountPlaceholder: "Amount in ETH",
     donate: "Donate",
