@@ -118,20 +118,6 @@ async function loadBalance() {
   myBalance.value = await publicClient.getBalance({ address: address.value });
 }
 
-// The wolf card is teleported into Dashboard.vue's sidebar
-// (#gv-member-card-slot). That target is a sibling rendered earlier in
-// the same initial synchronous mount pass, but Vue's `<Teleport>`
-// resolves its `to` target via `document.querySelector` at the moment
-// *this* component mounts — before the whole app tree has actually been
-// committed to the document in some cases, the slot isn't there yet
-// (observed: "Failed to locate Teleport target", then a hard crash on
-// the very first branch switch e.g. anonymous -> connected). Delaying
-// the Teleport by one mount tick guarantees the target already exists.
-const cardTeleportReady = ref(false);
-onMounted(() => {
-  cardTeleportReady.value = true;
-});
-
 onMounted(async () => {
   await loadAll();
   fee.value = (await readOnlyContract().read.fee()) as bigint;
@@ -615,107 +601,9 @@ function startTour() {
     <p v-if="error" class="gv-error">{{ t('common.readError', { error }) }}</p>
 
     <div class="gv-layout">
-      <Teleport v-if="cardTeleportReady" to="#gv-member-card-slot">
-      <aside class="gv-card-panel">
-        <template v-if="!address">
-          <p class="gv-card-title">{{ t('governance.dao.myCard') }}</p>
-          <p class="gv-card-note">{{ t('governance.dao.connectToSeeCard') }}</p>
-          <button class="btn btn-primary" @click="onConnect">{{ t('common.connectWallet') }}</button>
-        </template>
-        <template v-else-if="wrongNetwork">
-          <p class="gv-error">{{ t('common.wrongNetwork') }}</p>
-        </template>
-        <template v-else-if="role === 'visitor'">
-          <p v-if="myExclusion && !myOpenApplication" class="gv-exclusion-note">
-            {{ t('governance.dao.excludedNote', { date: new Date(Number(myExclusion.deadline) * 1000).toLocaleDateString(locale) }) }}
-          </p>
-          <ApplicationChecklist
-            :address="address!"
-            :balance="myBalance"
-            :fee="fee"
-            :application="myOpenApplication"
-            :now="now"
-            :tx-pending="txPending"
-            :countdown="countdown"
-            :exact-date="exactDate"
-            @apply="applyForMembership"
-            @refresh-balance="loadBalance"
-          />
-        </template>
-        <template v-else>
-          <div class="gv-badge-frame" :class="`gv-badge-frame--${role}`">
-            <img v-if="cardImage" :src="cardImage" alt="Illustration de la carte de membre" />
-          </div>
-          <p class="gv-card-title" style="text-align: center">{{ t('governance.dao.myCardRankTitle', { rank: role === "wolf" ? t('governance.dao.rankWolf') : t('governance.dao.rankCub') }) }}</p>
-
-          <button
-            v-if="!myDiscord"
-            class="btn btn-primary gv-discord-link-btn"
-            type="button"
-            @click="requestDiscordLink(address!)"
-          >
-            {{ t('governance.dao.linkDiscord') }}
-          </button>
-          <button
-            v-else
-            class="gv-discord-unlink-btn"
-            type="button"
-            :disabled="unlinkPending"
-            :title="t('governance.dao.unlinkTooltip')"
-            @click="onUnlinkDiscord"
-          >
-            {{ unlinkPending ? t('governance.dao.unlinking') : t('governance.dao.unlinkDiscord') }}
-          </button>
-
-          <p class="gv-card-note" style="text-align: center"><AddressChip v-if="address" :address="address" short /></p>
-          <div class="gv-stat-row" :title="statusTooltip">
-            <span>{{ t('governance.dao.status') }}</span>
-            <span>{{ isDormant ? t('governance.dao.dormant') : t('governance.dao.active') }}</span>
-          </div>
-          <button
-            v-if="role === 'wolf' && isDormant"
-            class="btn btn-primary gv-reveil-btn"
-            :disabled="txPending"
-            @click="wakeUp"
-          >
-            {{ t('governance.dao.wakeUp') }}
-          </button>
-          <div class="gv-stat-row">
-            <span>{{ t('governance.dao.lastActivity') }}</span>
-            <span>{{ card ? new Date(card.lastActivity * 1000).toLocaleDateString(locale) : "—" }}</span>
-          </div>
-          <div class="gv-stat-row" v-if="role === 'cub'">
-            <span>{{ t('governance.dao.postponements') }}</span>
-            <span>{{ card?.postponements ?? 0 }} / {{ maxPostponements }}</span>
-          </div>
-          <details class="gv-card-more">
-            <summary>{{ t('governance.dao.moreDetails') }}</summary>
-            <div class="gv-stat-row gv-stat-row--sub">
-              <span>{{ t('governance.dao.votesSubmitted') }}</span>
-              <span>{{ myActivity.votesSubmitted }}</span>
-            </div>
-            <div class="gv-stat-row gv-stat-row--sub">
-              <span>{{ t('governance.dao.myOpenProposals') }}</span>
-              <span>{{ myActivity.openProposals }}</span>
-            </div>
-            <div class="gv-stat-row gv-stat-row--sub">
-              <span>{{ t('governance.dao.totalDonations') }}</span>
-              <span>{{ formatEther(myDonations) }} ETH</span>
-            </div>
-          </details>
-        </template>
-      </aside>
-      </Teleport>
-
       <main class="gv-main">
         <div class="gv-main-columns" :class="{ 'gv-main-columns--split': !!selectedProposal }">
         <div class="gv-main-list">
-        <div v-if="role === 'wolf'" class="gv-new-prop-panel">
-          <h3 class="gv-card-title">{{ t('governance.dao.openProposalTitle') }}</h3>
-
-          <SubmitProposalPanel @select-expense="expenseModalOpen = true" />
-        </div>
-
         <p v-if="txError" class="gv-error">{{ txError }}</p>
 
         <template v-if="isAuthorized">
@@ -895,6 +783,104 @@ function startTour() {
         </aside>
         </div>
       </main>
+
+      <aside class="gv-side-column">
+      <div v-if="role === 'wolf'" class="gv-new-prop-panel">
+        <h3 class="gv-card-title">{{ t('governance.dao.openProposalTitle') }}</h3>
+
+        <SubmitProposalPanel @select-expense="expenseModalOpen = true" />
+      </div>
+
+      <aside class="gv-card-panel">
+        <template v-if="!address">
+          <p class="gv-card-title">{{ t('governance.dao.myCard') }}</p>
+          <p class="gv-card-note">{{ t('governance.dao.connectToSeeCard') }}</p>
+          <button class="btn btn-primary" @click="onConnect">{{ t('common.connectWallet') }}</button>
+        </template>
+        <template v-else-if="wrongNetwork">
+          <p class="gv-error">{{ t('common.wrongNetwork') }}</p>
+        </template>
+        <template v-else-if="role === 'visitor'">
+          <p v-if="myExclusion && !myOpenApplication" class="gv-exclusion-note">
+            {{ t('governance.dao.excludedNote', { date: new Date(Number(myExclusion.deadline) * 1000).toLocaleDateString(locale) }) }}
+          </p>
+          <ApplicationChecklist
+            :address="address!"
+            :balance="myBalance"
+            :fee="fee"
+            :application="myOpenApplication"
+            :now="now"
+            :tx-pending="txPending"
+            :countdown="countdown"
+            :exact-date="exactDate"
+            @apply="applyForMembership"
+            @refresh-balance="loadBalance"
+          />
+        </template>
+        <template v-else>
+          <div class="gv-badge-frame" :class="`gv-badge-frame--${role}`">
+            <img v-if="cardImage" :src="cardImage" alt="Illustration de la carte de membre" />
+          </div>
+          <p class="gv-card-title" style="text-align: center">{{ t('governance.dao.myCardRankTitle', { rank: role === "wolf" ? t('governance.dao.rankWolf') : t('governance.dao.rankCub') }) }}</p>
+
+          <button
+            v-if="!myDiscord"
+            class="btn btn-primary gv-discord-link-btn"
+            type="button"
+            @click="requestDiscordLink(address!)"
+          >
+            {{ t('governance.dao.linkDiscord') }}
+          </button>
+          <button
+            v-else
+            class="gv-discord-unlink-btn"
+            type="button"
+            :disabled="unlinkPending"
+            :title="t('governance.dao.unlinkTooltip')"
+            @click="onUnlinkDiscord"
+          >
+            {{ unlinkPending ? t('governance.dao.unlinking') : t('governance.dao.unlinkDiscord') }}
+          </button>
+
+          <p class="gv-card-note" style="text-align: center"><AddressChip v-if="address" :address="address" short /></p>
+          <div class="gv-stat-row" :title="statusTooltip">
+            <span>{{ t('governance.dao.status') }}</span>
+            <span>{{ isDormant ? t('governance.dao.dormant') : t('governance.dao.active') }}</span>
+          </div>
+          <button
+            v-if="role === 'wolf' && isDormant"
+            class="btn btn-primary gv-reveil-btn"
+            :disabled="txPending"
+            @click="wakeUp"
+          >
+            {{ t('governance.dao.wakeUp') }}
+          </button>
+          <div class="gv-stat-row">
+            <span>{{ t('governance.dao.lastActivity') }}</span>
+            <span>{{ card ? new Date(card.lastActivity * 1000).toLocaleDateString(locale) : "—" }}</span>
+          </div>
+          <div class="gv-stat-row" v-if="role === 'cub'">
+            <span>{{ t('governance.dao.postponements') }}</span>
+            <span>{{ card?.postponements ?? 0 }} / {{ maxPostponements }}</span>
+          </div>
+          <details class="gv-card-more">
+            <summary>{{ t('governance.dao.moreDetails') }}</summary>
+            <div class="gv-stat-row gv-stat-row--sub">
+              <span>{{ t('governance.dao.votesSubmitted') }}</span>
+              <span>{{ myActivity.votesSubmitted }}</span>
+            </div>
+            <div class="gv-stat-row gv-stat-row--sub">
+              <span>{{ t('governance.dao.myOpenProposals') }}</span>
+              <span>{{ myActivity.openProposals }}</span>
+            </div>
+            <div class="gv-stat-row gv-stat-row--sub">
+              <span>{{ t('governance.dao.totalDonations') }}</span>
+              <span>{{ formatEther(myDonations) }} ETH</span>
+            </div>
+          </details>
+        </template>
+      </aside>
+      </aside>
     </div>
   </section>
 </template>
@@ -990,11 +976,23 @@ function startTour() {
   margin: 0 auto;
   padding: $space-5 $space-3 ($space-5 * 2);
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr) 300px;
   // Without this, the card panel stretches by default over the whole
   // height of the proposals column (default grid behavior) — a giant
   // empty rectangle as soon as its content is short (visitor/applicant).
   align-items: start;
+  gap: $space-4;
+}
+
+@media (max-width: 820px) {
+  .gv-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.gv-side-column {
+  display: flex;
+  flex-direction: column;
   gap: $space-4;
 }
 
@@ -1005,10 +1003,8 @@ function startTour() {
   padding: $space-4;
 }
 
-// The card panel now only ever renders teleported into the page sidebar
-// (see Dashboard.vue's #gv-member-card-slot), so it's tuned directly for
-// that narrow, compact context rather than the wide grid column it used
-// to occupy.
+// The card panel renders directly in .gv-side-column, tuned for that
+// narrow (300px) column.
 .gv-card-panel {
   background: $color-card-bg;
   border: 1px solid $color-border;
