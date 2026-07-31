@@ -299,6 +299,7 @@ export default {
     unknownProposal: "Cette proposition n'existe pas.",
     transferForbidden: "Les cartes de membre ne sont pas transférables.",
     noFounders: "Aucun fondateur fourni.",
+    invalidAddress: "Adresse invalide — le bénéficiaire ne peut pas être l'adresse zéro.",
     unknownError: "Le contrat a refusé l'opération ({errorName}).",
     walletNotConnected: "Wallet non connecté",
     daoSnapshotLoadFailed: "Impossible de charger l'instantané DAO (HTTP {status})",

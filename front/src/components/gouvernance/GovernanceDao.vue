@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useLocale } from "../../composables/useLocale";
 import { useGuidedTour } from "../../composables/useGuidedTour";
-import { formatEther, type Address } from "viem";
+import { formatEther, parseEther, type Address } from "viem";
 import { driver } from "driver.js";
 import { useWallet } from "../../composables/useWallet";
 import { useMeute, ProposalType, VoteChoice, type Proposal } from "../../composables/useMeute";
@@ -21,6 +21,7 @@ import SubmitProposalPanel from "./SubmitProposalPanel.vue";
 import ApplicationChecklist from "./ApplicationChecklist.vue";
 import WalletInstallModal from "./WalletInstallModal.vue";
 import DiscordConsentModal from "./DiscordConsentModal.vue";
+import ExpenseProposalModal from "./ExpenseProposalModal.vue";
 
 const { t } = useI18n();
 const { locale } = useLocale();
@@ -29,6 +30,8 @@ const {
   stats,
   proposals,
   memberActivity,
+  topDonors,
+  members,
   myDonations,
   loading,
   error,
@@ -251,6 +254,41 @@ function applyForMembership() {
     () => writableContract().write.applyForMembership({ value: fee.value }),
     t('governance.dao.applicationToast'),
   );
+}
+
+const expenseModalOpen = ref(false);
+
+function toPickerOption(addr: string) {
+  const link = discordLinkFor(addr as Address);
+  return { address: addr, username: link?.username, avatarUrl: link?.avatarUrl };
+}
+
+// Expense stays free-text (a beneficiary can be any address, not
+// necessarily a member) — these suggestions are just a convenience, built
+// from everything the front has already seen. Confirm/Exclude have their
+// own dedicated page ("Members" tab): those always target an existing
+// member, better suited to a browsable list than a field to search in.
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+const knownBeneficiaries = computed(() => {
+  const addrs = new Set<string>([
+    ...members.value.map((m) => m.address),
+    ...memberActivity.value.keys(),
+    ...proposals.value.flatMap((p) => [p.author, p.target]),
+    ...topDonors.value.map((d) => d.address),
+  ]);
+  addrs.delete(ZERO_ADDRESS);
+  return [...addrs].map(toPickerOption);
+});
+
+async function proposeExpense(expenseAddress: string, expenseAmount: string | number, expenseReason: string) {
+  const args = [expenseAddress as `0x${string}`, parseEther(String(expenseAmount || "0")), expenseReason] as const;
+  await runTx(
+    () => readOnlyContract().simulate.proposeExpense(args, { account: address.value! }),
+    () => writableContract().write.proposeExpense(args),
+    t('governance.dao.expenseToast'),
+  );
+  if (!txError.value) expenseModalOpen.value = false;
 }
 
 function vote(id: bigint, choice: number) {
@@ -511,6 +549,14 @@ function startTour() {
   <section id="gouvernance-dao" class="gv-dao">
     <WalletInstallModal />
     <DiscordConsentModal />
+    <ExpenseProposalModal
+      :open="expenseModalOpen"
+      :known-beneficiaries="knownBeneficiaries"
+      :tx-pending="txPending"
+      :tx-error="txError"
+      @close="expenseModalOpen = false"
+      @submit="proposeExpense"
+    />
 
     <div v-if="!isAuthorized && membershipError === 'network'" class="gv-gate">
       <p class="gv-gate-text">{{ t('governance.dao.gateNetworkErrorText') }}</p>
@@ -648,7 +694,7 @@ function startTour() {
         <div v-if="role === 'wolf'" class="gv-new-prop-panel">
           <h3 class="gv-card-title">{{ t('governance.dao.openProposalTitle') }}</h3>
 
-          <SubmitProposalPanel />
+          <SubmitProposalPanel @select-expense="expenseModalOpen = true" />
         </div>
 
         <p v-if="txError" class="gv-error">{{ txError }}</p>

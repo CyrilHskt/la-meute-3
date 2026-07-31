@@ -297,6 +297,7 @@ const en: typeof fr = {
     unknownProposal: "This proposal doesn't exist.",
     transferForbidden: "Membership cards aren't transferable.",
     noFounders: "No founder provided.",
+    invalidAddress: "Invalid address — the beneficiary cannot be the zero address.",
     unknownError: "The contract rejected the operation ({errorName}).",
     walletNotConnected: "Wallet not connected",
     daoSnapshotLoadFailed: "Could not load the DAO snapshot (HTTP {status})",
