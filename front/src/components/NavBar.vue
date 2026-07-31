@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, nextTick, watch } from "vue";
+import { ref, onMounted, onUnmounted, computed } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useLocale } from "../composables/useLocale";
@@ -37,17 +37,30 @@ function updateNavbarHeight() {
   }
 }
 
+// A ResizeObserver on the nav itself rather than a list of the events we
+// think can change its height: the previous list (mount, window resize,
+// menu open/close) missed the `top-nav-collapse` class toggle, whose
+// ~40px padding change is animated by a 0.5s CSS transition
+// (public/css/theme.css) — --navbar-height then stayed at its pre-scroll
+// value until an unrelated resize, leaving a visible gap under the nav.
+// The observer covers every cause, including each frame of that
+// transition, the expanded mobile menu and window resizes.
+let navbarResizeObserver: ResizeObserver | null = null;
+
 onMounted(() => {
   window.addEventListener("scroll", onScroll);
-  window.addEventListener("resize", updateNavbarHeight);
   updateNavbarHeight();
+  if (!navbarEl.value) return;
+  navbarResizeObserver = new ResizeObserver(updateNavbarHeight);
+  // border-box, not the default content-box: the transition that made this
+  // go stale animates the nav's *padding* (20px → 0), which leaves the
+  // content box untouched and would never fire the observer.
+  navbarResizeObserver.observe(navbarEl.value, { box: "border-box" });
 });
 
-// The expanded mobile menu changes the nav's total height.
-watch(menuOpen, () => nextTick(updateNavbarHeight));
 onUnmounted(() => {
   window.removeEventListener("scroll", onScroll);
-  window.removeEventListener("resize", updateNavbarHeight);
+  navbarResizeObserver?.disconnect();
 });
 </script>
 
