@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useLocale } from "../../composables/useLocale";
 import { useGuidedTour } from "../../composables/useGuidedTour";
-import { formatEther, parseEther, type Address } from "viem";
+import { formatEther, type Address } from "viem";
 import { driver } from "driver.js";
 import { useWallet } from "../../composables/useWallet";
 import { useMeute, ProposalType, VoteChoice, type Proposal } from "../../composables/useMeute";
@@ -17,7 +17,7 @@ import { useProposalTx } from "../../composables/useProposalTx";
 import { useProposalFormatting, type PastProposalStatus } from "../../composables/useProposalFormatting";
 import AddressChip from "./AddressChip.vue";
 import ProposalCard from "./ProposalCard.vue";
-import ProposeExpenseForm from "./ProposeExpenseForm.vue";
+import SubmitProposalPanel from "./SubmitProposalPanel.vue";
 import ApplicationChecklist from "./ApplicationChecklist.vue";
 import WalletInstallModal from "./WalletInstallModal.vue";
 import DiscordConsentModal from "./DiscordConsentModal.vue";
@@ -29,8 +29,6 @@ const {
   stats,
   proposals,
   memberActivity,
-  topDonors,
-  members,
   myDonations,
   loading,
   error,
@@ -255,41 +253,6 @@ function applyForMembership() {
   );
 }
 
-const expenseAddr = ref("");
-const expenseAmount = ref("");
-const expenseReason = ref("");
-
-function toPickerOption(addr: string) {
-  const link = discordLinkFor(addr as Address);
-  return { address: addr, username: link?.username, avatarUrl: link?.avatarUrl };
-}
-
-// Expense stays free-text (a beneficiary can be any address, not
-// necessarily a member) — these suggestions are just a convenience, built
-// from everything the front has already seen. Confirm/Exclude have their
-// own dedicated page ("Members" tab): those always target an existing
-// member, better suited to a browsable list than a field to search in.
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-
-const knownBeneficiaries = computed(() => {
-  const addrs = new Set<string>([
-    ...members.value.map((m) => m.address),
-    ...memberActivity.value.keys(),
-    ...proposals.value.flatMap((p) => [p.author, p.target]),
-    ...topDonors.value.map((d) => d.address),
-  ]);
-  addrs.delete(ZERO_ADDRESS);
-  return [...addrs].map(toPickerOption);
-});
-
-function proposeExpense() {
-  const args = [expenseAddr.value as `0x${string}`, parseEther(String(expenseAmount.value || "0")), expenseReason.value] as const;
-  return runTx(
-    () => readOnlyContract().simulate.proposeExpense(args, { account: address.value! }),
-    () => writableContract().write.proposeExpense(args),
-    t('governance.dao.expenseToast'),
-  );
-}
 function vote(id: bigint, choice: number) {
   const args = [id, choice] as const;
   return runTx(
@@ -685,14 +648,7 @@ function startTour() {
         <div v-if="role === 'wolf'" class="gv-new-prop-panel">
           <h3 class="gv-card-title">{{ t('governance.dao.openProposalTitle') }}</h3>
 
-          <ProposeExpenseForm
-            v-model:address="expenseAddr"
-            v-model:amount="expenseAmount"
-            v-model:reason="expenseReason"
-            :known-beneficiaries="knownBeneficiaries"
-            :tx-pending="txPending"
-            @submit="proposeExpense"
-          />
+          <SubmitProposalPanel />
         </div>
 
         <p v-if="txError" class="gv-error">{{ txError }}</p>
