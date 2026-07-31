@@ -11,7 +11,7 @@ import { useLocalAutoRefresh } from "../../composables/useLocalAutoRefresh";
 import AddressChip from "./AddressChip.vue";
 
 const { t } = useI18n();
-const { address, connect, readOnlyContract, writableContract, publicClient } = useWallet();
+const { address, connect, readOnlyContract, writableContract, publicClient, ensureContractAddressSynced } = useWallet();
 const { members, proposals, loading, error, isAuthorized, loadAll } = useMeute();
 
 // Purely front-side marker (never a real Rank value on the contract side,
@@ -33,6 +33,7 @@ async function loadMyRank() {
     myRank.value = null;
     return;
   }
+  await ensureContractAddressSynced();
   const balance = (await readOnlyContract().read.balanceOf([address.value])) as bigint;
   if (balance === 0n) {
     myRank.value = null;

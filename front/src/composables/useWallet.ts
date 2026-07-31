@@ -30,9 +30,7 @@ const contractAddress = ref<Address>(
 
 const DEMO_SERVER_URL = "http://127.0.0.1:4100";
 
-/** Fetches the current address from the demo panel. No effect outside
- *  local mode — never called (or even reachable) in prod. */
-async function syncLocalContractAddress() {
+async function fetchLocalContractAddress() {
   if (!isLocal) return;
   try {
     const res = await fetch(`${DEMO_SERVER_URL}/api/state`);
@@ -43,6 +41,31 @@ async function syncLocalContractAddress() {
     // The demo panel might not be running — not blocking, we keep the last
     // known address.
   }
+}
+
+// Only the *first* sync is memoized: callers that merely need the address
+// to be resolved once (ensureContractAddressSynced) must not pay for a
+// fetch each time, whereas syncLocalContractAddress() genuinely re-reads
+// on every snapshot load — the demo panel redeploys a brand-new contract
+// on every scenario reset.
+let firstAddressSync: Promise<void> | null = null;
+
+/** Fetches the current address from the demo panel. No effect outside
+ *  local mode — never called (or even reachable) in prod. */
+function syncLocalContractAddress(): Promise<void> {
+  const sync = fetchLocalContractAddress();
+  firstAddressSync ??= sync;
+  return sync;
+}
+
+/** Awaited before any contract read whose result would be wrong against
+ *  the pre-sync (env-provided) address — in local demo mode the address in
+ *  VITE_CONTRACT_ADDRESS is stale as soon as the panel redeploys. Resolves
+ *  immediately outside local mode: the Sepolia address is a compile-time
+ *  constant, there is nothing to resolve. */
+function ensureContractAddressSynced(): Promise<void> {
+  if (!isLocal) return Promise.resolve();
+  return (firstAddressSync ??= fetchLocalContractAddress());
 }
 const address = ref<Address | null>(null);
 const wrongNetwork = ref(false);
@@ -213,6 +236,7 @@ export function useWallet() {
     publicClient,
     contractAddress,
     syncLocalContractAddress,
+    ensureContractAddressSynced,
     onExplicitConnect,
     onAccountChanged,
     restoreConnectionPromise,

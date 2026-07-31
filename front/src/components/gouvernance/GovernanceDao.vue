@@ -25,7 +25,7 @@ import ExpenseProposalModal from "./ExpenseProposalModal.vue";
 
 const { t } = useI18n();
 const { locale } = useLocale();
-const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient, restoreConnectionPromise } = useWallet();
+const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient, restoreConnectionPromise, ensureContractAddressSynced } = useWallet();
 const {
   stats,
   proposals,
@@ -119,6 +119,10 @@ async function loadBalance() {
 }
 
 onMounted(async () => {
+  // Before any read below: loadAll() only resolves the demo contract
+  // address on the authorized path, so these one-time constants would
+  // otherwise be read against the stale pre-sync address.
+  await ensureContractAddressSynced();
   await loadAll();
   fee.value = (await readOnlyContract().read.fee()) as bigint;
   dormancyDelay.value = Number((await readOnlyContract().read.DORMANCY_DELAY()) as bigint);
@@ -210,6 +214,7 @@ async function refreshMembership() {
     cardImage.value = null;
     return;
   }
+  await ensureContractAddressSynced();
   const contract = readOnlyContract();
   const balance = (await contract.read.balanceOf([address.value])) as bigint;
   if (balance === 0n) {
