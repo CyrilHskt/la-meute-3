@@ -612,7 +612,12 @@ function startTour() {
         <p v-if="txError" class="gv-error">{{ txError }}</p>
 
         <h3 class="gv-card-title" style="margin-top: 2rem">{{ t('governance.dao.proposalsTitle') }}</h3>
-        <template v-if="isAuthorized">
+        <!-- `stats` (set by the same applyIndex() call as `proposals`) is
+             what distinguishes "authorized but the snapshot hasn't landed
+             yet" from "authorized and genuinely empty" — rendering the tabs
+             on `isAuthorized` alone showed a confident, wrong "0 ongoing /
+             0 past" for as long as the fetch took. -->
+        <template v-if="isAuthorized && stats">
         <div class="gv-tabs">
           <button class="gv-tab" :class="{ 'gv-tab--active': activeTab === 'ongoing' }" @click="activeTab = 'ongoing'">
             {{ t('governance.dao.ongoingTab', { count: ongoingProposals.length + closedNotExecutedProposals.length }) }}
@@ -704,7 +709,8 @@ function startTour() {
           </nav>
         </div>
         </template>
-        <p v-else class="gv-card-note">{{ t('governance.dao.proposalsLockedNote') }}</p>
+        <p v-else-if="isAuthorized && !error" class="gv-loading gv-statut-empty">{{ t('common.loadingOnChain') }}</p>
+        <p v-else-if="!isAuthorized" class="gv-card-note gv-statut-empty">{{ t('governance.dao.proposalsLockedNote') }}</p>
         </div>
 
         <aside v-if="selectedProposal" class="gv-detail-panel">
