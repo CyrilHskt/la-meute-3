@@ -9,10 +9,6 @@ defineProps<{
   txPending: boolean;
 }>();
 
-const emit = defineEmits<{
-  submit: [];
-}>();
-
 const address = defineModel<string>("address", { required: true });
 // Vue's v-model on <input type="number"> casts the bound value to a JS
 // number regardless of the declared type — accept both here rather than
@@ -24,7 +20,6 @@ const reason = defineModel<string>("reason", { required: true });
 
 <template>
   <div class="gv-prop-form">
-    <p class="gv-form-label">{{ t('governance.dao.proposeExpense') }}</p>
     <div class="gv-form-row gv-form-row--wrap">
       <MemberPicker
         v-model="address"
@@ -34,22 +29,11 @@ const reason = defineModel<string>("reason", { required: true });
       />
       <input v-model="amount" type="number" min="0" step="any" inputmode="decimal" :placeholder="t('governance.dao.amountPlaceholder')" />
       <input v-model="reason" :placeholder="t('governance.dao.reasonPlaceholder')" />
-      <button class="btn btn-primary" :disabled="txPending || !address || !amount" @click="emit('submit')">
-        {{ t('governance.dao.open') }}
-      </button>
     </div>
   </div>
 </template>
 
 <style lang="scss" scoped>
-.gv-form-label {
-  font-family: $font-mono;
-  font-size: $fs-caption;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: $color-orange-dark;
-  margin: 0 0 $space-2;
-}
 .gv-prop-form { margin-bottom: $space-4; }
 .gv-form-row {
   display: flex;

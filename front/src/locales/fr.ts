@@ -212,7 +212,6 @@ export default {
       beneficiaryPlaceholder: "0x… bénéficiaire",
       amountPlaceholder: "Montant en ETH",
       reasonPlaceholder: "Motif",
-      open: "Ouvrir",
       proposalsTitle: "Propositions",
       detailTitle: "Détail de la proposition",
       ongoingTab: "En cours ({count})",

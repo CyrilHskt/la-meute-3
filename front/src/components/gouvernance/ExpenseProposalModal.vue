@@ -44,10 +44,7 @@ function submit() {
 <template>
   <div v-if="open" class="epm-overlay" @click.self="emit('close')">
     <div class="epm-card">
-      <div class="epm-head">
-        <p class="epm-title">{{ t('governance.dao.proposeExpense') }}</p>
-        <button class="icon-btn epm-close" type="button" :aria-label="t('common.close')" @click="emit('close')">✕</button>
-      </div>
+      <p class="epm-title">{{ t('governance.dao.proposeExpense') }}</p>
 
       <ProposeExpenseForm
         v-model:address="address"
@@ -55,14 +52,18 @@ function submit() {
         v-model:reason="reason"
         :known-beneficiaries="knownBeneficiaries"
         :tx-pending="txPending"
-        @submit="submit"
       />
 
       <p v-if="txError" class="epm-error">{{ txError }}</p>
 
-      <button class="btn btn-outline epm-cancel" type="button" @click="emit('close')">
-        {{ t('common.cancel') }}
-      </button>
+      <div class="epm-actions">
+        <button class="btn btn-outline epm-cancel" type="button" @click="emit('close')">
+          {{ t('common.cancel') }}
+        </button>
+        <button class="btn btn-primary epm-confirm" type="button" :disabled="txPending || !address || !amount" @click="submit">
+          {{ t('common.confirm') }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -88,44 +89,28 @@ function submit() {
   max-width: 480px;
 }
 
-.epm-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: $space-3;
-}
-
 .epm-title {
   font-family: $font-display;
   font-weight: 700;
   font-size: $fs-h4;
   color: $color-black;
-  margin: 0;
-}
-
-.icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: $radius-sm;
-  border: none;
-  background: transparent;
-  color: $color-text-dim;
-  cursor: pointer;
-  padding: 0;
-
-  &:hover { color: $color-orange-dark; background: $color-page-bg; }
+  margin: 0 0 $space-3;
 }
 
 .epm-error {
   color: $color-danger;
   font-size: $fs-caption;
-  margin: 0 0 $space-3;
+  margin: $space-3 0 0;
 }
 
-.epm-cancel {
-  width: 100%;
+.epm-actions {
+  display: flex;
+  gap: $space-2;
+  margin-top: $space-3;
+}
+
+.epm-cancel,
+.epm-confirm {
+  flex: 1;
 }
 </style>

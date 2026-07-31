@@ -210,7 +210,6 @@ const en: typeof fr = {
       beneficiaryPlaceholder: "0x… beneficiary",
       amountPlaceholder: "Amount in ETH",
       reasonPlaceholder: "Reason",
-      open: "Open",
       proposalsTitle: "Proposals",
       detailTitle: "Proposal detail",
       ongoingTab: "Ongoing ({count})",
