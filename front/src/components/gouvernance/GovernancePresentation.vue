@@ -34,10 +34,34 @@ const faq = computed(() => [
 ]);
 
 const values = computed(() => [
-  { index: "01", title: t('presentation.valueTransparentTitle'), text: t('presentation.valueTransparentText') },
-  { index: "02", title: t('presentation.valueSelfGovernedTitle'), text: t('presentation.valueSelfGovernedText') },
-  { index: "03", title: t('presentation.valueResilientTitle'), text: t('presentation.valueResilientText') },
-  { index: "04", title: t('presentation.valueOpenTitle'), text: t('presentation.valueOpenText') },
+  {
+    index: "01",
+    title: t('presentation.valueTransparentTitle'),
+    text: t('presentation.valueTransparentText'),
+    icon: "/img/illustrations/motif-ballot-box.png",
+    iconAlt: "Urne de vote cadenassée",
+  },
+  {
+    index: "02",
+    title: t('presentation.valueSelfGovernedTitle'),
+    text: t('presentation.valueSelfGovernedText'),
+    icon: "/img/illustrations/motif-compass.png",
+    iconAlt: "Boussole",
+  },
+  {
+    index: "03",
+    title: t('presentation.valueResilientTitle'),
+    text: t('presentation.valueResilientText'),
+    icon: "/img/illustrations/motif-lock-chain.png",
+    iconAlt: "Cadenas et chaîne",
+  },
+  {
+    index: "04",
+    title: t('presentation.valueOpenTitle'),
+    text: t('presentation.valueOpenText'),
+    icon: "/img/illustrations/motif-map-paw.png",
+    iconAlt: "Carte pliée scellée d'une empreinte de patte",
+  },
 ]);
 </script>
 
@@ -103,6 +127,7 @@ const values = computed(() => [
       <ul class="gv-values-grid">
         <li v-for="value in values" :key="value.title" class="gv-value-item">
           <span class="gv-value-index mono">{{ value.index }}</span>
+          <img :src="value.icon" :alt="value.iconAlt" class="gv-value-icon" width="56" height="56" loading="lazy" />
           <div>
             <h4>{{ value.title }}</h4>
             <p>{{ value.text }}</p>
@@ -372,6 +397,27 @@ const values = computed(() => [
 
   &.mono {
     font-family: $font-mono;
+  }
+}
+
+.gv-value-icon {
+  flex: none;
+  align-self: center;
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  opacity: 0.92;
+  filter: sepia(35%) saturate(70%) contrast(95%);
+
+  [data-theme="dark"] & {
+    filter: invert(1) sepia(15%) hue-rotate(180deg) saturate(70%) brightness(1.05);
+  }
+}
+
+@media (max-width: 480px) {
+  .gv-value-icon {
+    width: 40px;
+    height: 40px;
   }
 }
 
