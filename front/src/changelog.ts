@@ -23,6 +23,13 @@ export const CONTRACT_DISPLAY_VERSION = "1.2.0";
 
 export const SITE_CHANGELOG: ChangelogEntry[] = [
   {
+    date: { fr: "1er août 2026", en: "August 1, 2026" },
+    title: {
+      fr: "Une véritable identité visuelle pour le site : palette « carnet de meute », illustrations dessinées à la main, charte graphique dédiée",
+      en: "A real visual identity for the site: the \"pack notebook\" palette, hand-drawn illustrations, a dedicated style guide",
+    },
+  },
+  {
     date: { fr: "28 juillet 2026", en: "July 28, 2026" },
     title: {
       fr: "Le site est désormais disponible en anglais, avec un sélecteur FR/EN dans le menu",
