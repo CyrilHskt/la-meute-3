@@ -168,6 +168,14 @@ watch(isAuthorized, (authorized) => {
   if (!authorized) window.scrollTo({ top: 0 });
 });
 
+// The dedicated `.gv-gate` banner that used to surface this was removed
+// (redundant with each panel's own locked note) — without a toast, a
+// network failure during membership verification became silent: the page
+// just stayed in its locked state with no indication of why.
+watch(membershipError, (reason) => {
+  if (reason === "network") showToast(t('governance.dao.gateNetworkErrorText'), "error");
+});
+
 // { immediate: true } covers two cases with the same code: the address
 // changes from MetaMask (switching account mid-use) AND the address is
 // already known *on mount* of the component (e.g. navigating between
@@ -595,17 +603,6 @@ function startTour() {
       @submit="proposeExpense"
     />
 
-    <div v-if="!isAuthorized && membershipError === 'network'" class="gv-gate">
-      <p class="gv-gate-text">{{ t('governance.dao.gateNetworkErrorText') }}</p>
-      <button class="btn btn-outline" type="button" @click="address && verifyMembershipAndLoad(address)">
-        {{ t('governance.dao.gateRetry') }}
-      </button>
-    </div>
-
-    <div v-else-if="!isAuthorized && address" class="gv-gate">
-      <p class="gv-gate-text">{{ t('governance.dao.gateText') }}</p>
-    </div>
-
     <p v-if="error" class="gv-error">{{ t('common.readError', { error }) }}</p>
 
     <div class="gv-layout">
@@ -953,20 +950,6 @@ function startTour() {
 .gv-card-note {
   color: $color-text-dim;
   font-size: $fs-caption;
-}
-
-.gv-gate {
-  padding: $space-4;
-  margin-bottom: $space-4;
-  background: $color-card-bg;
-  border: 1px solid $color-border;
-  border-radius: $radius-md;
-}
-
-.gv-gate-text {
-  color: $color-text;
-  font-size: $fs-body;
-  margin: 0;
 }
 
 .gv-error {
