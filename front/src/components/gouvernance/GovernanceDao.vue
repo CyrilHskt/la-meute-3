@@ -33,7 +33,6 @@ const {
   topDonors,
   members,
   myDonations,
-  loading,
   error,
   isAuthorized,
   membershipError,
@@ -569,7 +568,7 @@ function startTour() {
           ]
         : [
             { element: ".gv-card-panel", popover: { title: t('governance.dao.tour.visitorCardTitle'), description: t('governance.dao.tour.visitorCardText') } },
-            { element: ".gv-stat-tile:first-child", popover: { title: t('governance.dao.tour.visitorTreasuryTitle'), description: t('governance.dao.tour.visitorTreasuryText') } },
+            { element: ".gv-stat-row--treasury", popover: { title: t('governance.dao.tour.visitorTreasuryTitle'), description: t('governance.dao.tour.visitorTreasuryText') } },
             headcountStep,
           ];
 
@@ -607,35 +606,6 @@ function startTour() {
       <p class="gv-gate-text">{{ t('governance.dao.gateText') }}</p>
     </div>
 
-    <div v-if="isAuthorized && stats" class="gv-stats-bar">
-      <div class="gv-stat-tile" :title="eurTooltip(stats.treasuryWei)">
-        <div class="value">{{ formatEther(stats.treasuryWei) }} <span class="unit">ETH</span></div>
-        <div class="caption">{{ t('governance.dao.treasury') }}</div>
-      </div>
-      <div class="gv-stats-effectifs">
-        <div class="gv-stat-tile">
-          <div class="value">{{ stats.activeWolves }}</div>
-          <div class="caption">{{ t('governance.dao.activeWolves') }}</div>
-        </div>
-        <div class="gv-stat-tile">
-          <div class="value">{{ stats.dormantWolves }}</div>
-          <div class="caption">{{ t('governance.dao.dormantWolves') }}</div>
-        </div>
-        <div class="gv-stat-tile">
-          <div class="value">{{ stats.cubs }}</div>
-          <div class="caption">{{ t('governance.dao.cubs') }}</div>
-        </div>
-      </div>
-      <div class="gv-stat-tile">
-        <div class="value">{{ stats.votesCast }}</div>
-        <div class="caption">{{ t('governance.dao.votesCast') }}</div>
-      </div>
-      <div class="gv-stat-tile">
-        <div class="value">{{ stats.openProposals }}</div>
-        <div class="caption">{{ t('governance.dao.openProposalsStat') }}</div>
-      </div>
-    </div>
-    <p v-else-if="loading" class="gv-loading">{{ t('common.loadingOnChain') }}</p>
     <p v-if="error" class="gv-error">{{ t('common.readError', { error }) }}</p>
 
     <div class="gv-layout">
@@ -928,6 +898,40 @@ function startTour() {
           </details>
         </template>
       </aside>
+
+      <aside class="gv-card-panel gv-stats-panel">
+        <p class="gv-card-title">{{ t('governance.dao.contractStatsTitle') }}</p>
+        <template v-if="statsResolved">
+          <div class="gv-stat-row gv-stat-row--treasury" :title="eurTooltip(stats!.treasuryWei)">
+            <span>{{ t('governance.dao.treasury') }}</span>
+            <span>{{ formatEther(stats!.treasuryWei) }} ETH</span>
+          </div>
+          <div class="gv-stats-effectifs">
+            <div class="gv-stat-row">
+              <span>{{ t('governance.dao.activeWolves') }}</span>
+              <span>{{ stats!.activeWolves }}</span>
+            </div>
+            <div class="gv-stat-row">
+              <span>{{ t('governance.dao.dormantWolves') }}</span>
+              <span>{{ stats!.dormantWolves }}</span>
+            </div>
+            <div class="gv-stat-row">
+              <span>{{ t('governance.dao.cubs') }}</span>
+              <span>{{ stats!.cubs }}</span>
+            </div>
+          </div>
+          <div class="gv-stat-row">
+            <span>{{ t('governance.dao.votesCast') }}</span>
+            <span>{{ stats!.votesCast }}</span>
+          </div>
+          <div class="gv-stat-row">
+            <span>{{ t('governance.dao.openProposalsStat') }}</span>
+            <span>{{ stats!.openProposals }}</span>
+          </div>
+        </template>
+        <p v-else-if="isAuthorized && !error" class="gv-loading">{{ t('common.loadingOnChain') }}</p>
+        <p v-else class="gv-card-note">{{ t('governance.dao.statsLockedNote') }}</p>
+      </aside>
       </aside>
     </div>
   </section>
@@ -982,52 +986,13 @@ function startTour() {
   line-height: 1.5;
 }
 
-// Flex rather than grid: .gv-stats-effectifs needs a real box (its own
-// size/position) so driver.js can target it as a single zone in the
-// guided tour — a `display: contents` wrapper has no rect of its own
-// (measured as 0×0), which broke the popover's positioning.
-.gv-stats-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1px;
-  background: $color-border;
-  border-bottom: 1px solid $color-border;
-
-  > .gv-stat-tile {
-    flex: 1 1 120px;
-  }
-}
-
+// A plain box (not `display: contents`) so driver.js can target it as a
+// single zone in the guided tour — a `display: contents` wrapper has no
+// rect of its own (measured as 0×0), which broke the popover's
+// positioning.
 .gv-stats-effectifs {
   display: flex;
-  flex: 3 1 360px;
-  gap: 1px;
-
-  .gv-stat-tile {
-    flex: 1 1 120px;
-  }
-}
-
-.gv-stat-tile {
-  background: $color-page-bg;
-  padding: $space-4 $space-3;
-  text-align: center;
-
-  .value {
-    font-family: $font-mono;
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: $color-black;
-  }
-  .unit {
-    font-size: $fs-caption;
-    color: $color-text-dim;
-  }
-  .caption {
-    font-size: $fs-caption;
-    color: $color-text-dim;
-    letter-spacing: 0.04em;
-  }
+  flex-direction: column;
 }
 
 .gv-layout {
@@ -1074,6 +1039,10 @@ function startTour() {
   border: 1px solid $color-border;
   border-radius: $radius-md;
   padding: $space-3;
+}
+
+.gv-stats-panel .gv-stat-row:last-child {
+  border-bottom: none;
 }
 
 .gv-card-title {

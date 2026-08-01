@@ -183,6 +183,8 @@ export default {
       cubs: "Louveteaux",
       votesCast: "Votes exprimés",
       openProposalsStat: "Propositions ouvertes",
+      contractStatsTitle: "Statistiques du contrat",
+      statsLockedNote: "Connecte ton wallet pour consulter les statistiques de la Meute.",
       myCard: "Ma carte",
       connectToSeeCard: "Connecte ton wallet pour voir ta carte de membre ou candidater.",
       excludedNote: "Tu as été exclu de la Meute par vote des Loups le {date}. Tu peux retenter ta chance si tu le souhaites.",

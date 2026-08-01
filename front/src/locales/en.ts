@@ -181,6 +181,8 @@ const en: typeof fr = {
       cubs: "Cubs",
       votesCast: "Votes cast",
       openProposalsStat: "Open proposals",
+      contractStatsTitle: "Contract statistics",
+      statsLockedNote: "Connect your wallet to see the Meute's statistics.",
       myCard: "My card",
       connectToSeeCard: "Connect your wallet to see your member card or apply.",
       excludedNote: "You were excluded from the Meute by a Wolves' vote on {date}. You can try your luck again if you'd like.",
