@@ -50,9 +50,14 @@ const emit = defineEmits<{
 .gv-prop-tile {
   display: flex;
   flex-direction: row;
+  // `nowrap`, not `wrap`: with wrap, a long label ("SONDAGE CHOIX
+  // MULTIPLES") could push the whole row past its width and drop the
+  // trailing badge onto its own line instead of staying aligned next to
+  // the label — the label itself is the one allowed to wrap now (see
+  // .gv-prop-tile-label), so the icon and badge stay put either way.
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-start;
-  flex-wrap: wrap;
   gap: $space-2;
   text-align: left;
   width: 100%;
@@ -88,10 +93,16 @@ const emit = defineEmits<{
   font-size: $fs-caption;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  white-space: nowrap;
+  // Was `nowrap`: now the one thing allowed to wrap onto a second line
+  // when it doesn't fit, instead of forcing the whole tile row to wrap
+  // and dropping the badge below it.
+  white-space: normal;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .gv-prop-tile-badge {
+  flex-shrink: 0;
   margin-left: auto;
   font-size: 0.7rem;
   border: 1px solid $color-border;

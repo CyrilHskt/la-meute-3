@@ -766,6 +766,13 @@ function startTour() {
           </div>
           <p class="gv-card-title" style="text-align: center">{{ t('governance.dao.myCardRankTitle', { rank: role === "wolf" ? t('governance.dao.rankWolf') : t('governance.dao.rankCub') }) }}</p>
 
+          <!-- The pseudo/address is this card's most identity-carrying
+               info — sized up and centered here instead of reading like
+               just another caption-sized note. -->
+          <p class="gv-card-identity">
+            <AddressChip v-if="address" :address="address" short />
+          </p>
+
           <button
             v-if="!myDiscord"
             class="btn btn-primary gv-discord-link-btn"
@@ -774,18 +781,6 @@ function startTour() {
           >
             {{ t('governance.dao.linkDiscord') }}
           </button>
-          <button
-            v-else
-            class="gv-discord-unlink-btn"
-            type="button"
-            :disabled="unlinkPending"
-            :title="t('governance.dao.unlinkTooltip')"
-            @click="onUnlinkDiscord"
-          >
-            {{ unlinkPending ? t('governance.dao.unlinking') : t('governance.dao.unlinkDiscord') }}
-          </button>
-
-          <p class="gv-card-note" style="text-align: center"><AddressChip v-if="address" :address="address" short /></p>
           <div class="gv-stat-row" :title="statusTooltip">
             <span>{{ t('governance.dao.status') }}</span>
             <span>{{ isDormant ? t('governance.dao.dormant') : t('governance.dao.active') }}</span>
@@ -807,7 +802,13 @@ function startTour() {
             <span>{{ card?.postponements ?? 0 }} / {{ maxPostponements }}</span>
           </div>
           <details class="gv-card-more">
-            <summary>{{ t('governance.dao.moreDetails') }}</summary>
+            <summary>
+              <svg class="gv-card-more-chevron" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M4 6l4 4 4-4" />
+              </svg>
+              <span class="gv-card-more-label-closed">{{ t('governance.dao.moreDetails') }}</span>
+              <span class="gv-card-more-label-open">{{ t('governance.dao.lessDetails') }}</span>
+            </summary>
             <div class="gv-stat-row gv-stat-row--sub">
               <span>{{ t('governance.dao.votesSubmitted') }}</span>
               <span>{{ myActivity.votesSubmitted }}</span>
@@ -819,6 +820,18 @@ function startTour() {
             <div class="gv-stat-row gv-stat-row--sub">
               <span>{{ t('governance.dao.totalDonations') }}</span>
               <span>{{ formatEther(myDonations) }} ETH</span>
+            </div>
+            <div v-if="myDiscord" class="gv-stat-row gv-stat-row--sub">
+              <span>{{ t('governance.dao.discordAccountLabel') }}</span>
+              <button
+                class="gv-discord-unlink-icon"
+                type="button"
+                :disabled="unlinkPending"
+                :title="t('governance.dao.unlinkTooltip')"
+                @click="onUnlinkDiscord"
+              >
+                {{ unlinkPending ? t('governance.dao.unlinking') : t('governance.dao.unlinkDiscordShort') }}
+              </button>
             </div>
           </details>
         </template>
@@ -952,7 +965,12 @@ function startTour() {
   padding: $space-3;
 }
 
-.gv-stats-panel .gv-stat-row:last-child {
+// Direct-child combinator, not a descendant selector: `:last-child` also
+// matched "Louveteaux" (the last row inside the nested `.gv-stats-effectifs`
+// group), silently dropping the separator between it and "Votes exprimés"
+// — this must only strip the border off the panel's actual last row
+// ("Propositions ouvertes").
+.gv-stats-panel > .gv-stat-row:last-child {
   border-bottom: none;
 }
 
@@ -967,23 +985,51 @@ function startTour() {
 
 .gv-discord-link-btn {
   display: block;
-  margin: 0 auto 0.6rem;
+  margin: $space-2 auto 0.6rem;
   font-size: $fs-caption;
   padding: 0.4rem 0.9rem;
 }
 
-.gv-discord-unlink-btn {
-  display: block;
-  margin: 0 auto 0.6rem;
-  background: none;
+// The pseudo/address is this card's most identity-carrying info — was
+// sized the same $fs-caption as every other note/caption on the card,
+// reading as "just another line" instead of the thing to read first
+// after the rank badge.
+.gv-card-identity {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-1;
+  margin: 0 0 $space-2;
+
+  :deep(.addr-chip) {
+    font-size: $fs-h4;
+  }
+  :deep(.addr-username) {
+    font-weight: 700;
+    color: $color-text;
+  }
+}
+
+// Matches AddressChip's own `.icon-btn` (20×20, dim by default, orange on
+// hover) — unlinking moved here from a full-width underlined text button
+// above the identity block, so a rare account-management action no longer
+// outweighs the identity it now sits right next to.
+// A wordless icon at 12px couldn't carry a meaning this specific
+// ("unlink this Discord account") on its own — tried twice, neither read
+// clearly at a glance. A short label is the honest fix: still far
+// quieter than the original full-width underlined button, just legible.
+.gv-discord-unlink-icon {
   border: none;
+  background: transparent;
   color: $color-text-dim;
-  font-size: 0.72rem;
-  text-decoration: underline;
+  font-size: $fs-caption;
   cursor: pointer;
+  padding: 0;
+  transition: color 0.15s ease;
 
   &:hover:not(:disabled) {
     color: $color-orange-dark;
+    text-decoration: underline;
   }
   &:disabled {
     opacity: 0.6;
@@ -1022,14 +1068,38 @@ function startTour() {
   &[title] { cursor: help; }
 }
 
+// Matches `.gv-detail-toggle` in ProposalCard.vue (chevron + rotation,
+// color, font, hover underline) — this was still the browser's bare,
+// unstyled `<summary>` marker, reading as a different control entirely
+// from the identical "Plus de détails" affordance on proposal cards.
 .gv-card-more {
   margin-top: $space-2;
 
   summary {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-1;
     cursor: pointer;
-    color: $color-text-dim;
+    color: $color-orange-dark;
+    font-family: $font-mono;
     font-size: $fs-caption;
     padding: $space-1 0;
+    list-style: none;
+
+    &:hover { text-decoration: underline; }
+    &::-webkit-details-marker { display: none; }
+  }
+
+  .gv-card-more-chevron {
+    transition: transform 0.15s ease;
+  }
+
+  .gv-card-more-label-open { display: none; }
+
+  &[open] {
+    .gv-card-more-chevron { transform: rotate(180deg); }
+    .gv-card-more-label-closed { display: none; }
+    .gv-card-more-label-open { display: inline; }
   }
 
   .gv-stat-row:last-child { border-bottom: none; }
