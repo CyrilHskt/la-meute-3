@@ -398,6 +398,20 @@ watch(pastStatusFilters, resetPastPage);
 
 const activeTab = ref<"ongoing" | "past">("ongoing");
 
+// `stats` (set by the same applyIndex() call as `proposals`) is what
+// distinguishes "authorized but the snapshot hasn't landed yet" from
+// "authorized and genuinely empty" — showing "(0)" in either case would
+// falsely claim there are no proposals before we actually know that.
+const statsResolved = computed(() => isAuthorized.value && !!stats.value);
+const ongoingTabLabel = computed(() =>
+  statsResolved.value
+    ? t('governance.dao.ongoingTab', { count: ongoingProposals.value.length + closedNotExecutedProposals.value.length })
+    : t('governance.dao.ongoingTabNoCount'),
+);
+const pastTabLabel = computed(() =>
+  statsResolved.value ? t('governance.dao.pastTab', { count: pastProposals.value.length }) : t('governance.dao.pastTabNoCount'),
+);
+
 // Master-detail selection, local to this component only — no route/query
 // param, no second fetch: the detail panel is derived from the same
 // `proposals` array already loaded above, and shares the single
@@ -589,7 +603,7 @@ function startTour() {
       </button>
     </div>
 
-    <div v-else-if="!isAuthorized" class="gv-gate">
+    <div v-else-if="!isAuthorized && address" class="gv-gate">
       <p class="gv-gate-text">{{ t('governance.dao.gateText') }}</p>
     </div>
 
@@ -631,21 +645,22 @@ function startTour() {
         <p v-if="txError" class="gv-error">{{ txError }}</p>
 
         <h3 class="gv-card-title" style="margin-top: 2rem">{{ t('governance.dao.proposalsTitle') }}</h3>
-        <!-- `stats` (set by the same applyIndex() call as `proposals`) is
-             what distinguishes "authorized but the snapshot hasn't landed
-             yet" from "authorized and genuinely empty" — rendering the tabs
-             on `isAuthorized` alone showed a confident, wrong "0 ongoing /
-             0 past" for as long as the fetch took. -->
-        <template v-if="isAuthorized && stats">
+
         <div class="gv-tabs">
-          <button class="gv-tab" :class="{ 'gv-tab--active': activeTab === 'ongoing' }" @click="activeTab = 'ongoing'">
-            {{ t('governance.dao.ongoingTab', { count: ongoingProposals.length + closedNotExecutedProposals.length }) }}
+          <button class="gv-tab" :class="{ 'gv-tab--active': activeTab === 'ongoing' }" :disabled="!isAuthorized" @click="activeTab = 'ongoing'">
+            {{ ongoingTabLabel }}
           </button>
-          <button class="gv-tab" :class="{ 'gv-tab--active': activeTab === 'past' }" @click="activeTab = 'past'">
-            {{ t('governance.dao.pastTab', { count: pastProposals.length }) }}
+          <button class="gv-tab" :class="{ 'gv-tab--active': activeTab === 'past' }" :disabled="!isAuthorized" @click="activeTab = 'past'">
+            {{ pastTabLabel }}
           </button>
         </div>
 
+        <!-- `stats` (set by the same applyIndex() call as `proposals`) is
+             what distinguishes "authorized but the snapshot hasn't landed
+             yet" from "authorized and genuinely empty" — showing the
+             filters/list on `isAuthorized` alone showed a confident, wrong
+             "0 ongoing / 0 past" for as long as the fetch took. -->
+        <template v-if="isAuthorized && stats">
         <div v-if="activeTab === 'past'" class="gv-statut-filters">
           <span class="gv-statut-filters-label">{{ t('governance.dao.filterLabel') }}</span>
           <button
@@ -1182,6 +1197,7 @@ function startTour() {
   cursor: pointer;
 
   &--active { background: $color-orange-dark; border-color: $color-orange-dark; color: var(--color-rouille-contrast); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
 .gv-statut-filters {
@@ -1227,6 +1243,8 @@ function startTour() {
   flex-direction: column;
   align-items: center;
   gap: $space-2;
+  padding: $space-5 0;
+  text-align: center;
 }
 
 .gv-prop-list { display: flex; flex-direction: column; gap: $space-3; container-type: inline-size; }
