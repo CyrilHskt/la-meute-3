@@ -6,7 +6,7 @@ import { useGuidedTour } from "../../composables/useGuidedTour";
 import { formatEther, parseEther, type Address } from "viem";
 import { driver } from "driver.js";
 import { useWallet } from "../../composables/useWallet";
-import { useMeute, ProposalType, VoteChoice, type Proposal } from "../../composables/useMeute";
+import { useMeute, ProposalType, type Proposal } from "../../composables/useMeute";
 import { useEthPrice } from "../../composables/useEthPrice";
 import { friendlyContractError } from "../../composables/contractErrors";
 import { useToast } from "../../composables/useToast";
@@ -75,6 +75,12 @@ const dormancyDelay = ref(180 * 24 * 60 * 60);
 // Same: read from the chain on mount, never hardcoded (see the "/2" below
 // that still was).
 const maxPostponements = ref(2);
+// VOTE_DURATION is a constant (7 days), never changes once deployed —
+// read once on mount rather than on every proposal. The contract only
+// stores `deadline` (vote end), not an opening date: `deadline -
+// VOTE_DURATION` reliably derives the proposal's opening date without
+// needing to store it on-chain.
+const voteDuration = ref(7 * 24 * 60 * 60);
 
 const myDiscord = computed(() => discordLinkFor(address.value));
 
@@ -126,6 +132,7 @@ onMounted(async () => {
   fee.value = (await readOnlyContract().read.fee()) as bigint;
   dormancyDelay.value = Number((await readOnlyContract().read.DORMANCY_DELAY()) as bigint);
   maxPostponements.value = Number(await readOnlyContract().read.MAX_POSTPONEMENTS());
+  voteDuration.value = Number((await readOnlyContract().read.VOTE_DURATION()) as bigint);
   now.value = Number((await publicClient.getBlock()).timestamp);
 
   const discordResult = consumeDiscordCallbackParam();
@@ -220,9 +227,13 @@ async function refreshMembership() {
     // Without this reset, a disconnect left `role` stuck on its last
     // value ("wolf") — the "Open a proposal" panel stayed displayed
     // (observed), even though no wallet is connected to use it anymore.
+    // The expanded proposal card is reset here too: invisible today only
+    // because `proposals` empties out at the same time, but a dormant bug
+    // otherwise (a stale id lingering in state after disconnect).
     role.value = "visitor";
     card.value = null;
     cardImage.value = null;
+    expandedProposalId.value = null;
     return;
   }
   await ensureContractAddressSynced();
@@ -419,24 +430,15 @@ const pastTabLabel = computed(() =>
   statsResolved.value ? t('governance.dao.pastTab', { count: pastProposals.value.length }) : t('governance.dao.pastTabNoCount'),
 );
 
-// Master-detail selection, local to this component only — no route/query
-// param, no second fetch: the detail panel is derived from the same
-// `proposals` array already loaded above, and shares the single
-// `runTx`/`txPending`/`txError` instance declared here (see vote/execute).
-const selectedProposalId = ref<bigint | null>(null);
-const selectedProposal = computed(() => {
-  if (selectedProposalId.value === null) return null;
-  return proposals.value.find((p) => p.id === selectedProposalId.value) ?? null;
-});
-function selectProposal(id: bigint) {
-  selectedProposalId.value = selectedProposalId.value === id ? null : id;
+// Single-card accordion, local to this component only — a `bigint | null`
+// rather than a `Set`: multi-expand was never requested and would just be
+// speculative complexity.
+const expandedProposalId = ref<bigint | null>(null);
+function toggleProposalDetail(id: bigint) {
+  expandedProposalId.value = expandedProposalId.value === id ? null : id;
 }
-const selectedProposalMode = computed<"ongoing" | "past">(() => {
-  if (!selectedProposal.value) return "ongoing";
-  return selectedProposal.value.executed ? "past" : "ongoing";
-});
 
-const { typeLabels, authorKnown, proposalPrefix, proposalSuffix, PAST_STATUS_LABELS, pastStatus } = useProposalFormatting(t);
+const { typeLabels, authorKnown, proposalPrefix, PAST_STATUS_LABELS, pastStatus } = useProposalFormatting(t);
 
 // The Discord link isn't required anywhere on-chain (no privileged role
 // to check it): an applicant who calls applyForMembership() directly,
@@ -485,6 +487,12 @@ function quorumTooltip(p: Proposal): string {
 
 function exactDate(p: Proposal): string {
   return new Date(Number(p.deadline) * 1000).toLocaleString(locale.value);
+}
+
+// The contract only stores `deadline`, not an opening date — derived here
+// as `deadline - VOTE_DURATION` rather than stored redundantly on-chain.
+function proposedAt(p: Proposal): string {
+  return new Date((Number(p.deadline) - voteDuration.value) * 1000).toLocaleDateString(locale.value);
 }
 
 function countdown(p: Proposal): string {
@@ -607,7 +615,7 @@ function startTour() {
 
     <div class="gv-layout">
       <main class="gv-main">
-        <div class="gv-main-columns" :class="{ 'gv-main-columns--split': !!selectedProposal }">
+        <div class="gv-main-columns">
         <div class="gv-main-list">
         <p v-if="txError" class="gv-error">{{ txError }}</p>
 
@@ -651,16 +659,16 @@ function startTour() {
             :key="p.id.toString()"
             mode="ongoing"
             :proposal="p"
-            :selected="selectedProposalId === p.id"
+            :expanded="expandedProposalId === p.id"
             :type-labels="typeLabels"
             :author-known="authorKnown"
             :proposal-prefix="proposalPrefix"
-            :proposal-suffix="proposalSuffix"
             :quorum-tooltip="quorumTooltip"
             :required-quorum="requiredQuorum"
             :application-without-discord="applicationWithoutDiscord"
             :countdown="countdown"
             :exact-date="exactDate"
+            :proposed-at="proposedAt"
             :role="role"
             :now="now"
             :tx-pending="txPending"
@@ -669,7 +677,7 @@ function startTour() {
             :max-postponements="maxPostponements"
             @vote="(id, choice) => vote(id, choice)"
             @execute="(id) => execute(id)"
-            @select="selectProposal"
+            @toggle-detail="toggleProposalDetail"
           />
           <p v-if="!allOngoingProposals.length" class="gv-card-note">
             {{ t('governance.dao.noOngoingProposals') }}
@@ -687,16 +695,16 @@ function startTour() {
             :key="p.id.toString()"
             mode="past"
             :proposal="p"
-            :selected="selectedProposalId === p.id"
+            :expanded="expandedProposalId === p.id"
             :type-labels="typeLabels"
             :author-known="authorKnown"
             :proposal-prefix="proposalPrefix"
-            :proposal-suffix="proposalSuffix"
             :quorum-tooltip="quorumTooltip"
             :required-quorum="requiredQuorum"
             :past-status="pastStatus"
             :past-status-labels="PAST_STATUS_LABELS"
-            @select="selectProposal"
+            :proposed-at="proposedAt"
+            @toggle-detail="toggleProposalDetail"
           />
           <p v-if="!pastProposals.length" class="gv-card-note">{{ t('governance.dao.noPastProposals') }}</p>
           <div v-else-if="!filteredPastProposals.length" class="gv-card-note gv-statut-empty">
@@ -714,86 +722,6 @@ function startTour() {
         <p v-else-if="!isAuthorized" class="gv-card-note gv-statut-empty">{{ t('governance.dao.proposalsLockedNote') }}</p>
         </div>
 
-        <aside v-if="selectedProposal" class="gv-detail-panel">
-          <div class="gv-detail-head">
-            <h3 class="gv-card-title">{{ t('governance.dao.detailTitle') }}</h3>
-            <button class="icon-btn gv-detail-close" type="button" :aria-label="t('common.close')" @click="selectedProposalId = null">✕</button>
-          </div>
-
-          <p class="gv-detail-type">{{ typeLabels[selectedProposal.proposalType] }}</p>
-          <p class="gv-prop-title">
-            {{ proposalPrefix(selectedProposal) }} <AddressChip :address="selectedProposal.target" short /> {{ proposalSuffix(selectedProposal) }}
-          </p>
-          <p v-if="authorKnown(selectedProposal)" class="gv-prop-author">
-            {{ t('governance.dao.by') }} <AddressChip :address="selectedProposal.author" short />
-          </p>
-
-          <div v-if="selectedProposal.proposalType === ProposalType.Expense" class="gv-detail-rows">
-            <div class="gv-stat-row">
-              <span>{{ t('governance.dao.amountPlaceholder') }}</span>
-              <span>{{ formatEther(selectedProposal.amount) }} ETH</span>
-            </div>
-            <div v-if="selectedProposal.reason" class="gv-stat-row">
-              <span>{{ t('governance.dao.reasonPlaceholder') }}</span>
-              <span>{{ selectedProposal.reason }}</span>
-            </div>
-          </div>
-
-          <p
-            v-if="selectedProposalMode === 'ongoing' && applicationWithoutDiscord(selectedProposal)"
-            class="gv-discord-warning"
-            :title="t('governance.dao.discordMissingTooltip')"
-          >
-            {{ t('governance.dao.discordMissingWarning') }}
-          </p>
-
-          <div class="gv-vote-line">
-            <span class="gv-vote-count gv-vote-count--pour">{{ t('governance.dao.votesApprove', { count: selectedProposal.approveVotes }) }}</span>
-            <span class="gv-vote-count gv-vote-count--contre">{{ t('governance.dao.votesReject', { count: selectedProposal.rejectVotes }) }}</span>
-            <span v-if="selectedProposal.proposalType === ProposalType.Confirmation" class="gv-vote-count gv-vote-count--ajourner">
-              {{ t('governance.dao.votesPostpone', { count: selectedProposal.postponeVotes }) }}
-            </span>
-          </div>
-          <div class="gv-quorum-line">
-            <span :title="quorumTooltip(selectedProposal)">
-              {{
-                t('governance.dao.quorumLine', {
-                  cast:
-                    selectedProposal.approveVotes +
-                    selectedProposal.rejectVotes +
-                    (selectedProposalMode === 'past' && selectedProposal.proposalType === ProposalType.Confirmation ? selectedProposal.postponeVotes : 0),
-                  required: requiredQuorum(selectedProposal),
-                  total: selectedProposal.activeSnapshot,
-                })
-              }}
-            </span>
-          </div>
-
-          <p v-if="selectedProposalMode === 'past'" class="gv-prop-statut" :class="`gv-prop-statut--${pastStatus(selectedProposal)}`">
-            {{ PAST_STATUS_LABELS[pastStatus(selectedProposal)] }}
-          </p>
-
-          <div v-else class="gv-prop-actions">
-            <template v-if="role === 'wolf' && Number(selectedProposal.deadline) > now && !isTargetInConflict(selectedProposal)">
-              <button class="btn btn-primary" :disabled="txPending" @click="vote(selectedProposal.id, VoteChoice.Approve)">{{ t('governance.dao.approve') }}</button>
-              <button class="btn btn-outline-danger" :disabled="txPending" @click="vote(selectedProposal.id, VoteChoice.Reject)">{{ t('governance.dao.reject') }}</button>
-              <button
-                v-if="selectedProposal.proposalType === ProposalType.Confirmation"
-                class="btn btn-outline"
-                :disabled="txPending || postponementBlocked(selectedProposal)"
-                @click="vote(selectedProposal.id, VoteChoice.Postpone)"
-              >
-                {{ t('governance.dao.postpone') }}
-              </button>
-            </template>
-            <p v-else-if="role === 'wolf' && Number(selectedProposal.deadline) > now && isTargetInConflict(selectedProposal)" class="gv-card-note">
-              {{ t('governance.dao.inConflictNote') }}
-            </p>
-            <button v-else-if="Number(selectedProposal.deadline) <= now" class="btn btn-outline" :disabled="txPending" @click="execute(selectedProposal.id)">
-              {{ t('governance.dao.execute') }}
-            </button>
-          </div>
-        </aside>
         </div>
       </main>
 
@@ -1063,23 +991,6 @@ function startTour() {
   }
 }
 
-.icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: $radius-sm;
-  border: none;
-  background: transparent;
-  color: $color-text-dim;
-  cursor: pointer;
-  padding: 0;
-
-  &:hover:not(:disabled) { color: $color-orange-dark; background: $color-page-bg; }
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
-}
-
 .gv-badge-frame {
   width: 64px;
   height: 64px;
@@ -1224,46 +1135,7 @@ function startTour() {
   gap: $space-4;
   align-items: start;
 }
-// 680px leaves the list a reasonable ~320px minimum once the 340px detail
-// panel and the gap are subtracted (320 + 340 + $space-4 ≈ 680).
-@container (min-width: 680px) {
-  .gv-main-columns--split { grid-template-columns: minmax(0, 1fr) 340px; }
-}
 .gv-main-list { min-width: 0; }
-
-.gv-detail-panel {
-  background: $color-card-bg;
-  border: 1px solid $color-orange-dark;
-  border-radius: $radius-md;
-  padding: $space-4;
-  position: sticky;
-  top: calc(var(--navbar-height, 80px) + #{$space-4});
-}
-.gv-detail-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: $space-2;
-}
-.gv-detail-close {
-  width: 24px;
-  height: 24px;
-}
-.gv-detail-type {
-  font-size: $fs-caption;
-  font-weight: 600;
-  color: $color-orange-dark;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  margin: 0 0 $space-1;
-}
-.gv-detail-rows {
-  margin: $space-2 0;
-
-  .gv-stat-row span:last-child {
-    max-width: 70ch;
-  }
-}
 
 .gv-pagination {
   display: flex;

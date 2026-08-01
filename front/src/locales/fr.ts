@@ -205,6 +205,9 @@ export default {
       myOpenProposals: "↳ Propositions ouvertes",
       totalDonations: "↳ Dons cumulés",
       moreDetails: "Plus de détails",
+      lessDetails: "Voir moins",
+      proposedAtTooltip: "Proposée le",
+      txHashLabel: "Hash de la transaction",
       openProposalTitle: "Ouvrir une proposition",
       submitLockedNote: "Connecte ton wallet pour déposer une proposition.",
       submitWolvesOnlyNote: "Seuls les Loups peuvent déposer une proposition.",
@@ -217,7 +220,6 @@ export default {
       reasonPlaceholder: "Motif",
       proposalsTitle: "Propositions",
       proposalsLockedNote: "Connecte ton wallet pour consulter les propositions de la Meute.",
-      detailTitle: "Détail de la proposition",
       ongoingTab: "En cours ({count})",
       ongoingTabNoCount: "En cours",
       pastTab: "Passées ({count})",
@@ -230,7 +232,18 @@ export default {
       votesPostpone: "{count} ajourner",
       discordMissingWarning: "⚠️ Pas de Discord lié",
       discordMissingTooltip: "Ce candidat n'a pas lié de compte Discord vérifié — à vérifier avant de voter.",
-      quorumLine: "Quorum : {cast}/{required} votes exprimés (sur {total} Loups actifs)",
+      // Two independent grammatical agreements in one sentence ("vote(s)"
+      // agrees with {cast}, "nécessaire(s)" agrees with {required}) —
+      // vue-i18n's pipe-based plural forms only handle a single choice
+      // count, so each word is resolved separately in script instead of
+      // through the plural-form mechanism (see quorumLineText in
+      // ProposalCard.vue).
+      quorumLine: "{cast} {castWord} sur {required} {requiredWord}",
+      voteWordSingular: "vote",
+      voteWordPlural: "votes",
+      necessaryWordSingular: "nécessaire",
+      necessaryWordPlural: "nécessaires",
+      quorumDetail: "Quorum : {cast}/{required} votes exprimés (sur {total} Loups actifs)",
       approve: "Approuver",
       reject: "Rejeter",
       postpone: "Ajourner",
