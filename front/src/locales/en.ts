@@ -2,9 +2,8 @@ import type fr from "./fr";
 
 const en: typeof fr = {
   nav: {
-    home: "Home",
-    governance: "Governance",
     clan: "The Clan",
+    homeAriaLabel: "La Meute — back to home",
   },
   guidedTour: {
     newHereTitle: "New here?",
@@ -191,7 +190,8 @@ const en: typeof fr = {
       rankCub: "Cub",
       linkDiscord: "Link my Discord account",
       unlinking: "Unlinking…",
-      unlinkDiscord: "Unlink my Discord account",
+      discordAccountLabel: "Discord account",
+      unlinkDiscordShort: "Unlink",
       unlinkTooltip: "Removes your username and avatar from public display — your already-public vote/donation history stays that way.",
       status: "Status",
       dormant: "Dormant",

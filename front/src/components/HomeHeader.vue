@@ -11,11 +11,14 @@ const { theme, toggleTheme } = useTheme();
 
 <template>
   <div class="home-header">
-    <div class="lang-switch">
-      <button type="button" :class="{ active: locale === 'fr' }" @click="setLocale('fr')">FR</button>
-      <span aria-hidden="true">/</span>
-      <button type="button" :class="{ active: locale === 'en' }" @click="setLocale('en')">EN</button>
-    </div>
+    <button
+      type="button"
+      class="lang-toggle"
+      :aria-label="locale === 'fr' ? 'Switch to English' : 'Passer en français'"
+      @click="setLocale(locale === 'fr' ? 'en' : 'fr')"
+    >
+      {{ locale === 'fr' ? 'EN' : 'FR' }}
+    </button>
     <button
       type="button"
       class="home-header__theme-toggle"
@@ -30,7 +33,7 @@ const { theme, toggleTheme } = useTheme();
 
 <style lang="scss" scoped>
 // Home-only floating control cluster, replacing the full NavBar on the
-// hero page (see App.vue). Reuses the same `.lang-switch` markup/behavior
+// hero page (see App.vue). Reuses the same `.lang-toggle` markup/behavior
 // as NavBar.vue's masthead version, just in a compact floating shell.
 .home-header {
   position: fixed;
@@ -47,12 +50,7 @@ const { theme, toggleTheme } = useTheme();
   font-family: $font-body;
 }
 
-.lang-switch {
-  display: flex;
-  align-items: center;
-  gap: $space-1;
-}
-.lang-switch button {
+.lang-toggle {
   background: none;
   border: none;
   padding: 0;
@@ -61,13 +59,11 @@ const { theme, toggleTheme } = useTheme();
   font-size: $fs-caption;
   color: $color-text-dim;
   cursor: pointer;
-}
-.lang-switch button.active {
-  color: $color-orange-dark;
-  font-weight: 700;
-}
-.lang-switch span {
-  color: $color-text-dim;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: $color-orange-dark;
+  }
 }
 
 .home-header__theme-toggle {

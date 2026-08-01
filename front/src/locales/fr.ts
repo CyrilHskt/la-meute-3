@@ -4,9 +4,8 @@
 // runtime — the same safety net the English rename relied on.
 export default {
   nav: {
-    home: "Accueil",
-    governance: "Gouvernance",
     clan: "Le Clan",
+    homeAriaLabel: "La Meute — retour à l'accueil",
   },
   guidedTour: {
     newHereTitle: "Nouveau ici ?",
@@ -193,7 +192,8 @@ export default {
       rankCub: "Louveteau",
       linkDiscord: "Lier mon compte Discord",
       unlinking: "Déliage…",
-      unlinkDiscord: "Délier mon compte Discord",
+      discordAccountLabel: "Compte Discord",
+      unlinkDiscordShort: "Délier",
       unlinkTooltip: "Retire ton pseudo et ton avatar de l'affichage public — ton historique de votes/dons déjà rendu public le reste.",
       status: "Statut",
       dormant: "Dormant",
