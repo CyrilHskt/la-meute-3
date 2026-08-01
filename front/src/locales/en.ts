@@ -211,7 +211,9 @@ const en: typeof fr = {
       submitWolvesOnlyNote: "Only Wolves can submit proposals.",
       typeBinaryPoll: "Yes/No poll",
       typeMultiChoicePoll: "Multiple-choice poll",
-      comingSoon: "Coming soon",
+      // "Soon™" — a running gaming injoke (Star Citizen), left untranslated
+      // on purpose in both locales.
+      comingSoon: "Soon™",
       proposeExpense: "Propose an expense",
       beneficiaryPlaceholder: "0x… beneficiary",
       amountPlaceholder: "Amount in ETH",

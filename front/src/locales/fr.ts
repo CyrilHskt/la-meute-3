@@ -213,7 +213,9 @@ export default {
       submitWolvesOnlyNote: "Seuls les Loups peuvent déposer une proposition.",
       typeBinaryPoll: "Sondage Oui/Non",
       typeMultiChoicePoll: "Sondage choix multiples",
-      comingSoon: "Bientôt disponible",
+      // "Soon™" — a running gaming injoke (Star Citizen), left untranslated
+      // on purpose in both locales.
+      comingSoon: "Soon™",
       proposeExpense: "Proposer une dépense",
       beneficiaryPlaceholder: "0x… bénéficiaire",
       amountPlaceholder: "Montant en ETH",
