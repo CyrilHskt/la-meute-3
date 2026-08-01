@@ -22,7 +22,13 @@
 :root {
   // Paper / "carnet clair" (light) — default.
   --color-paper: #f5f0ea;
-  --color-surface: #f3eee6;
+  // Was #f3eee6 — a ~1.02:1 contrast step against --color-paper, below
+  // what most displays render as a perceptible difference at all. Cards
+  // were reading as "flat/unstyled," carried entirely by the 1px border.
+  // Widened to a real, visible step (still the same warm/cream register,
+  // no new hue) rather than adding a shadow system this ledger-style
+  // palette has no precedent for.
+  --color-surface: #eee8de;
   --color-ink: #1b1a18;
   --color-ink-dim: #4a4a48;
   --color-border: rgba(27, 26, 24, 0.14);
@@ -55,6 +61,8 @@
   // auto-detected dark mode in this redesign caused a real, confusing
   // bug (see git history) and was deliberately removed.
   --color-paper: #1c1916;
+  // Unlike the light theme, this pair's original gap (28,25,22 → 36,32,25)
+  // was already a reasonable, visible step — not touched.
   --color-surface: #242019;
   --color-ink: #e9e2d6;
   --color-ink-dim: #a89d8d;

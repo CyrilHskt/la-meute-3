@@ -114,8 +114,14 @@ watch(
   height: calc(100vh - var(--navbar-height, 80px));
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: $space-4;
+  // Top-aligned rather than `space-between`: an earlier version filled the
+  // leftover height with a decorative illustration (dropped after review —
+  // a persistent nav sidebar isn't the right place for mood art, and it
+  // never actually scaled to fill the space well regardless, see git
+  // history). The leftover space below the tour button is now deliberately
+  // quiet whitespace, not something to fill.
+  justify-content: flex-start;
+  gap: $space-5;
   padding: $space-4 $space-3;
   border-right: 1px solid $color-border;
   background: $color-page-bg;
@@ -200,6 +206,7 @@ watch(
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   background: transparent;
   border: 1px solid $color-border;
   color: $color-text;
