@@ -76,6 +76,13 @@ export const SITE_CHANGELOG: ChangelogEntry[] = [
 
 export const DASHBOARD_CHANGELOG: ChangelogEntry[] = [
   {
+    date: { fr: "1er août 2026", en: "August 1, 2026" },
+    title: {
+      fr: "Propositions repensées : une illustration par type, les infos essentielles en un coup d'œil, le reste accessible en un clic sur « Plus de détails »",
+      en: "Proposals redesigned: one illustration per type, the essentials at a glance, everything else one click away under \"More details\"",
+    },
+  },
+  {
     date: { fr: "26 juillet 2026", en: "July 26, 2026" },
     title: {
       fr: "Nouvel onglet « Dons », ouvert à tous — avec classement des contributeurs",
