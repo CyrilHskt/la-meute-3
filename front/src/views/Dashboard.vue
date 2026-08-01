@@ -4,18 +4,16 @@ import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import GovernancePresentation from "../components/gouvernance/GovernancePresentation.vue";
 import GovernanceAssociation from "../components/gouvernance/GovernanceAssociation.vue";
-import GovernanceMembers from "../components/gouvernance/GovernanceMembers.vue";
 import GovernanceDao from "../components/gouvernance/GovernanceDao.vue";
 import GovernanceDonations from "../components/gouvernance/GovernanceDonations.vue";
 import { useGuidedTour } from "../composables/useGuidedTour";
 
-type PageTab = "presentation" | "association" | "members" | "dao" | "donations";
+type PageTab = "presentation" | "association" | "dao" | "donations";
 
 const { t } = useI18n();
 const tabs = computed<{ id: PageTab; label: string }[]>(() => [
   { id: "presentation", label: t('dashboard.tabPresentation') },
   { id: "association", label: t('dashboard.tabAssociation') },
-  { id: "members", label: t('dashboard.tabMembers') },
   { id: "dao", label: t('dashboard.tabDao') },
   { id: "donations", label: t('dashboard.tabDonations') },
 ]);
@@ -25,14 +23,27 @@ const tabs = computed<{ id: PageTab; label: string }[]>(() => [
 // presentation tab, even when you were on the DAO.
 const route = useRoute();
 const router = useRouter();
-const tabIds: PageTab[] = ["presentation", "association", "members", "dao", "donations"];
+const tabIds: PageTab[] = ["presentation", "association", "dao", "donations"];
 
+// "Members management" used to be its own top-level tab (?tab=members):
+// it's now a sub-tab of "dao", so an old bookmark/shared link to it must
+// still land on the right place instead of silently falling back to
+// "presentation".
 function tabFromQuery(): PageTab {
   const q = route.query.tab;
+  if (q === "members") return "dao";
   return typeof q === "string" && (tabIds as string[]).includes(q) ? (q as PageTab) : "presentation";
 }
 
+// Read once at mount, like `activeTab` below: this only decides which
+// sub-tab GovernanceDao.vue opens on initially, it isn't kept in sync with
+// the URL afterwards (GovernanceDao.vue owns activeSubTab from there on).
+function initialGovernanceSubTabFromQuery(): "proposals" | "members" {
+  return route.query.tab === "members" || route.query.subtab === "members" ? "members" : "proposals";
+}
+
 const activeTab = ref<PageTab>(tabFromQuery());
+const initialGovernanceSubTab = initialGovernanceSubTabFromQuery();
 
 // `replace` rather than `push`: switching tabs must not stack entries in
 // the navigation history (the "back" button shouldn't have to scroll
@@ -80,8 +91,7 @@ watch(
   <div class="gv-dashboard-content">
     <GovernancePresentation v-show="activeTab === 'presentation'" @go-to-dao="activeTab = 'dao'" />
     <GovernanceAssociation v-show="activeTab === 'association'" />
-    <GovernanceMembers v-show="activeTab === 'members'" />
-    <GovernanceDao v-show="activeTab === 'dao'" />
+    <GovernanceDao v-show="activeTab === 'dao'" :initial-sub-tab="initialGovernanceSubTab" />
     <GovernanceDonations v-show="activeTab === 'donations'" />
   </div>
   </div>

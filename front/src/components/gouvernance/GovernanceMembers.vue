@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Address } from "viem";
 import { useWallet } from "../../composables/useWallet";
@@ -7,11 +7,12 @@ import { useMeute, ProposalType, type Member } from "../../composables/useMeute"
 import { useDiscordLink } from "../../composables/useDiscordLink";
 import { useToast } from "../../composables/useToast";
 import { friendlyContractError } from "../../composables/contractErrors";
-import { useLocalAutoRefresh } from "../../composables/useLocalAutoRefresh";
 import AddressChip from "./AddressChip.vue";
 
+const props = defineProps<{ role: "visitor" | "cub" | "wolf" }>();
+
 const { t } = useI18n();
-const { address, connect, readOnlyContract, writableContract, publicClient, ensureContractAddressSynced } = useWallet();
+const { address, readOnlyContract, writableContract, publicClient } = useWallet();
 const { members, proposals, loading, error, isAuthorized, loadAll } = useMeute();
 
 // Purely front-side marker (never a real Rank value on the contract side,
@@ -24,51 +25,17 @@ const APPLICANT_RANK = -1;
 const { discordLinkFor } = useDiscordLink();
 const { showToast } = useToast();
 
-// Current visitor's role — not exposed by useMeute (which describes
-// members in general, not "me" specifically): a targeted read is enough,
-// no need to duplicate all of GovernanceDao.vue's logic.
-const myRank = ref<number | null>(null);
-async function loadMyRank() {
-  if (!address.value) {
-    myRank.value = null;
-    return;
-  }
-  await ensureContractAddressSynced();
-  const balance = (await readOnlyContract().read.balanceOf([address.value])) as bigint;
-  if (balance === 0n) {
-    myRank.value = null;
-    return;
-  }
-  const card = (await readOnlyContract().read.card([address.value])) as { rank: number };
-  myRank.value = Number(card.rank);
-}
-const amIAWolf = computed(() => myRank.value === 1);
-
-// `.catch` rather than a bare call: an RPC failure here used to reject
-// unhandled and leave `myRank` silently null (i.e. "not a Wolf"), hiding
-// the confirm/exclude actions with nothing reported anywhere.
-function refreshMyRank() {
-  void loadMyRank().catch((e) => console.error("loadMyRank failed", e));
-}
-
-onMounted(async () => {
-  await loadAll();
-  refreshMyRank();
-});
-watch(address, refreshMyRank);
+// `role` comes from GovernanceDao.vue (the parent, and now the sole owner
+// of loadAll()/refreshMembership()) rather than being recomputed here —
+// this component used to run its own redundant RPC read to derive the
+// same information.
+const amIAWolf = computed(() => props.role === "wolf");
 
 // See GovernanceDao.vue: without resetting scroll to 0 when the members
 // list disappears (disconnect), the scroll position stays where it was on
 // a much shorter page.
 watch(isAuthorized, (authorized) => {
   if (!authorized) window.scrollTo({ top: 0 });
-});
-
-// Local demo mode only — see GovernanceDao.vue for context (the demo
-// panel changes state in another tab, without notifying this one).
-useLocalAutoRefresh(async () => {
-  await loadAll();
-  await loadMyRank();
 });
 
 interface Row extends Member {
@@ -107,19 +74,6 @@ function cancel() {
   txError.value = null;
 }
 
-// GovernanceDao.vue and GovernanceDonations.vue already go through a
-// handler that displays the error — this page called `connect` raw, so a
-// cancelled click on the MetaMask popup turned into an unhandled promise
-// rejection, with no visible feedback to the user.
-async function onConnect() {
-  txError.value = null;
-  try {
-    await connect();
-  } catch (e) {
-    txError.value = friendlyContractError(e, t);
-  }
-}
-
 async function confirmAction() {
   if (!confirmation.value) return;
   const { type, member } = confirmation.value;
@@ -149,13 +103,11 @@ async function confirmAction() {
 
 <template>
   <div class="gm-page">
-    <h2 class="gm-title">{{ t('governance.members.title') }}</h2>
-
-    <div v-if="!isAuthorized" class="gm-gate">
-      <p class="gm-gate-text">{{ t('governance.members.gateText') }}</p>
-      <button class="btn btn-primary" type="button" @click="onConnect">{{ t('common.connectWallet') }}</button>
-      <p v-if="txError" class="gm-error">{{ txError }}</p>
-    </div>
+    <!-- No dedicated "connect wallet" CTA here: the side column
+         ("My card"), always visible next to both sub-tabs, is the single
+         place that offers it — duplicating it here would surface two
+         different connect prompts on the same page. -->
+    <p v-if="!isAuthorized" class="gm-locked-note">{{ t('governance.members.gateText') }}</p>
 
     <template v-else>
       <p class="gm-intro">{{ t('governance.members.intro', { count: rows.length }, rows.length) }}</p>
@@ -255,32 +207,15 @@ async function confirmAction() {
   background: $color-page-bg;
 }
 
-.gm-title {
-  color: $color-black;
-  font-family: $font-display;
-  font-weight: 700;
-  font-size: $fs-section-title;
-  margin: 0 0 $space-1;
-}
-
 .gm-intro {
   color: $color-text-dim;
   font-size: $fs-body;
   margin: 0 0 $space-4;
 }
 
-.gm-gate {
-  padding: $space-4;
-  text-align: center;
-  background: $color-card-bg;
-  border: 1px solid $color-border;
-  border-radius: $radius-md;
-}
-
-.gm-gate-text {
-  color: $color-text;
-  font-size: $fs-body;
-  margin: 0 0 $space-3;
+.gm-locked-note {
+  color: $color-text-dim;
+  font-size: $fs-caption;
 }
 
 .gm-status {

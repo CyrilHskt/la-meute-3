@@ -12,8 +12,7 @@ const en: typeof fr = {
   dashboard: {
     tabPresentation: "Presentation",
     tabAssociation: "Association 1901",
-    tabMembers: "Pack Management",
-    tabDao: "DAO Governance",
+    tabDao: "Governance",
     tabDonations: "Donations",
     guidedTour: "Guided tour",
   },
@@ -144,6 +143,8 @@ const en: typeof fr = {
   },
   governance: {
     dao: {
+      subTabProposals: "Proposals",
+      subTabMembers: "Member management",
       discordUnlinked: "Discord account unlinked.",
       discordUnlinkFailed: "Unlinking failed, try again.",
       discordLinked: "Discord account linked!",
@@ -218,7 +219,6 @@ const en: typeof fr = {
       beneficiaryPlaceholder: "0x… beneficiary",
       amountPlaceholder: "Amount in ETH",
       reasonPlaceholder: "Reason",
-      proposalsTitle: "Proposals",
       proposalsLockedNote: "Connect your wallet to see the Meute's proposals.",
       ongoingTab: "Ongoing ({count})",
       ongoingTabNoCount: "Ongoing",
@@ -277,7 +277,6 @@ const en: typeof fr = {
       },
     },
     members: {
-      title: "Meute members",
       gateText: "The member list is restricted to the Meute's Wolves and Cubs — connect the wallet you vote with to see it.",
       intro: "{count} member — Wolves, Cubs, and ongoing applications. | {count} members — Wolves, Cubs, and ongoing applications.",
       readError: "Read error: {error} — the list below may be incomplete.",

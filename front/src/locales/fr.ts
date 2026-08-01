@@ -14,8 +14,7 @@ export default {
   dashboard: {
     tabPresentation: "Présentation",
     tabAssociation: "Association 1901",
-    tabMembers: "Gestion de la Meute",
-    tabDao: "Gouvernance DAO",
+    tabDao: "Gouvernance",
     tabDonations: "Dons",
     guidedTour: "Visite guidée",
   },
@@ -146,6 +145,8 @@ export default {
   },
   governance: {
     dao: {
+      subTabProposals: "Propositions",
+      subTabMembers: "Gestion des membres",
       discordUnlinked: "Compte Discord délié.",
       discordUnlinkFailed: "Échec du déliage, réessaie.",
       discordLinked: "Compte Discord lié !",
@@ -220,7 +221,6 @@ export default {
       beneficiaryPlaceholder: "0x… bénéficiaire",
       amountPlaceholder: "Montant en ETH",
       reasonPlaceholder: "Motif",
-      proposalsTitle: "Propositions",
       proposalsLockedNote: "Connecte ton wallet pour consulter les propositions de la Meute.",
       ongoingTab: "En cours ({count})",
       ongoingTabNoCount: "En cours",
@@ -282,7 +282,6 @@ export default {
       },
     },
     members: {
-      title: "Membres de la Meute",
       gateText: "La liste des membres est réservée aux Loups et Louveteaux de la Meute — connecte le wallet que tu utilises pour voter afin de la consulter.",
       intro: "{count} membre — Loups, Louveteaux et candidatures en cours. | {count} membres — Loups, Louveteaux et candidatures en cours.",
       readError: "Erreur de lecture : {error} — la liste ci-dessous peut être incomplète.",

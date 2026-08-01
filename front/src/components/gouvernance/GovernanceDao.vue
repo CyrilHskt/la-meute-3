@@ -22,6 +22,9 @@ import ApplicationChecklist from "./ApplicationChecklist.vue";
 import WalletInstallModal from "./WalletInstallModal.vue";
 import DiscordConsentModal from "./DiscordConsentModal.vue";
 import ExpenseProposalModal from "./ExpenseProposalModal.vue";
+import GovernanceMembers from "./GovernanceMembers.vue";
+
+const props = defineProps<{ initialSubTab?: "proposals" | "members" }>();
 
 const { t } = useI18n();
 const { locale } = useLocale();
@@ -416,6 +419,11 @@ watch(pastStatusFilters, resetPastPage);
 
 const activeTab = ref<"ongoing" | "past">("ongoing");
 
+// The top-level "Members" tab was merged into this one as a sub-tab
+// (product decision, see docs) — this local state replaces the routing
+// that used to switch between the two components in Dashboard.vue.
+const activeSubTab = ref<"proposals" | "members">(props.initialSubTab ?? "proposals");
+
 // `stats` (set by the same applyIndex() call as `proposals`) is what
 // distinguishes "authorized but the snapshot hasn't landed yet" from
 // "authorized and genuinely empty" — showing "(0)" in either case would
@@ -555,7 +563,13 @@ function eurTooltip(wei: bigint): string {
 const { tourRequestId } = useGuidedTour();
 
 watch(tourRequestId, (id) => {
-  if (id > 0) startTour();
+  if (id <= 0) return;
+  // Every tour step targets an element from the "Proposals" sub-tab (or
+  // the side column) — none from "Members management": force it back so
+  // the tour never misses an element just because the user happened to be
+  // looking at the other sub-tab when they clicked "Guided tour".
+  activeSubTab.value = "proposals";
+  startTour();
 });
 
 // Guided tour: never launched automatically, one short tour per role,
@@ -619,9 +633,17 @@ function startTour() {
         <div class="gv-main-list">
         <p v-if="txError" class="gv-error">{{ txError }}</p>
 
-        <h3 class="gv-card-title" style="margin-top: 2rem">{{ t('governance.dao.proposalsTitle') }}</h3>
+        <div class="gv-subtabs">
+          <button class="gv-subtab" :class="{ 'gv-subtab--active': activeSubTab === 'proposals' }" @click="activeSubTab = 'proposals'">
+            {{ t('governance.dao.subTabProposals') }}
+          </button>
+          <button class="gv-subtab" :class="{ 'gv-subtab--active': activeSubTab === 'members' }" @click="activeSubTab = 'members'">
+            {{ t('governance.dao.subTabMembers') }}
+          </button>
+        </div>
 
-        <div class="gv-tabs">
+        <div v-show="activeSubTab === 'proposals'">
+        <div class="gv-tabs" style="margin-top: 2rem">
           <button class="gv-tab" :class="{ 'gv-tab--active': activeTab === 'ongoing' }" :disabled="!isAuthorized" @click="activeTab = 'ongoing'">
             {{ ongoingTabLabel }}
           </button>
@@ -721,6 +743,9 @@ function startTour() {
         <p v-else-if="isAuthorized && !error" class="gv-loading gv-statut-empty">{{ t('common.loadingOnChain') }}</p>
         <p v-else-if="!isAuthorized" class="gv-card-note gv-statut-empty">{{ t('governance.dao.proposalsLockedNote') }}</p>
         </div>
+        </div>
+
+        <GovernanceMembers v-show="activeSubTab === 'members'" :role="role" />
 
         </div>
       </main>
@@ -1110,6 +1135,35 @@ function startTour() {
   width: 100%;
   margin: $space-2 0;
   font-size: $fs-caption;
+}
+
+// A section-level nav (which page am I on), not a filter — styled as an
+// underline-indicator tab bar rather than the filled-pill treatment
+// `.gv-tab` uses just below it for "En cours/Passées". Sharing the same
+// look for both made two different kinds of control (navigate vs. filter)
+// read as one repeated row (observed). Only one level keeps the loud
+// solid-orange fill, per the page's existing "One Loud Action" rule.
+.gv-subtabs {
+  display: flex;
+  gap: $space-5;
+  border-bottom: 2px solid $color-border;
+  margin-bottom: $space-4;
+}
+.gv-subtab {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: $color-text-dim;
+  border-radius: 0;
+  padding: $space-2 $space-1 $space-3;
+  font-family: $font-display;
+  font-weight: 700;
+  font-size: $fs-h4;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+
+  &--active { background: transparent; color: $color-orange-dark; border-bottom-color: $color-orange-dark; }
 }
 
 .gv-tabs {
