@@ -15,7 +15,7 @@ export const steps = [
     id: "setup",
     label: "Mise en place : la meute a déjà une vraie activité",
     narration:
-      "Avant de naviguer le site, la meute compte déjà 2 Loups actifs + 1 dormant, 1 Louveteau, 1 candidature refusée, 1 dépense sans quorum, une dépense encore en cours, et un petit classement de dons — 5 comptes réutilisés, pas 20.",
+      "Avant de naviguer le site, la meute compte déjà 2 Loups actifs + 1 dormant, 1 Louveteau, 1 candidature refusée, 1 dépense sans quorum, une proposition de chaque type (Admission, Confirmation, Exclusion, Dépense) encore en cours, et un petit classement de dons — 5 comptes réutilisés, pas 20.",
     command: [
       { type: "title", text: "3 Loups rejoignent, un par un (le 3e reste Louveteau)" },
       { type: "code", text: "applyForMembership() -> vote() -> evm_increaseTime(7j) -> execute()" },
@@ -29,6 +29,8 @@ export const steps = [
       { type: "code", text: "proposeExpense(...) -> vote() (1 seul) -> evm_increaseTime(7j) -> execute()" },
       { type: "title", text: "1 dépense laissée ouverte + 3 dons" },
       { type: "code", text: "proposeExpense(...) puis donate({ value: ... }) x3" },
+      { type: "title", text: "1 admission, 1 titularisation et 1 exclusion laissées ouvertes, jamais votées" },
+      { type: "code", text: "applyForMembership() (auto-candidature, sans Discord lié) + openConfirmationVote(louveteau) + proposeExclusion(loup dormant)" },
     ],
     run: actions.setup,
   },

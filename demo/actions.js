@@ -76,10 +76,12 @@ async function connect(ctx, contractAddress) {
 
   // Fixed roles among the node's accounts, distinct from the founder —
   // used by the isolated test scenarios (exclusion, postponement,
-  // dormancy).
+  // dormancy). nodeAccounts[2] is only used by the certification
+  // scenario (see setup()), for its dedicated "no Discord" applicant.
   const roleAddrs = {
     wolf2: nodeAccounts[0],
     applicant: nodeAccounts[1],
+    noDiscordApplicant: nodeAccounts[2],
     wolf3: nodeAccounts[3],
     wolf4: nodeAccounts[4],
   };
@@ -178,11 +180,14 @@ export async function reset(ctx) {
  *  1st confirmed Wolf, wolf3 → 2nd confirmed Wolf then left dormant,
  *  wolf4 → stays a Cub (never confirmed), applicant → rejected once then
  *  free to donate again (no on-chain state prevents it, see
- *  _executeAdmission which refunds and recloses the application). */
+ *  _executeAdmission which refunds and recloses the application).
+ *  noDiscordApplicant → never made a member, its sole purpose is to
+ *  author the ongoing Admission proposal in step 8 with no Discord
+ *  linked (see server.mjs's seedDemoDiscordLinks). */
 export async function setup(ctx) {
-  const { wolf2: l1, wolf3: l2, wolf4: l3, applicant: d } = ctx.roles;
-  ctx.knownAddresses.push(l1, l2, l3, d);
-  ctx.progress?.setTotal(7);
+  const { wolf2: l1, wolf3: l2, wolf4: l3, applicant: d, noDiscordApplicant: e } = ctx.roles;
+  ctx.knownAddresses.push(l1, l2, l3, d, e);
+  ctx.progress?.setTotal(8);
 
   // 1. L1 applies and is confirmed — only the founder votes (1 active):
   //    the most trivial quorum possible, just to kick off the pack.
@@ -244,10 +249,31 @@ export async function setup(ctx) {
   await (await ctx.contracts.get(l3).donate({ value: ethers.parseEther("0.1") })).wait();
   ctx.progress?.tick();
 
+  // 8. Three more proposals left open (never voted on), alongside the
+  //    expense from step 7, so all four proposal types are visible at
+  //    once in "En cours": an admission whose author is also its own
+  //    target (self-application) — E never links its Discord, so this
+  //    single proposal covers both "author without Discord" and "target
+  //    without Discord" — a confirmation targeting L3 (still a Cub,
+  //    probation long over since step 4) and an exclusion targeting L2
+  //    (the dormant Wolf from step 4). None of the three get voted on:
+  //    voting would wake L2 up, breaking the "1 dormant Wolf" invariant.
+  {
+    const applicantContract = ctx.contracts.get(e);
+    ctx.ids.openAdmission = await openAndGetId(
+      ctx,
+      applicantContract,
+      applicantContract.applyForMembership({ value: await founder.fee() }),
+    );
+    ctx.ids.openConfirmation = await openAndGetId(ctx, founder, founder.openConfirmationVote(l3));
+    ctx.ids.openExclusion = await openAndGetId(ctx, founder, founder.proposeExclusion(l2));
+  }
+  ctx.progress?.tick();
+
   return (
     `Meute mise en place : ${ctx.wolves.length} Loups actifs (dont 1 dormant), 1 Louveteau, ` +
     "1 candidature refusée et 1 dépense sans quorum dans l'historique, 0.9 ETH reçus en dons, " +
-    "une dépense encore en cours."
+    "et une proposition de chaque type (Admission, Confirmation, Exclusion, Dépense) encore en cours."
   );
 }
 
