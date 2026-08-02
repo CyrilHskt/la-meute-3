@@ -1,5 +1,4 @@
 import { computed } from "vue";
-import { formatEther } from "viem";
 import { ProposalType, type Proposal } from "./useMeute";
 
 type Translate = (key: string, params?: Record<string, unknown>) => string;
@@ -50,10 +49,6 @@ export function useProposalFormatting(t: Translate) {
     }
   }
 
-  function proposalSuffix(p: Proposal): string {
-    return p.proposalType === ProposalType.Expense ? `— ${formatEther(p.amount)} ETH (${p.reason})` : "";
-  }
-
   const PAST_STATUS_LABELS = computed<Record<PastProposalStatus, string>>(() => ({
     approved: t('governance.dao.statusApproved'),
     rejected: t('governance.dao.statusRejected'),
@@ -75,5 +70,5 @@ export function useProposalFormatting(t: Translate) {
     return p.approveVotes > p.rejectVotes ? "approved" : "rejected";
   }
 
-  return { typeLabels, authorKnown, proposalPrefix, proposalSuffix, PAST_STATUS_LABELS, pastStatus };
+  return { typeLabels, authorKnown, proposalPrefix, PAST_STATUS_LABELS, pastStatus };
 }

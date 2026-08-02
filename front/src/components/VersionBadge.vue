@@ -116,11 +116,11 @@ function localized(field: ChangelogEntry["date"] | ChangelogEntry["title"]) {
   align-items: center;
   gap: 4.5px;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid $color-border;
   border-radius: 999px;
   padding: 5px 11px;
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.65);
+  color: $color-text-dim;
   cursor: pointer;
   font-family: $font-mono;
 

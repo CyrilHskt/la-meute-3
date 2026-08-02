@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { usePackSize } from "../../composables/usePackSize";
 
 const { t } = useI18n();
+const { totalWolves, totalCubs } = usePackSize();
+
+const discordInviteUrl = "https://discord.gg/Wy5rScG";
 
 // Public association documents — PDFs dropped in public/docs/, no
 // on-chain logic, just a list of links to keep up to date.
@@ -60,85 +64,181 @@ const legal = computed(() => [
             <div class="gv-board-rank">{{ member.rank }}</div>
           </div>
         </div>
+        <p class="gv-board-hierarchy-note">{{ t('association.boardHierarchyNote') }}</p>
+      </div>
+
+      <div class="gv-info-card gv-info-card--wide">
+        <h3 class="gv-card-title">{{ t('association.identityTitle') }}</h3>
+        <p class="gv-identity-text" v-html="t('association.identityText')"></p>
+      </div>
+
+      <div class="gv-info-card">
+        <h3 class="gv-card-title">{{ t('association.joinTitle') }}</h3>
+        <p class="gv-join-text">{{ t('association.joinText') }}</p>
+        <a :href="discordInviteUrl" class="gv-join-cta" target="_blank" rel="noopener">{{ t('association.joinCta') }}</a>
+      </div>
+
+      <div class="gv-info-card">
+        <h3 class="gv-card-title">{{ t('association.packSizeTitle') }}</h3>
+        <!--
+          Placeholder pending issue #99 (public totalWolves()/totalCubs()
+          getters, requires a contract change + redeploy — out of scope
+          here). Intentionally unwired: renders "—" rather than a guessed
+          number until usePackSize.ts has real data to return.
+        -->
+        <div class="gv-pack-size-tiles">
+          <div class="gv-pack-size-tile">
+            <div class="gv-pack-size-value">{{ totalWolves ?? '—' }}</div>
+            <div class="gv-pack-size-label">{{ t('association.packSizeWolves') }}</div>
+          </div>
+          <div class="gv-pack-size-tile">
+            <div class="gv-pack-size-value">{{ totalCubs ?? '—' }}</div>
+            <div class="gv-pack-size-label">{{ t('association.packSizeCubs') }}</div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 </template>
 
 <style lang="scss" scoped>
+.gv-association {
+  background: $color-page-bg;
+}
+
 .gv-assoc-layout {
   max-width: 1080px;
   margin: 0 auto;
-  padding: 2.4rem 1.6rem 4rem;
+  padding: $space-5 $space-3 ($space-5 * 2);
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1.8rem;
+  gap: $space-4;
 }
 @media (max-width: 820px) { .gv-assoc-layout { grid-template-columns: 1fr; } }
 
 .gv-info-card {
   background: $color-card-bg;
   border: 1px solid $color-border;
-  border-radius: 4px;
-  padding: 1.6rem 1.6rem;
+  border-radius: $radius-md;
+  padding: $space-4;
 }
 .gv-info-card--wide { grid-column: 1 / -1; }
 
 .gv-card-title {
-  color: $color-orange;
-  font-family: $font-display;
+  color: $color-orange-dark;
+  font-family: $font-mono;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  font-size: $fs-card-title;
-  margin: 0 0 1.1rem;
+  letter-spacing: 0.06em;
+  font-size: $fs-caption;
+  margin: 0 0 $space-3;
 }
 
 .gv-legal-row {
   display: flex;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.65rem 0;
+  gap: $space-3;
+  padding: $space-2 0;
   border-bottom: 1px solid $color-border;
   font-size: $fs-body;
 
   &:last-child { border-bottom: none; }
 }
 .gv-label { color: $color-text-dim; }
-.gv-value { text-align: right; }
+.gv-value { text-align: right; color: $color-text; }
 
-.gv-doc-list { display: flex; flex-direction: column; gap: 0.6rem; }
+.gv-doc-list { display: flex; flex-direction: column; gap: $space-2; }
 .gv-doc-link {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.8rem 0.9rem;
+  gap: $space-2;
+  padding: $space-2 $space-3;
   border: 1px solid $color-border;
-  border-radius: 3px;
+  border-radius: $radius-sm;
   color: $color-text;
   text-decoration: none;
   font-size: $fs-body;
 
-  &:hover { border-color: $color-orange; }
+  &:hover { border-color: $color-orange-dark; }
   i { color: $color-orange-dark; }
 }
-.gv-doc-meta { margin-left: auto; color: $color-text-dim; font-size: $fs-caption; }
+.gv-doc-meta { margin-left: auto; color: $color-text-dim; font-size: $fs-caption; font-family: $font-mono; }
 
 .gv-board-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  margin-top: 0.4rem;
+  gap: $space-3;
+  margin-top: $space-1;
 }
 @media (max-width: 600px) { .gv-board-grid { grid-template-columns: 1fr; } }
 .gv-board-card { text-align: center; }
 .gv-board-role {
+  font-family: $font-mono;
   font-size: $fs-caption;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: $color-orange-dark;
-  font-weight: 700;
-  margin-bottom: 0.3rem;
+  font-weight: 500;
+  margin-bottom: $space-1;
 }
-.gv-board-name { font-weight: 700; color: $color-black; font-size: $fs-h4; }
+.gv-board-name { font-weight: 600; color: $color-black; font-size: $fs-h4; font-family: $font-display; }
 .gv-board-rank { font-size: $fs-caption; color: $color-text-dim; }
+.gv-board-hierarchy-note {
+  margin: $space-3 0 0;
+  padding-top: $space-3;
+  border-top: 1px solid $color-border;
+  font-size: $fs-caption;
+  color: $color-text-dim;
+  text-align: center;
+}
+.gv-identity-text {
+  font-size: $fs-body;
+  line-height: 20px;
+  color: $color-text;
+  margin: 0;
+}
+
+.gv-join-text {
+  margin: 0 0 $space-3;
+  font-size: $fs-body;
+  line-height: 1.6;
+  color: $color-text-dim;
+}
+.gv-join-cta {
+  display: inline-block;
+  font-family: $font-mono;
+  font-size: $fs-caption;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: $color-orange-dark;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 2px;
+}
+.gv-join-cta:hover,
+.gv-join-cta:focus {
+  color: $color-orange;
+}
+
+.gv-pack-size-tiles {
+  display: flex;
+  gap: 1px;
+  background: $color-border;
+  margin-top: $space-1;
+}
+.gv-pack-size-tile {
+  flex: 1;
+  background: $color-page-bg;
+  padding: $space-3;
+  text-align: center;
+}
+.gv-pack-size-value {
+  font-family: $font-mono;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: $color-black;
+}
+.gv-pack-size-label {
+  font-size: $fs-caption;
+  color: $color-text-dim;
+  letter-spacing: 0.04em;
+}
 </style>

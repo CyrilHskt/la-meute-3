@@ -1,7 +1,7 @@
 import { ref, readonly, watch } from "vue";
 import type { Address } from "viem";
 import { useWallet } from "./useWallet";
-import { useDiscordLink } from "./useDiscordLink";
+import { useDiscordLink, type DiscordLink } from "./useDiscordLink";
 // Direct `i18n.global.t` rather than `useI18n()`: this composable is also
 // invoked from useWallet.ts's connect()/accountsChanged handlers, outside
 // any component's setup() — `useI18n()` requires an active component
@@ -85,6 +85,9 @@ interface DaoIndex {
   memberActivity: Record<string, { votesSubmitted: number; openProposals: number }>;
   topDonors: { address: Address; total: string }[];
   members: { address: Address; rank: number; dormant: boolean }[];
+  // Only present on the ?key=index reread path (the ?key=governance
+  // response carries it as a sibling of `index`, not inside it).
+  discordLinks?: Record<string, DiscordLink>;
 }
 
 export interface Member {
@@ -168,7 +171,8 @@ function clearStoredSession() {
   }
 }
 
-const { address: walletAddress } = useWallet();
+const { address: walletAddress, readOnlyContract, signMessage, syncLocalContractAddress } = useWallet();
+const { setLinks } = useDiscordLink();
 
 // One-shot restore per address change: fires once the wallet address is
 // known (either right away if a session had been kept in memory, or once
@@ -253,221 +257,239 @@ function applyIndex(index: DaoIndex) {
 
   topDonors.value = (index.topDonors ?? []).map((d) => ({ address: d.address, total: BigInt(d.total) }));
   members.value = index.members ?? [];
+
+  // Absent on the ?key=governance path (runVerification calls setLinks
+  // itself with the sibling field) — never overwrite with {} there, that
+  // would wipe links the caller is about to set.
+  if (index.discordLinks) setLinks(index.discordLinks);
 }
 
-export function useMeute() {
-  const { address, readOnlyContract, signMessage, syncLocalContractAddress } = useWallet();
-  const { setLinks } = useDiscordLink();
+// Declared at module level, not inside useMeute(): they only ever touch
+// module-level state, and the `watch(isAuthorized, ...)` edge below has to
+// be registered exactly once for the whole app rather than once per
+// component calling useMeute().
+/** Clears every trace of the previous session — to call as soon as the
+ *  wallet disconnects or changes account (see useWallet.ts,
+ *  accountsChanged). Without this, the page stayed displayed as if the
+ *  old account were still authenticated: the verified session/balance no
+ *  longer relate to the currently selected account. */
+function resetSession() {
+  verificationGeneration++;
+  isAuthorized.value = false;
+  membershipError.value = null;
+  session.value = null;
+  stats.value = null;
+  proposals.value = [];
+  memberActivity.value = new Map();
+  topDonors.value = [];
+  members.value = [];
+  myDonations.value = 0n;
+  setLinks({});
+  clearStoredSession();
+}
 
-  /** Clears every trace of the previous session — to call as soon as the
-   *  wallet disconnects or changes account (see useWallet.ts,
-   *  accountsChanged). Without this, the page stayed displayed as if the
-   *  old account were still authenticated: the verified session/balance no
-   *  longer relate to the currently selected account. */
-  function resetSession() {
-    verificationGeneration++;
-    isAuthorized.value = false;
-    membershipError.value = null;
-    session.value = null;
-    stats.value = null;
-    proposals.value = [];
-    memberActivity.value = new Map();
-    topDonors.value = [];
-    members.value = [];
-    myDonations.value = 0n;
-    setLinks({});
-    clearStoredSession();
+/** Proof of Meute membership: verifies the on-chain balance, signs a
+ *  message containing a single-use nonce, then exchanges that proof for
+ *  a session token and the full snapshot (proposals, members, donations,
+ *  Discord identities). Does nothing noisy on failure (not a member,
+ *  signature refused, network): the page simply stays in its
+ *  "members-only" state. Called only from the explicit click on
+ *  "Connect my wallet" (useWallet.ts, connect()) — never from the silent
+ *  reconnection on load. */
+async function verifyMembershipAndLoad(address: Address) {
+  const wallet = address.toLowerCase();
+  if (verificationPromise && walletBeingVerified === wallet) return verificationPromise;
+  walletBeingVerified = wallet;
+  verificationGeneration++;
+  const generation = verificationGeneration;
+  verificationPromise = runVerification(address, generation).finally(() => {
+    if (walletBeingVerified === wallet) {
+      verificationPromise = null;
+      walletBeingVerified = null;
+    }
+  });
+  return verificationPromise;
+}
+
+async function runVerification(address: Address, generation: number) {
+  // At every async step, we check that no more recent verification
+  // started in the meantime (new wallet, disconnect) — otherwise we bail
+  // out without touching `isAuthorized`/`session`: applying them here
+  // would overwrite the state already updated for the wallet currently
+  // displayed with this old wallet's stale result.
+  const isStale = () => generation !== verificationGeneration;
+  membershipError.value = null;
+
+  try {
+    const balance = (await readOnlyContract().read.balanceOf([address])) as bigint;
+    if (isStale()) return;
+    if (balance === 0n) {
+      isAuthorized.value = false;
+      return;
+    }
+  } catch {
+    if (!isStale()) {
+      membershipError.value = "network";
+      isAuthorized.value = false;
+    }
+    return;
   }
 
-  /** Proof of Meute membership: verifies the on-chain balance, signs a
-   *  message containing a single-use nonce, then exchanges that proof for
-   *  a session token and the full snapshot (proposals, members, donations,
-   *  Discord identities). Does nothing noisy on failure (not a member,
-   *  signature refused, network): the page simply stays in its
-   *  "members-only" state. Called only from the explicit click on
-   *  "Connect my wallet" (useWallet.ts, connect()) — never from the silent
-   *  reconnection on load. */
-  async function verifyMembershipAndLoad(address: Address) {
-    const wallet = address.toLowerCase();
-    if (verificationPromise && walletBeingVerified === wallet) return verificationPromise;
-    walletBeingVerified = wallet;
-    verificationGeneration++;
-    const generation = verificationGeneration;
-    verificationPromise = runVerification(address, generation).finally(() => {
-      if (walletBeingVerified === wallet) {
-        verificationPromise = null;
-        walletBeingVerified = null;
-      }
+  let nonce: string;
+  try {
+    const nonceRes = await fetch(`${NONCE_URL}${isLocal ? "?" : "&"}wallet=${address}`);
+    if (isStale()) return;
+    if (!nonceRes.ok) {
+      isAuthorized.value = false;
+      return;
+    }
+    ({ nonce } = (await nonceRes.json()) as { nonce: string });
+    if (isStale()) return;
+  } catch {
+    if (!isStale()) {
+      membershipError.value = "network";
+      isAuthorized.value = false;
+    }
+    return;
+  }
+
+  const message = `Je fais partie de La Meute (${address}) — ${nonce}`;
+  let signature: `0x${string}`;
+  try {
+    signature = await signMessage(message);
+    if (isStale()) return;
+  } catch {
+    // Signature refused/cancelled — not an error to display noisily, the
+    // page stays members-only.
+    return;
+  }
+
+  try {
+    const res = await fetch(GOVERNANCE_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ wallet: address, signature, nonce }),
     });
-    return verificationPromise;
-  }
-
-  async function runVerification(address: Address, generation: number) {
-    // At every async step, we check that no more recent verification
-    // started in the meantime (new wallet, disconnect) — otherwise we bail
-    // out without touching `isAuthorized`/`session`: applying them here
-    // would overwrite the state already updated for the wallet currently
-    // displayed with this old wallet's stale result.
-    const isStale = () => generation !== verificationGeneration;
-    membershipError.value = null;
-
-    try {
-      const balance = (await readOnlyContract().read.balanceOf([address])) as bigint;
-      if (isStale()) return;
-      if (balance === 0n) {
-        isAuthorized.value = false;
-        return;
-      }
-    } catch {
-      if (!isStale()) {
-        membershipError.value = "network";
-        isAuthorized.value = false;
-      }
+    if (isStale()) return;
+    if (!res.ok) {
+      isAuthorized.value = false;
       return;
     }
+    const body = (await res.json()) as { session: string; index: DaoIndex; discordLinks: Record<string, unknown> };
+    if (isStale()) return;
+    session.value = body.session;
+    applyIndex(body.index);
+    setLinks(body.discordLinks as Parameters<typeof setLinks>[0]);
+    isAuthorized.value = true;
+  } catch {
+    if (!isStale()) {
+      membershipError.value = "network";
+      isAuthorized.value = false;
+    }
+  }
+}
 
-    let nonce: string;
-    try {
-      const nonceRes = await fetch(`${NONCE_URL}${isLocal ? "?" : "&"}wallet=${address}`);
-      if (isStale()) return;
-      if (!nonceRes.ok) {
-        isAuthorized.value = false;
-        return;
-      }
-      ({ nonce } = (await nonceRes.json()) as { nonce: string });
-      if (isStale()) return;
-    } catch {
-      if (!isStale()) {
-        membershipError.value = "network";
-        isAuthorized.value = false;
-      }
+/** Refreshes the snapshot using the session already obtained — no new
+ *  signature as long as it's valid (~30 min), so we don't ask for a
+ *  signature again on every vote or tab change. Does nothing if the
+ *  session isn't (yet) established. */
+async function performLoadAll() {
+  loading.value = true;
+  error.value = null;
+  try {
+    if (isLocal) await syncLocalContractAddress();
+    const url = `${INDEX_URL}${isLocal ? "?" : "&"}wallet=${walletAddress.value}&session=${session.value}`;
+    const res = await fetch(url, { cache: "no-store" });
+    if (res.status === 401) {
+      // Session expired — purge everything (not just
+      // isAuthorized/session): without this, already-loaded
+      // proposals/members/donations stayed displayed everywhere else
+      // (e.g. the beneficiary picker for a new proposal) while the page
+      // is supposed to become "members-only" again pending a new proof
+      // of membership.
+      resetSession();
       return;
     }
+    if (!res.ok) throw new Error(i18n.global.t('errors.daoSnapshotLoadFailed', { status: res.status }));
+    applyIndex((await res.json()) as DaoIndex);
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    loading.value = false;
+  }
+}
 
-    const message = `Je fais partie de La Meute (${address}) — ${nonce}`;
-    let signature: `0x${string}`;
-    try {
-      signature = await signMessage(message);
-      if (isStale()) return;
-    } catch {
-      // Signature refused/cancelled — not an error to display noisily, the
-      // page stays members-only.
-      return;
-    }
+/** Coalesces the 3 concurrent `loadAll()` calls fired when Dashboard.vue
+ *  mounts its 3 governance sub-pages at once. Any caller B arriving while
+ *  a run A is in flight gets `loadAllRerun`: a fresh `performLoadAll()`
+ *  chained to only start once A has fully settled, i.e. strictly after B
+ *  called `loadAll()` — so B's promise resolves with data reflecting at
+ *  least everything committed before B's call. Multiple latecomers share
+ *  the same `loadAllRerun`, so N concurrent calls collapse into at most 2
+ *  real fetches instead of N. */
+async function loadAll(): Promise<void> {
+  if (!isAuthorized.value || !session.value || !walletAddress.value) return;
 
-    try {
-      const res = await fetch(GOVERNANCE_URL, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ wallet: address, signature, nonce }),
-      });
-      if (isStale()) return;
-      if (!res.ok) {
-        isAuthorized.value = false;
-        return;
-      }
-      const body = (await res.json()) as { session: string; index: DaoIndex; discordLinks: Record<string, unknown> };
-      if (isStale()) return;
-      session.value = body.session;
-      applyIndex(body.index);
-      setLinks(body.discordLinks as Parameters<typeof setLinks>[0]);
-      isAuthorized.value = true;
-    } catch {
-      if (!isStale()) {
-        membershipError.value = "network";
-        isAuthorized.value = false;
-      }
-    }
+  if (!loadAllRun) {
+    loadAllRun = performLoadAll().finally(() => {
+      loadAllRun = null;
+    });
+    return loadAllRun;
   }
 
-  /** Refreshes the snapshot using the session already obtained — no new
-   *  signature as long as it's valid (~30 min), so we don't ask for a
-   *  signature again on every vote or tab change. Does nothing if the
-   *  session isn't (yet) established. */
-  async function performLoadAll() {
-    loading.value = true;
-    error.value = null;
-    try {
-      if (isLocal) await syncLocalContractAddress();
-      const url = `${INDEX_URL}${isLocal ? "?" : "&"}wallet=${address.value}&session=${session.value}`;
-      const res = await fetch(url, { cache: "no-store" });
-      if (res.status === 401) {
-        // Session expired — purge everything (not just
-        // isAuthorized/session): without this, already-loaded
-        // proposals/members/donations stayed displayed everywhere else
-        // (e.g. the beneficiary picker for a new proposal) while the page
-        // is supposed to become "members-only" again pending a new proof
-        // of membership.
-        resetSession();
-        return;
-      }
-      if (!res.ok) throw new Error(i18n.global.t('errors.daoSnapshotLoadFailed', { status: res.status }));
-      applyIndex((await res.json()) as DaoIndex);
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e);
-    } finally {
-      loading.value = false;
-    }
+  if (!loadAllRerun) {
+    loadAllRerun = loadAllRun.then(loadAll, loadAll).finally(() => {
+      loadAllRerun = null;
+    });
   }
+  return loadAllRerun;
+}
 
-  /** Coalesces the 3 concurrent `loadAll()` calls fired when Dashboard.vue
-   *  mounts its 3 governance sub-pages at once. Any caller B arriving while
-   *  a run A is in flight gets `loadAllRerun`: a fresh `performLoadAll()`
-   *  chained to only start once A has fully settled, i.e. strictly after B
-   *  called `loadAll()` — so B's promise resolves with data reflecting at
-   *  least everything committed before B's call. Multiple latecomers share
-   *  the same `loadAllRerun`, so N concurrent calls collapse into at most 2
-   *  real fetches instead of N. */
-  async function loadAll(): Promise<void> {
-    if (!isAuthorized.value || !session.value || !address.value) return;
-
-    if (!loadAllRun) {
-      loadAllRun = performLoadAll().finally(() => {
-        loadAllRun = null;
-      });
-      return loadAllRun;
-    }
-
-    if (!loadAllRerun) {
-      loadAllRerun = loadAllRun.then(loadAll, loadAll).finally(() => {
-        loadAllRerun = null;
-      });
-    }
-    return loadAllRerun;
+// Direct read of a single proposal, to call right after a transaction
+// that modifies it (vote, execution) — the snapshot only refreshes every
+// 15 min in prod (via the scheduled job), so voting then rereading via
+// `loadAll()` wouldn't show the new vote yet. A targeted read is
+// negligible (no history scan), so we can afford it on every
+// transaction.
+// `knownAuthor`: for a proposal just created, the caller already
+// extracted it from the ProposalOpened event in the receipt (the
+// on-chain struct reread below doesn't contain this field) — without
+// this, a brand-new proposal would fall back to the zero address until
+// the next indexer pass fixes it.
+async function refreshProposal(id: bigint, knownAuthor?: Address) {
+  const contract = readOnlyContract();
+  const p = (await contract.read.proposal([id])) as Omit<Proposal, "id" | "author">;
+  const index = proposals.value.findIndex((existing) => existing.id === id);
+  const existingAuthor = knownAuthor ?? (index >= 0 ? proposals.value[index].author : ("0x0000000000000000000000000000000000000000" as Address));
+  const updated: Proposal = { ...p, id, author: existingAuthor };
+  if (index >= 0) {
+    proposals.value = proposals.value.map((existing, i) => (i === index ? updated : existing));
+  } else {
+    proposals.value = [updated, ...proposals.value];
   }
+}
 
-  // Direct read of a single proposal, to call right after a transaction
-  // that modifies it (vote, execution) — the snapshot only refreshes every
-  // 15 min in prod (via the scheduled job), so voting then rereading via
-  // `loadAll()` wouldn't show the new vote yet. A targeted read is
-  // negligible (no history scan), so we can afford it on every
-  // transaction.
-  // `knownAuthor`: for a proposal just created, the caller already
-  // extracted it from the ProposalOpened event in the receipt (the
-  // on-chain struct reread below doesn't contain this field) — without
-  // this, a brand-new proposal would fall back to the zero address until
-  // the next indexer pass fixes it.
-  async function refreshProposal(id: bigint, knownAuthor?: Address) {
-    const contract = readOnlyContract();
-    const p = (await contract.read.proposal([id])) as Omit<Proposal, "id" | "author">;
-    const index = proposals.value.findIndex((existing) => existing.id === id);
-    const existingAuthor = knownAuthor ?? (index >= 0 ? proposals.value[index].author : ("0x0000000000000000000000000000000000000000" as Address));
-    const updated: Proposal = { ...p, id, author: existingAuthor };
-    if (index >= 0) {
-      proposals.value = proposals.value.map((existing, i) => (i === index ? updated : existing));
-    } else {
-      proposals.value = [updated, ...proposals.value];
-    }
+async function loadMyDonations(address: Address | null) {
+  if (!address) {
+    myDonations.value = 0n;
+    return;
   }
+  myDonations.value = (await readOnlyContract().read.totalDonations([address])) as bigint;
+}
 
-  async function loadMyDonations(address: Address | null) {
-    if (!address) {
-      myDonations.value = 0n;
-      return;
-    }
-    myDonations.value = (await readOnlyContract().read.totalDonations([address])) as bigint;
-  }
+// The missing reactive edge behind the "0 ongoing / 0 past" empty state: a
+// component's onMounted `loadAll()` can run *before* the wallet address is
+// restored (useWallet.ts, tryRestoreConnection) and the stored session
+// reapplied, in which case `loadAll()`'s guard returns without fetching
+// and nothing else ever retries — permanently empty on Sepolia, papered
+// over locally by useLocalAutoRefresh's focus event. `stats === null`
+// keeps the common case (onMounted already fetched, or the verification
+// flow that populates the snapshot itself) from refetching.
+watch(isAuthorized, (authorized) => {
+  if (authorized && stats.value === null) void loadAll();
+});
 
+export function useMeute() {
   return {
     stats: readonly(stats),
     proposals: readonly(proposals),

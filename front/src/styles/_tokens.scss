@@ -1,41 +1,146 @@
-// Design tokens shared by all Vue components.
-// Reuses the colors/fonts already set by public/css/theme.css (the v2),
-// so the Vue part (governance) stays visually consistent with the
-// marketing part without duplicating values by hand in every component.
-
-// Colors
-$color-orange: #f9ae3c;
-$color-orange-dark: #e0932c;
-$color-black: #1a1a1a;
-$color-text: #333333;
-$color-text-dim: #767676;
-$color-border: #e4e4e4;
-$color-card-bg: #ffffff;
-$color-page-bg: #f9f9f9;
-$color-danger: #d9534f;
-$color-success: #4a9e5c;
-$color-wolf: #a84300;
-$color-cub: #9159ae;
-
-// Fonts — identical to theme.css (h1-h6 in Montserrat, body in Open Sans)
-$font-display: "Montserrat", "Helvetica Neue", Helvetica, Arial, sans-serif;
-$font-body: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-$font-mono: ui-monospace, "SF Mono", Menlo, monospace;
-
-// Typographic scale — copied as-is from the values actually computed by
-// theme.css/bootstrap.min.css on the homepage (not an approximation): h2
-// 38px, h3 24px, h4 18px, p 20px (desktop, ≥768px). Any new text size must
-// go through one of these tokens rather than a hardcoded value, so
-// governance and the homepage stay in sync without copy-pasting pixels.
+// Design tokens shared by all Vue components — "Carnet de meute" direction.
 //
-// In px, not rem: bootstrap.min.css redefines `html{font-size:10px}` (its
-// own internal scale system), so 1rem = 10px throughout the app, not
-// 16px. The homepage never sees this because theme.css only uses
-// hardcoded px — but a rem token there would be ~62% too small. Direct px
-// is immune to this trap, regardless of the html{font-size} value imposed
-// by Bootstrap.
-$fs-caption: 13px; // captions, labels, secondary text
-$fs-body: 17px; // paragraphs (p, desktop)
-$fs-h4: 16px; // card subtitles
-$fs-card-title: 21px; // h3
-$fs-section-title: 34px; // h2
+// Colors are defined as CSS custom properties on :root, then re-exposed as
+// SCSS variables that simply resolve to `var(--token)`. This means every
+// component that already consumes `$color-*` gets the palette without
+// editing each one.
+//
+// Dark mode ("veillée") was previously wired via `prefers-color-scheme`
+// only, with no explicit toggle — this meant anyone with a dark OS/browser
+// setting silently saw the untested dark variant instead of the approved
+// light "carnet clair" one, and it also exposed a real bug (sections that
+// rely on `background` being inherited, which it isn't, showed through to
+// legacy Bootstrap styles under the dark palette). It is now wired back as
+// an explicit, user-driven toggle (see `useTheme.ts`) that sets
+// `data-theme="dark"` on `<html>` and persists the choice in localStorage —
+// never auto-detected from the OS/browser, on purpose.
+//
+// Sizes ($fs-*, spacing, radius) stay plain SCSS variables: they don't need
+// to change between themes, and bootstrap.min.css's `html{font-size:10px}`
+// reset means pixel values (not rem) remain the safe choice site-wide.
+
+:root {
+  // Paper / "carnet clair" (light) — default.
+  --color-paper: #f5f0ea;
+  // Was #f3eee6 — a ~1.02:1 contrast step against --color-paper, below
+  // what most displays render as a perceptible difference at all. Cards
+  // were reading as "flat/unstyled," carried entirely by the 1px border.
+  // Widened to a real, visible step (still the same warm/cream register,
+  // no new hue) rather than adding a shadow system this ledger-style
+  // palette has no precedent for.
+  --color-surface: #eee8de;
+  --color-ink: #1b1a18;
+  --color-ink-dim: #4a4a48;
+  --color-border: rgba(27, 26, 24, 0.14);
+
+  // Rouille, the single brand accent. Two steps: the base hue for large
+  // fills/borders/icons, and a darker step for anywhere it's used as text
+  // (base rouille on paper measures ~3.8:1, below AA for text — see audit
+  // notes in the redesign report).
+  --color-rouille: #c35b2b;
+  --color-rouille-strong: #a34a20;
+  --color-rouille-contrast: #ffffff;
+
+  // Semantic vote-outcome colors — legend/badges only, never for generic
+  // UI or buttons. Text-safe steps against --color-paper.
+  --color-vote-approved: #3f7d4a;
+  --color-vote-rejected: #b23b2e;
+  --color-vote-quorum: #6e6455;
+  --color-vote-postponed: #a67c3d;
+
+  // Member-rank badges (existing "wolf"/"cub" concept, unrelated to vote
+  // outcomes — kept as distinct hues so the two systems never collide).
+  --color-rank-wolf: #7a4a2e;
+  --color-rank-cub: #a67c3d;
+}
+
+:root[data-theme="dark"] {
+  // "Veillée" (night-watch) — same restrained, warm/paper register as
+  // light, never pure black, no neon. Explicit opt-in only (see
+  // useTheme.ts) — never auto-detected from OS/browser: an earlier
+  // auto-detected dark mode in this redesign caused a real, confusing
+  // bug (see git history) and was deliberately removed.
+  --color-paper: #1c1916;
+  // Unlike the light theme, this pair's original gap (28,25,22 → 36,32,25)
+  // was already a reasonable, visible step — not touched.
+  --color-surface: #242019;
+  --color-ink: #e9e2d6;
+  --color-ink-dim: #a89d8d;
+  --color-border: rgba(233, 226, 214, 0.14);
+
+  --color-rouille: #c35b2b;
+  --color-rouille-strong: #e08a52;
+  // The brightened dark-mode rouille fill is light enough that white text
+  // on top of it would fail contrast, unlike in light mode — so this flips
+  // to dark ink instead of staying white.
+  --color-rouille-contrast: #1c1916;
+
+  --color-vote-approved: #6fbf73;
+  --color-vote-rejected: #e2695a;
+  --color-vote-quorum: #b4a58e;
+  --color-vote-postponed: #d6a35c;
+
+  --color-rank-wolf: #c68a5e;
+  --color-rank-cub: #d6a35c;
+}
+
+// --- SCSS aliases -----------------------------------------------------
+// Same variable names the codebase already uses, now backed by the custom
+// properties above instead of hardcoded hex. Anything assigned through
+// these keeps working unchanged in every consuming component.
+
+$color-orange: var(--color-rouille);
+$color-orange-dark: var(--color-rouille-strong);
+$color-on-accent: var(--color-rouille-contrast);
+$color-black: var(--color-ink);
+$color-text: var(--color-ink);
+$color-text-dim: var(--color-ink-dim);
+$color-border: var(--color-border);
+$color-card-bg: var(--color-surface);
+$color-page-bg: var(--color-paper);
+$color-danger: var(--color-vote-rejected);
+$color-success: var(--color-vote-approved);
+$color-quorum: var(--color-vote-quorum);
+$color-wolf: var(--color-rank-wolf);
+$color-cub: var(--color-rank-cub);
+
+// Fonts — Inter (UI/body/headings) + IBM Plex Mono (data), self-hosted via
+// the `@fontsource/inter` and `@fontsource/ibm-plex-mono` npm packages
+// (imported once in `src/main.ts`). These packages ship the actual woff2
+// files as static build assets bundled by Vite — the browser never
+// contacts Google Fonts or any other CDN at runtime, so this satisfies
+// both the "no CDN webfont" constraint and fixes the pre-existing CSP
+// violation (the live `fonts.googleapis.com` <link> removed from
+// `index.html`). This DOES add two new npm dependencies (flagged here per
+// the brief: a plain static-asset package, not a styling framework or a
+// runtime font loader — pure `@font-face` CSS + local files).
+// Only the weights actually used are imported: Inter 400/500/600/700,
+// IBM Plex Mono 400/500. No italics (unused in the current UI/copy).
+$font-display: "Inter", -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+$font-body: "Inter", -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+$font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+
+// Italic serif accent — used sparingly (currently only the Home hero
+// motto) for an elegant "field notebook" quotation register. Self-hosted
+// via `@fontsource/eb-garamond`, same pattern as Inter/IBM Plex Mono above.
+$font-script: "EB Garamond", Georgia, serif;
+
+// Typographic scale — updated per the "Carnet de meute" reference board.
+// In px, not rem: see historical note above re: bootstrap's `html{font-size:10px}`.
+$fs-caption: 12px; // captions, labels, secondary text
+$fs-body: 14px; // paragraphs, line-height 20px
+$fs-h4: 16px; // card subtitles, line-height 24px
+$fs-card-title: 20px; // card/section title, line-height 28px
+$fs-section-title: 28px; // page/section title, line-height 36px
+$fs-hero: 92px; // Home hero brand title only, line-height 1
+
+// Spacing scale (px) — use these instead of ad hoc margin/padding values.
+$space-1: 4px;
+$space-2: 8px;
+$space-3: 16px;
+$space-4: 24px;
+$space-5: 32px;
+
+// Border radius — restrained, ledger/register look (no maxed-out pill shapes).
+$radius-sm: 2px;
+$radius-md: 4px;

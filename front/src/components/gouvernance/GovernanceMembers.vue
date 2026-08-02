@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Address } from "viem";
 import { useWallet } from "../../composables/useWallet";
@@ -7,11 +7,12 @@ import { useMeute, ProposalType, type Member } from "../../composables/useMeute"
 import { useDiscordLink } from "../../composables/useDiscordLink";
 import { useToast } from "../../composables/useToast";
 import { friendlyContractError } from "../../composables/contractErrors";
-import { useLocalAutoRefresh } from "../../composables/useLocalAutoRefresh";
 import AddressChip from "./AddressChip.vue";
 
+const props = defineProps<{ role: "visitor" | "cub" | "wolf" }>();
+
 const { t } = useI18n();
-const { address, connect, readOnlyContract, writableContract, publicClient } = useWallet();
+const { address, readOnlyContract, writableContract, publicClient } = useWallet();
 const { members, proposals, loading, error, isAuthorized, loadAll } = useMeute();
 
 // Purely front-side marker (never a real Rank value on the contract side,
@@ -24,43 +25,17 @@ const APPLICANT_RANK = -1;
 const { discordLinkFor } = useDiscordLink();
 const { showToast } = useToast();
 
-// Current visitor's role — not exposed by useMeute (which describes
-// members in general, not "me" specifically): a targeted read is enough,
-// no need to duplicate all of GovernanceDao.vue's logic.
-const myRank = ref<number | null>(null);
-async function loadMyRank() {
-  if (!address.value) {
-    myRank.value = null;
-    return;
-  }
-  const balance = (await readOnlyContract().read.balanceOf([address.value])) as bigint;
-  if (balance === 0n) {
-    myRank.value = null;
-    return;
-  }
-  const card = (await readOnlyContract().read.card([address.value])) as { rank: number };
-  myRank.value = Number(card.rank);
-}
-const amIAWolf = computed(() => myRank.value === 1);
-
-onMounted(async () => {
-  await loadAll();
-  loadMyRank();
-});
-watch(address, loadMyRank);
+// `role` comes from GovernanceDao.vue (the parent, and now the sole owner
+// of loadAll()/refreshMembership()) rather than being recomputed here —
+// this component used to run its own redundant RPC read to derive the
+// same information.
+const amIAWolf = computed(() => props.role === "wolf");
 
 // See GovernanceDao.vue: without resetting scroll to 0 when the members
 // list disappears (disconnect), the scroll position stays where it was on
 // a much shorter page.
 watch(isAuthorized, (authorized) => {
   if (!authorized) window.scrollTo({ top: 0 });
-});
-
-// Local demo mode only — see GovernanceDao.vue for context (the demo
-// panel changes state in another tab, without notifying this one).
-useLocalAutoRefresh(async () => {
-  await loadAll();
-  await loadMyRank();
 });
 
 interface Row extends Member {
@@ -99,19 +74,6 @@ function cancel() {
   txError.value = null;
 }
 
-// GovernanceDao.vue and GovernanceDonations.vue already go through a
-// handler that displays the error — this page called `connect` raw, so a
-// cancelled click on the MetaMask popup turned into an unhandled promise
-// rejection, with no visible feedback to the user.
-async function onConnect() {
-  txError.value = null;
-  try {
-    await connect();
-  } catch (e) {
-    txError.value = friendlyContractError(e, t);
-  }
-}
-
 async function confirmAction() {
   if (!confirmation.value) return;
   const { type, member } = confirmation.value;
@@ -141,13 +103,11 @@ async function confirmAction() {
 
 <template>
   <div class="gm-page">
-    <h2 class="gm-title">{{ t('governance.members.title') }}</h2>
-
-    <div v-if="!isAuthorized" class="gm-gate">
-      <p class="gm-gate-text">{{ t('governance.members.gateText') }}</p>
-      <button class="btn btn-primary" type="button" @click="onConnect">{{ t('common.connectWallet') }}</button>
-      <p v-if="txError" class="gm-error">{{ txError }}</p>
-    </div>
+    <!-- No dedicated "connect wallet" CTA here: the side column
+         ("My card"), always visible next to both sub-tabs, is the single
+         place that offers it — duplicating it here would surface two
+         different connect prompts on the same page. -->
+    <p v-if="!isAuthorized" class="gm-locked-note">{{ t('governance.members.gateText') }}</p>
 
     <template v-else>
       <p class="gm-intro">{{ t('governance.members.intro', { count: rows.length }, rows.length) }}</p>
@@ -171,7 +131,7 @@ async function confirmAction() {
         <div class="gm-identity">
           <span v-if="m.username" class="gm-username">{{ m.username }}</span>
           <span v-else class="gm-username gm-username--none">{{ t('governance.members.noDiscordLinked') }}</span>
-          <AddressChip :address="m.address" short address-only dark />
+          <AddressChip :address="m.address" short address-only />
         </div>
 
         <span
@@ -243,109 +203,99 @@ async function confirmAction() {
 .gm-page {
   max-width: 900px;
   margin: 0 auto;
-  padding: 2.5rem 1.5rem 4rem;
-}
-
-.gm-title {
-  color: $color-orange;
-  font-family: $font-display;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  font-size: $fs-section-title;
-  margin: 0 0 0.4rem;
+  padding: $space-5 $space-3 ($space-5 * 2);
+  background: $color-page-bg;
 }
 
 .gm-intro {
-  color: rgba(255, 255, 255, 0.75);
+  color: $color-text-dim;
   font-size: $fs-body;
-  margin: 0 0 1.5rem;
+  margin: 0 0 $space-4;
 }
 
-.gm-gate {
-  padding: 2rem 1.5rem;
-  text-align: center;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-}
-
-.gm-gate-text {
-  color: rgba(255, 255, 255, 0.75);
-  font-size: $fs-body;
-  margin: 0 0 1.2rem;
+.gm-locked-note {
+  color: $color-text-dim;
+  font-size: $fs-caption;
 }
 
 .gm-status {
-  color: rgba(255, 255, 255, 0.75);
+  color: $color-text-dim;
   font-size: $fs-caption;
-  margin: -0.8rem 0 1.2rem;
+  margin: -#{$space-2} 0 $space-3;
 
   &--error {
-    color: #e05a47;
+    color: $color-danger;
   }
 }
 
 .gm-search-wrap {
   position: relative;
-  margin: 1.5rem 0;
+  margin: $space-4 0;
 }
 
 .gm-search-icon {
   position: absolute;
   top: 50%;
-  left: 0.85rem;
+  left: $space-3;
   transform: translateY(-50%);
-  color: rgba(255, 255, 255, 0.45);
+  color: $color-text-dim;
   pointer-events: none;
 }
 
 .gm-search {
   width: 100%;
   box-sizing: border-box;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  padding: 0.65rem 0.9rem 0.65rem 2.3rem;
+  background: $color-card-bg;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  padding: $space-2 $space-3 $space-2 ($space-5 + 4px);
   font: inherit;
   font-size: $fs-body;
-  color: #fff;
+  color: $color-text;
 
   &::placeholder {
-    color: rgba(255, 255, 255, 0.4);
+    color: $color-text-dim;
   }
 
   &:focus {
     outline: none;
-    border-color: $color-orange;
-    box-shadow: 0 0 0 3px rgba(249, 174, 60, 0.18);
+    border-color: $color-orange-dark;
   }
 }
 
-// Translucent rows on the dashboard's black background rather than a
-// single opaque white slab — the list then feels part of the dark
-// dashboard instead of floating on top of it like a separate page
-// (feedback from a UX agent).
+// Hairline-separated rows on the paper background, matching the ledger
+// aesthetic used elsewhere (ProposalCard, GovernanceDao stat rows).
 .gm-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
 }
 
 .gm-row {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.85rem 1.1rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  gap: $space-3;
+  padding: $space-3;
+  background: $color-card-bg;
+  border: 1px solid $color-border;
+  border-top: none;
   transition: background 0.15s ease;
 
+  &:first-child {
+    border-top: 1px solid $color-border;
+    border-radius: $radius-md $radius-md 0 0;
+  }
+  &:last-child {
+    border-radius: 0 0 $radius-md $radius-md;
+  }
+  &:only-child {
+    border-radius: $radius-md;
+  }
+
   &:hover {
-    background: rgba(255, 255, 255, 0.07);
+    background: $color-page-bg;
   }
 
   // Actions only reach their full visual weight on row hover — otherwise
@@ -358,36 +308,36 @@ async function confirmAction() {
 }
 
 .gm-empty {
-  padding: 1.5rem;
+  padding: $space-4;
   text-align: center;
-  color: rgba(255, 255, 255, 0.55);
+  color: $color-text-dim;
   font-size: $fs-caption;
 }
 
 .gm-avatar {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   flex-shrink: 0;
-  border: 2px solid rgba(255, 255, 255, 0.15);
+  border: 2px solid $color-border;
 
   &--placeholder {
-    background: rgba(255, 255, 255, 0.06);
+    background: $color-page-bg;
   }
 }
 
 .gm-identity {
   display: flex;
   align-items: baseline;
-  gap: 0.6rem;
+  gap: $space-2;
   min-width: 0;
   flex: 1;
 }
 
 .gm-username {
-  font-weight: 700;
+  font-weight: 600;
   font-size: $fs-body;
-  color: #fff;
+  color: $color-black;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -395,7 +345,7 @@ async function confirmAction() {
   &--none {
     font-weight: 400;
     font-style: italic;
-    color: rgba(255, 255, 255, 0.45);
+    color: $color-text-dim;
   }
 }
 
@@ -406,22 +356,21 @@ async function confirmAction() {
   // shifted the action icons from one row to the next (user feedback).
   width: 150px;
   text-align: center;
+  font-family: $font-mono;
   font-size: $fs-caption;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  padding: 0.4rem 0.6rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+  padding: $space-1 $space-2;
+  border: 1px solid $color-border;
+  border-radius: $radius-sm;
+  color: $color-text-dim;
 
   &--wolf {
-    background: rgba(232, 146, 90, 0.18);
-    color: #e8925a;
+    border-color: $color-wolf;
+    color: $color-wolf;
   }
   &--cub {
-    background: rgba(199, 159, 224, 0.18);
-    color: #c79fe0;
+    border-color: $color-cub;
+    color: $color-cub;
   }
   // Muted role rather than a separate badge — "dormant Wolf" stays a
   // Wolf, not a second disjoint piece of info (feedback from a UX agent).
@@ -429,14 +378,14 @@ async function confirmAction() {
     opacity: 0.55;
   }
   &--applicant {
-    background: rgba(249, 174, 60, 0.18);
-    color: $color-orange;
+    border-color: $color-orange-dark;
+    color: $color-orange-dark;
   }
 }
 
 .gm-actions {
   display: flex;
-  gap: 0.4rem;
+  gap: $space-1;
   flex-shrink: 0;
 }
 
@@ -444,12 +393,12 @@ async function confirmAction() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  width: 28px;
+  height: 28px;
+  border-radius: $radius-sm;
+  border: 1px solid $color-border;
   background: transparent;
-  color: rgba(255, 255, 255, 0.5);
+  color: $color-text-dim;
   opacity: 0.55;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
@@ -464,14 +413,14 @@ async function confirmAction() {
   }
 
   &--up:hover:not(:disabled) {
-    background: rgba(46, 158, 91, 0.16);
-    border-color: #2e9e5b;
-    color: #2e9e5b;
+    background: $color-page-bg;
+    border-color: $color-success;
+    color: $color-success;
   }
   &--x:hover {
-    background: rgba(192, 57, 43, 0.14);
-    border-color: #e05a47;
-    color: #e05a47;
+    background: $color-page-bg;
+    border-color: $color-danger;
+    color: $color-danger;
   }
 }
 
@@ -479,43 +428,43 @@ async function confirmAction() {
   position: fixed;
   inset: 0;
   z-index: 300;
-  background: rgba(10, 10, 10, 0.55);
+  background: rgba(27, 26, 24, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
+  padding: $space-4;
 }
 
 .gm-modal {
   background: $color-card-bg;
-  border-radius: 6px;
-  padding: 1.8rem;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  padding: $space-4;
   width: 100%;
   max-width: 400px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
 }
 
 .gm-modal-title {
   font-size: $fs-h4;
   color: $color-black;
-  margin: 0 0 0.6rem;
+  margin: 0 0 $space-2;
 }
 
 .gm-modal-note {
   font-size: $fs-caption;
   color: $color-text-dim;
-  margin: 0 0 1.2rem;
+  margin: 0 0 $space-4;
 }
 
 .gm-error {
   font-size: $fs-caption;
-  color: #c0392b;
-  margin: 0 0 1rem;
+  color: $color-danger;
+  margin: 0 0 $space-3;
 }
 
 .gm-modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.6rem;
+  gap: $space-2;
 }
 </style>
