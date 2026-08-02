@@ -7,6 +7,7 @@ import { formatEther, parseEther, type Address } from "viem";
 import { driver } from "driver.js";
 import { useWallet } from "../../composables/useWallet";
 import { useMeute, ProposalType, type Proposal } from "../../composables/useMeute";
+import { CONTRACT_DEPLOY_BLOCK } from "../../contract";
 import { useEthPrice } from "../../composables/useEthPrice";
 import { friendlyContractError } from "../../composables/contractErrors";
 import { useToast } from "../../composables/useToast";
@@ -28,7 +29,7 @@ const props = defineProps<{ initialSubTab?: "proposals" | "members" }>();
 
 const { t } = useI18n();
 const { locale } = useLocale();
-const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient, restoreConnectionPromise, ensureContractAddressSynced } = useWallet();
+const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient, restoreConnectionPromise, ensureContractAddressSynced, isLocal } = useWallet();
 const {
   stats,
   proposals,
@@ -115,6 +116,33 @@ function postponementBlocked(p: Proposal): boolean {
 // loadConfirmationPostponements everywhere.
 watch(proposals, loadConfirmationPostponements, { immediate: true });
 
+// `_hasVoted` is private in the contract (no getter) — the vote/reject/
+// postpone buttons must still gray out once the connected wallet has
+// already voted, to avoid sending it into a guaranteed AlreadyVoted
+// revert. VoteCast is indexed on `voter`, so a single filtered log query
+// gets every proposal this address has voted on, without one read per
+// proposal (Meute.sol, VoteCast, line ~216).
+const myVotedProposalIds = ref<Set<string>>(new Set());
+async function loadMyVotedProposals() {
+  if (!address.value) {
+    myVotedProposalIds.value = new Set();
+    return;
+  }
+  // CONTRACT_DEPLOY_BLOCK is Sepolia's real deployment block (~11.3M) — on
+  // the local demo chain the contract redeploys fresh every reset at a
+  // near-zero block height, so using that same constant as `fromBlock`
+  // silently returned zero logs there (the bug this fixes: every vote
+  // looked like it had never happened, on local demo specifically).
+  const logs = await readOnlyContract().getEvents.VoteCast(
+    { voter: address.value },
+    { fromBlock: isLocal ? 0n : CONTRACT_DEPLOY_BLOCK },
+  );
+  myVotedProposalIds.value = new Set(logs.map((log) => log.args.proposalId!.toString()));
+}
+function hasVoted(p: Proposal): boolean {
+  return myVotedProposalIds.value.has(p.id.toString());
+}
+
 // For the applicant checklist ("have Sepolia ETH" step) — the wallet's
 // balance, not the contract's.
 const myBalance = ref(0n);
@@ -132,6 +160,7 @@ onMounted(async () => {
   // otherwise be read against the stale pre-sync address.
   await ensureContractAddressSynced();
   await loadAll();
+  await loadMyVotedProposals();
   fee.value = (await readOnlyContract().read.fee()) as bigint;
   dormancyDelay.value = Number((await readOnlyContract().read.DORMANCY_DELAY()) as bigint);
   maxPostponements.value = Number(await readOnlyContract().read.MAX_POSTPONEMENTS());
@@ -205,6 +234,7 @@ watch(
     void refreshMembership().catch((e) => console.error("refreshMembership failed", e));
     void loadBalance().catch((e) => console.error("loadBalance failed", e));
     void loadMyDonations(address.value).catch((e) => console.error("loadMyDonations failed", e));
+    void loadMyVotedProposals().catch((e) => console.error("loadMyVotedProposals failed", e));
   },
   { immediate: true },
 );
@@ -342,7 +372,10 @@ async function vote(id: bigint, choice: number) {
     t('governance.dao.voteToast'),
     id,
   );
-  if (!txError.value) await invalidatePostponements(id);
+  if (!txError.value) {
+    await invalidatePostponements(id);
+    await loadMyVotedProposals();
+  }
 }
 async function execute(id: bigint) {
   const args = [id] as const;
@@ -695,6 +728,7 @@ function startTour() {
             :now="now"
             :tx-pending="txPending"
             :is-target-in-conflict="isTargetInConflict"
+            :has-voted="hasVoted"
             :postponement-blocked="postponementBlocked"
             :max-postponements="maxPostponements"
             @vote="(id, choice) => vote(id, choice)"

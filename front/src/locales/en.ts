@@ -214,7 +214,8 @@ const en: typeof fr = {
       typeMultiChoicePoll: "Multiple-choice poll",
       // "Soon™" — a running gaming injoke (Star Citizen), left untranslated
       // on purpose in both locales.
-      comingSoon: "Soon™",
+      // See fr.ts — the ™ is a separate styled span at each call site.
+      comingSoon: "Soon",
       proposeExpense: "Propose an expense",
       beneficiaryPlaceholder: "0x… beneficiary",
       amountPlaceholder: "Amount in ETH",

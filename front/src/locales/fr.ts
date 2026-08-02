@@ -216,7 +216,10 @@ export default {
       typeMultiChoicePoll: "Sondage choix multiples",
       // "Soon™" — a running gaming injoke (Star Citizen), left untranslated
       // on purpose in both locales.
-      comingSoon: "Soon™",
+      // The trailing ™ is added as its own styled span at each call site
+      // (not baked into this string) so it can be sized up independently —
+      // rendered at the font's default size it was nearly invisible.
+      comingSoon: "Soon",
       proposeExpense: "Proposer une dépense",
       beneficiaryPlaceholder: "0x… bénéficiaire",
       amountPlaceholder: "Montant en ETH",

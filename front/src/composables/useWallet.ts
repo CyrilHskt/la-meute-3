@@ -240,5 +240,6 @@ export function useWallet() {
     onExplicitConnect,
     onAccountChanged,
     restoreConnectionPromise,
+    isLocal,
   };
 }

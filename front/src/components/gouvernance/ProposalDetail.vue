@@ -27,7 +27,7 @@ defineProps<{
     </div>
     <div class="gv-stat-row" :title="t('governance.dao.comingSoon')">
       <span class="gv-stat-label">{{ t('governance.dao.txHashLabel') }}</span>
-      <span class="gv-stat-value--pending">{{ t('governance.dao.comingSoon') }}</span>
+      <span class="gv-stat-value--pending">{{ t('governance.dao.comingSoon') }}<span class="gv-tm">™</span></span>
     </div>
     <div v-if="proposal.proposalType === ProposalType.Expense" class="gv-stat-row">
       <span class="gv-stat-label">{{ t('governance.dao.amountPlaceholder') }}</span>
@@ -73,8 +73,24 @@ defineProps<{
   color: $color-text-dim;
 }
 
+// Same treatment as the "Soon™" badge in SubmitProposalPanel.vue (accent
+// color, bordered pill) rather than plain dim italic text — one "coming
+// soon" marker, one look, wherever it shows up.
 .gv-stat-value--pending {
-  color: $color-text-dim;
-  font-style: italic;
+  display: inline-block;
+  font-family: $font-mono;
+  font-size: 1.05rem;
+  font-weight: 700;
+  border: 1px solid $color-orange-dark;
+  border-radius: $radius-sm;
+  padding: 0.15rem 0.6rem;
+  color: $color-orange-dark;
+}
+
+// Same fix as SubmitProposalPanel.vue's badge: the ™ glyph renders tiny
+// by default, sized up and lifted back to baseline to stay legible.
+.gv-tm {
+  font-size: 1.3em;
+  vertical-align: baseline;
 }
 </style>

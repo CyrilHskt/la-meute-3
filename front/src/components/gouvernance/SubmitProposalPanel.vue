@@ -24,7 +24,7 @@ const emit = defineEmits<{
           <path d="M8 1.5v13M8 1.5 5 4.5M8 1.5l3 3M8 14.5l-3-3M8 14.5l3-3" />
         </svg>
         <span class="gv-prop-tile-label">{{ t('governance.dao.typeBinaryPoll') }}</span>
-        <span class="gv-prop-tile-badge">{{ t('governance.dao.comingSoon') }}</span>
+        <span class="gv-prop-tile-badge">{{ t('governance.dao.comingSoon') }}<span class="gv-tm">™</span></span>
       </button>
 
       <button type="button" class="gv-prop-tile gv-prop-tile--disabled" disabled aria-disabled="true">
@@ -35,7 +35,7 @@ const emit = defineEmits<{
           <circle cx="12" cy="12" r="1.4" />
         </svg>
         <span class="gv-prop-tile-label">{{ t('governance.dao.typeMultiChoicePoll') }}</span>
-        <span class="gv-prop-tile-badge">{{ t('governance.dao.comingSoon') }}</span>
+        <span class="gv-prop-tile-badge">{{ t('governance.dao.comingSoon') }}<span class="gv-tm">™</span></span>
       </button>
     </div>
   </div>
@@ -78,9 +78,18 @@ const emit = defineEmits<{
     background: $color-page-bg;
   }
 
+  // Opacity on the icon/label only, not the whole button: applying it to
+  // `.gv-prop-tile--disabled` itself would have also faded the "Soon™"
+  // badge sitting inside the same button, working against making that
+  // badge stand out (see .gv-prop-tile-badge below).
   &--disabled {
     cursor: not-allowed;
     color: $color-text-dim;
+
+    svg,
+    .gv-prop-tile-label {
+      opacity: 0.6;
+    }
   }
 }
 
@@ -101,13 +110,26 @@ const emit = defineEmits<{
   min-width: 0;
 }
 
+// Full-strength accent instead of the same dim gray as the rest of a
+// disabled row: "Soon™" is a callout worth noticing (it's telling you
+// something's actually planned), not just another muted disabled detail.
 .gv-prop-tile-badge {
   flex-shrink: 0;
   margin-left: auto;
-  font-size: 0.7rem;
-  border: 1px solid $color-border;
+  font-family: $font-mono;
+  font-size: 1.05rem;
+  font-weight: 700;
+  border: 1px solid $color-orange-dark;
   border-radius: $radius-sm;
-  padding: 0.1rem 0.4rem;
-  color: $color-text-dim;
+  padding: 0.15rem 0.6rem;
+  color: $color-orange-dark;
+}
+
+// The ™ glyph renders tiny (most fonts draw it as a sunken, scaled-down
+// superscript) — bumped up and lifted back to a normal baseline so it's
+// actually legible instead of nearly disappearing next to "Soon".
+.gv-tm {
+  font-size: 1.3em;
+  vertical-align: baseline;
 }
 </style>

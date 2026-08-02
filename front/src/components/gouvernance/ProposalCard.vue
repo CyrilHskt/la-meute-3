@@ -28,6 +28,7 @@ const props = defineProps<{
   now?: number;
   txPending?: boolean;
   isTargetInConflict?: (p: Proposal) => boolean;
+  hasVoted?: (p: Proposal) => boolean;
   postponementBlocked?: (p: Proposal) => boolean;
   maxPostponements?: number;
   // "past" mode only
@@ -46,11 +47,17 @@ const emit = defineEmits<{
 // see gov-6 simplification), so the toggle is no longer Expense-only.
 const detailRegionId = computed(() => `gv-detail-${props.proposal.id}`);
 
+// Postpone counts toward participation for a Confirmation vote the whole
+// time it's open, not just once it's closed (Meute.sol, _executeConfirmation:
+// `total = approveVotes + rejectVotes + postponeVotes` feeds the same
+// quorum check regardless of when it's read) — gating this on `mode ===
+// 'past'` under-counted an ongoing vote's real participation (observed:
+// "0 vote sur 2" shown right after a Postpone vote had actually landed).
 const castVotes = computed(
   () =>
     props.proposal.approveVotes +
     props.proposal.rejectVotes +
-    (props.mode === 'past' && props.proposal.proposalType === ProposalType.Confirmation ? props.proposal.postponeVotes : 0),
+    (props.proposal.proposalType === ProposalType.Confirmation ? props.proposal.postponeVotes : 0),
 );
 
 // "X vote(s) sur Y nécessaire(s)" has two independent grammatical
@@ -169,19 +176,29 @@ const proposalTypeIcon = computed(() => proposalTypeIcons[props.proposal.proposa
 
     <div v-if="mode === 'ongoing'" class="gv-prop-card-actions">
       <template v-if="role === 'wolf' && now !== undefined && Number(proposal.deadline) > now && !isTargetInConflict?.(proposal)">
-        <button class="btn btn-primary" :disabled="txPending" @click.stop="emit('vote', proposal.id, VoteChoice.Approve)">
+        <button
+          class="btn btn-primary"
+          :disabled="txPending || hasVoted?.(proposal)"
+          :title="hasVoted?.(proposal) ? t('errors.alreadyVoted') : ''"
+          @click.stop="emit('vote', proposal.id, VoteChoice.Approve)"
+        >
           <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5" /></svg>
           {{ t('governance.dao.approve') }}
         </button>
-        <button class="btn btn-outline-danger" :disabled="txPending" @click.stop="emit('vote', proposal.id, VoteChoice.Reject)">
+        <button
+          class="btn btn-outline-danger"
+          :disabled="txPending || hasVoted?.(proposal)"
+          :title="hasVoted?.(proposal) ? t('errors.alreadyVoted') : ''"
+          @click.stop="emit('vote', proposal.id, VoteChoice.Reject)"
+        >
           <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
           {{ t('governance.dao.reject') }}
         </button>
         <button
           v-if="proposal.proposalType === ProposalType.Confirmation"
           class="btn btn-outline"
-          :disabled="txPending || postponementBlocked?.(proposal)"
-          :title="postponementBlocked?.(proposal) ? t('governance.dao.postponeMaxReached', { max: maxPostponements }) : ''"
+          :disabled="txPending || hasVoted?.(proposal) || postponementBlocked?.(proposal)"
+          :title="hasVoted?.(proposal) ? t('errors.alreadyVoted') : postponementBlocked?.(proposal) ? t('governance.dao.postponeMaxReached', { max: maxPostponements }) : ''"
           @click.stop="emit('vote', proposal.id, VoteChoice.Postpone)"
         >
           <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
