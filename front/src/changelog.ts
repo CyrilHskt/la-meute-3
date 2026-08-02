@@ -23,6 +23,13 @@ export const CONTRACT_DISPLAY_VERSION = "1.2.0";
 
 export const SITE_CHANGELOG: ChangelogEntry[] = [
   {
+    date: { fr: "1er août 2026", en: "August 1, 2026" },
+    title: {
+      fr: "Une véritable identité visuelle pour le site : palette « carnet de meute », illustrations dessinées à la main, charte graphique dédiée",
+      en: "A real visual identity for the site: the \"pack notebook\" palette, hand-drawn illustrations, a dedicated style guide",
+    },
+  },
+  {
     date: { fr: "28 juillet 2026", en: "July 28, 2026" },
     title: {
       fr: "Le site est désormais disponible en anglais, avec un sélecteur FR/EN dans le menu",
@@ -75,6 +82,13 @@ export const SITE_CHANGELOG: ChangelogEntry[] = [
 ];
 
 export const DASHBOARD_CHANGELOG: ChangelogEntry[] = [
+  {
+    date: { fr: "1er août 2026", en: "August 1, 2026" },
+    title: {
+      fr: "Propositions repensées : une illustration par type, les infos essentielles en un coup d'œil, le reste accessible en un clic sur « Plus de détails »",
+      en: "Proposals redesigned: one illustration per type, the essentials at a glance, everything else one click away under \"More details\"",
+    },
+  },
   {
     date: { fr: "26 juillet 2026", en: "July 26, 2026" },
     title: {

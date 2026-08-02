@@ -322,7 +322,10 @@ async function handleIndexAuth(req, res, url) {
     return;
   }
   try {
-    return sendJson(res, 200, await buildIndex(ctx));
+    // discordLinks alongside the index, exactly like /governance/verify:
+    // without it a plain reread (page refresh, no new signature) showed
+    // every member as unlinked. See dao-sync.mts for the prod counterpart.
+    return sendJson(res, 200, { ...(await buildIndex(ctx)), discordLinks });
   } catch (e) {
     return sendJson(res, 503, { error: e.message ?? String(e) });
   }

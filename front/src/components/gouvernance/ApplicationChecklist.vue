@@ -127,18 +127,18 @@ const voteStep = computed<StepState>(() => (props.application ? "current" : "tod
 // No background/border here: this component always lives inside
 // .gv-card-panel on the GovernanceDao.vue side, which already carries that box.
 .acl-title {
-  color: $color-orange;
-  font-family: $font-display;
+  color: $color-orange-dark;
+  font-family: $font-mono;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  font-size: $fs-h4;
-  margin: 0 0 1.2rem;
+  letter-spacing: 0.06em;
+  font-size: $fs-caption;
+  margin: 0 0 $space-3;
 }
 
 .acl-step {
   display: flex;
-  gap: 0.8rem;
-  padding: 0.85rem 0;
+  gap: $space-2;
+  padding: $space-3 0;
   border-bottom: 1px solid $color-border;
 
   &:last-child { border-bottom: none; }
@@ -146,49 +146,47 @@ const voteStep = computed<StepState>(() => (props.application ? "current" : "tod
 
 .acl-marker {
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: $font-display;
-  font-weight: 700;
+  font-family: $font-mono;
+  font-weight: 600;
   font-size: $fs-caption;
   margin-top: 0.1rem;
 }
-.acl-step--done .acl-marker { background: #2e9e5b; color: #fff; }
-.acl-step--current .acl-marker { background: $color-orange; color: #fff; }
+.acl-step--done .acl-marker { background: $color-success; color: $color-on-accent; }
+.acl-step--current .acl-marker { background: $color-orange-dark; color: var(--color-rouille-contrast); }
 .acl-step--todo .acl-marker { background: $color-page-bg; color: $color-text-dim; border: 1px solid $color-border; }
 
 .acl-body { flex: 1; }
-.acl-step-title { font-weight: 700; font-size: $fs-h4; color: $color-black; }
+.acl-step-title { font-weight: 600; font-size: $fs-h4; color: $color-black; }
 .acl-step--todo .acl-step-title { color: $color-text-dim; }
-.acl-note { font-size: $fs-caption; color: $color-text-dim; margin-top: 0.2rem; }
+.acl-note { font-size: $fs-caption; color: $color-text-dim; margin-top: $space-1; }
 .acl-action {
-  margin-top: 0.6rem;
+  margin-top: $space-2;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: $space-1;
 }
 .acl-faucet-btn {
   display: inline-block;
-  background: $color-orange;
-  color: #fff;
-  border-radius: 3px;
-  padding: 0.45rem 1rem;
+  background: $color-orange-dark;
+  color: var(--color-rouille-contrast);
+  border-radius: $radius-sm;
+  padding: $space-1 $space-3;
   font-size: $fs-caption;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
   text-decoration: none;
 
-  &:hover { background: $color-orange-dark; color: #fff; }
+  &:hover { background: $color-orange; }
 }
 .acl-refresh {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: $space-1;
   background: none;
   border: none;
   color: $color-text-dim;
@@ -200,11 +198,11 @@ const voteStep = computed<StepState>(() => (props.application ? "current" : "tod
 }
 .acl-countdown {
   display: inline-block;
-  margin-top: 0.4rem;
+  margin-top: $space-1;
   font-family: $font-mono;
   font-size: $fs-caption;
   background: $color-page-bg;
-  border-radius: 3px;
-  padding: 0.15rem 0.5rem;
+  border-radius: $radius-sm;
+  padding: 0.15rem $space-2;
 }
 </style>

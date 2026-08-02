@@ -53,3 +53,4 @@ CLAUDE.md
 # recreated on every `npm run demo` (reset), unlike chain-11155111
 # (Sepolia) which must stay versioned.
 /ignition/deployments/chain-31337
+front/public/img/illustrations/sheet-*.png

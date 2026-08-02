@@ -182,15 +182,16 @@ function onKeydown(e: KeyboardEvent) {
   width: 100%;
   box-sizing: border-box;
   border: 1px solid $color-border;
-  border-radius: 4px;
-  padding: 0.5rem 1.9rem 0.5rem 0.7rem;
+  border-radius: $radius-sm;
+  padding: $space-2 1.9rem $space-2 $space-2;
   font: inherit;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  color: $color-text;
+  background: $color-page-bg;
+  transition: border-color 0.15s ease;
 
   &:focus {
     outline: none;
-    border-color: $color-orange;
-    box-shadow: 0 0 0 3px rgba(249, 174, 60, 0.18);
+    border-color: $color-orange-dark;
   }
 }
 
@@ -222,7 +223,7 @@ function onKeydown(e: KeyboardEvent) {
 
   &:hover {
     color: $color-orange-dark;
-    background: rgba(249, 174, 60, 0.14);
+    background: $color-page-bg;
   }
 }
 
@@ -233,18 +234,17 @@ function onKeydown(e: KeyboardEvent) {
   left: 0;
   right: 0;
   margin: 0;
-  padding: 0.5rem;
+  padding: $space-2;
   list-style: none;
-  background: #fff;
+  background: $color-card-bg;
   border: 1px solid $color-border;
-  border-radius: 8px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+  border-radius: $radius-md;
   max-height: 320px;
   overflow-y: auto;
 }
 
 .mp-empty {
-  padding: 0.9rem 0.8rem;
+  padding: $space-3 $space-2;
   font-size: $fs-caption;
   color: $color-text-dim;
   text-align: center;
@@ -253,18 +253,18 @@ function onKeydown(e: KeyboardEvent) {
 .mp-option {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.6rem 0.7rem;
-  border-radius: 6px;
+  gap: $space-2;
+  padding: $space-2;
+  border-radius: $radius-sm;
   cursor: pointer;
   transition: background 0.1s ease;
 
   & + & {
-    margin-top: 0.15rem;
+    margin-top: 2px;
   }
 
   &--active {
-    background: rgba(249, 174, 60, 0.16);
+    background: $color-page-bg;
   }
 }
 

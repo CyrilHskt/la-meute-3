@@ -28,24 +28,27 @@ const { toasts, dismissToast } = useToast();
 <style lang="scss" scoped>
 .toast-container {
   position: fixed;
-  bottom: 1.2rem;
-  right: 1.2rem;
+  bottom: $space-4;
+  right: $space-4;
   z-index: 500;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: $space-2;
   max-width: 360px;
 }
 
 .toast {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  background: $color-black;
-  color: #fff;
-  border-radius: 6px;
-  padding: 0.8rem 0.9rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  gap: $space-2;
+  // Deliberately always-dark chrome, not the theme-driven $color-black/
+  // $color-page-bg pair: those flip to light-on-dark under
+  // [data-theme="dark"], which would break the white-based .toast-close
+  // hover state below and change the toast's identity between themes.
+  background: #1b1a18;
+  color: #f5f0ea;
+  border-radius: $radius-md;
+  padding: $space-3;
   font-size: $fs-caption;
   border-left: 3px solid transparent;
 }

@@ -26,6 +26,7 @@ const MESSAGE_KEYS: Record<string, string> = {
   UnknownProposal: "errors.unknownProposal",
   TransferForbidden: "errors.transferForbidden",
   NoFounders: "errors.noFounders",
+  InvalidAddress: "errors.invalidAddress",
 };
 
 /** Looks up error.cause.cause...data.errorName through the viem error chain. */
