@@ -630,9 +630,12 @@ function startTour() {
             headcountStep,
           ]
         : [
+            // No treasury/headcount step here: both live inside the
+            // `isAuthorized && stats` stats panel (see template below),
+            // which never renders for a visitor — a pure visitor never
+            // gets a signed session, so the tour would point at a DOM
+            // element that simply doesn't exist for this role.
             { element: ".gv-card-panel", popover: { title: t('governance.dao.tour.visitorCardTitle'), description: t('governance.dao.tour.visitorCardText') } },
-            { element: ".gv-stat-row--treasury", popover: { title: t('governance.dao.tour.visitorTreasuryTitle'), description: t('governance.dao.tour.visitorTreasuryText') } },
-            headcountStep,
           ];
 
   driver({

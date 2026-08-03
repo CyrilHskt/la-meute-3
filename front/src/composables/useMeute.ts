@@ -216,6 +216,15 @@ watch(session, (token) => {
 // progress rather than starting over.
 let verificationPromise: Promise<void> | null = null;
 let walletBeingVerified: string | null = null;
+// The generation `verificationPromise` was started under. Wallet identity
+// alone isn't enough to decide whether it's safe to reuse: if a reset
+// (disconnect/account change) bumped `verificationGeneration` after this
+// promise started, it's already guaranteed to bail out without ever
+// setting session/isAuthorized (see `isStale()` below) — reusing it would
+// silently discard a legitimate, still-current verification for the same
+// wallet racing in right behind it (issue: explicit connect() and
+// MetaMask's own `accountsChanged` firing for the same authorization).
+let verificationPromiseGeneration = 0;
 
 // Generation counter: incremented on every new verification started AND
 // on every reset (disconnect/account change). A verification in flight
@@ -298,12 +307,15 @@ function resetSession() {
  *  reconnection on load. */
 async function verifyMembershipAndLoad(address: Address) {
   const wallet = address.toLowerCase();
-  if (verificationPromise && walletBeingVerified === wallet) return verificationPromise;
+  if (verificationPromise && walletBeingVerified === wallet && verificationPromiseGeneration === verificationGeneration) {
+    return verificationPromise;
+  }
   walletBeingVerified = wallet;
   verificationGeneration++;
   const generation = verificationGeneration;
+  verificationPromiseGeneration = generation;
   verificationPromise = runVerification(address, generation).finally(() => {
-    if (walletBeingVerified === wallet) {
+    if (walletBeingVerified === wallet && verificationPromiseGeneration === generation) {
       verificationPromise = null;
       walletBeingVerified = null;
     }

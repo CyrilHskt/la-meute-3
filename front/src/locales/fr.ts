@@ -283,8 +283,6 @@ export default {
         cubProbationText: "Tu peux suivre les propositions en cours, mais le droit de vote arrive avec ta titularisation.",
         visitorCardTitle: "Ton wallet, c'est ta carte",
         visitorCardText: "Pas de compte à créer : ton wallet est ton identité ici, du candidat au Loup.",
-        visitorTreasuryTitle: "Le trésor, en direct",
-        visitorTreasuryText: "Ce montant vient du solde réel du contrat sur la blockchain — personne ne peut l'afficher faux.",
         next: "Suivant",
         previous: "Précédent",
         done: "Terminer",
