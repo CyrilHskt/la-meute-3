@@ -42,29 +42,29 @@ function dismiss() {
   position: fixed;
   inset: 0;
   z-index: 300;
-  background: rgba(10, 10, 10, 0.55);
+  background: rgba(27, 26, 24, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
+  padding: $space-4;
 }
 
 .wim-card {
   background: $color-card-bg;
-  border-radius: 6px;
-  padding: 1.8rem;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  padding: $space-4;
   width: 100%;
   max-width: 380px;
   text-align: center;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
 }
 
 .wim-icon {
-  width: 52px;
-  height: 52px;
-  margin: 0 auto 1rem;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto $space-3;
   border-radius: 50%;
-  background: rgba(249, 174, 60, 0.14);
+  border: 1px solid $color-border;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -73,24 +73,23 @@ function dismiss() {
 
 .wim-title {
   font-family: $font-display;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  font-weight: 700;
   font-size: $fs-h4;
   color: $color-black;
-  margin: 0 0 0.7rem;
+  margin: 0 0 $space-2;
 }
 
 .wim-text {
   font-size: $fs-caption;
   color: $color-text-dim;
   line-height: 1.6;
-  margin: 0 0 1.3rem;
+  margin: 0 0 $space-4;
 }
 
 .wim-actions {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: $space-2;
 
   .btn { width: 100%; }
 }
@@ -102,6 +101,6 @@ function dismiss() {
   font-size: $fs-caption;
   text-decoration: underline;
   cursor: pointer;
-  margin-top: 0.6rem;
+  margin-top: $space-2;
 }
 </style>

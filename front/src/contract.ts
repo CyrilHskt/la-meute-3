@@ -9,13 +9,44 @@
 // targets, to update on every redeployment.
 export const CONTRACT_VERSION = "0.5.0" as const;
 
-export const CONTRACT_ADDRESS = "0x528d68AFE81572c26f213de4Aa3e9B94578bDa3E" as const;
+interface Deployment {
+  address: `0x${string}`;
+  // Starting point for log queries (VoteCast, etc.) — never query from
+  // block 0: public RPCs cap the `eth_getLogs` range (10,000 blocks on the
+  // one used for Sepolia), and the contract has no activity before this
+  // block anyway.
+  deployBlock: bigint;
+}
 
-// Deployment block (ignition/deployments/chain-11155111/journal.jsonl):
-// starting point for log queries, so we never query from block 0 — public
-// RPCs cap the `eth_getLogs` range (10,000 blocks on the one used here),
-// and the contract has no activity before this block anyway.
-export const CONTRACT_DEPLOY_BLOCK = 11378008n;
+// One entry per real chain the front can target, keyed by chain id — a
+// migration or a rollback is a new entry, not a rewrite of these two
+// constants. Local demo mode never reads this: it resolves its own
+// address dynamically from the demo panel instead (see useWallet.ts,
+// VITE_CONTRACT_ADDRESS / syncLocalContractAddress).
+export const DEPLOYMENTS: Record<number, Deployment> = {
+  // Sepolia (11155111) — the real, committed deployment, active in prod
+  // today (see docs/local/l2-cost-simulation-scenario.md).
+  11155111: {
+    address: "0x528d68AFE81572c26f213de4Aa3e9B94578bDa3E",
+    deployBlock: 11378008n,
+  },
+  // Base Sepolia (84532) — L2 migration target (see
+  // docs/local/l2-migration-reflection.md). Deployed ahead of the actual
+  // switch (composables/chainMode.ts's `remoteChainMode` doesn't resolve
+  // to "l2" anywhere yet) so the migration can be exercised end-to-end
+  // before flipping the default over for real.
+  84532: {
+    address: "0x093F99626181B7f83367AC2f3147ad824Fe152d8",
+    deployBlock: 44995155n,
+  },
+};
+
+// Flat exports kept equal to the Sepolia entry, for the consumers that
+// aren't chain-aware yet (scripts/generate-contract-meta.js,
+// netlify/functions/dao-sync.mts, scripts/sync-dao.js — wiring those up is
+// a later step of the migration, not this one).
+export const CONTRACT_ADDRESS = DEPLOYMENTS[11155111].address;
+export const CONTRACT_DEPLOY_BLOCK = DEPLOYMENTS[11155111].deployBlock;
 
 export const CONTRACT_ABI = [
   {

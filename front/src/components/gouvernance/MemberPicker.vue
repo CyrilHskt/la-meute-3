@@ -18,13 +18,14 @@ export interface PickerOption {
 // always target an existing member and have lived on their own page
 // (GovernanceMembers.vue) since, not through this component.
 const props = withDefaults(
-  defineProps<{ modelValue: string; options: PickerOption[]; placeholder?: string; ariaLabel?: string }>(),
+  defineProps<{ modelValue: string; options: PickerOption[]; placeholder?: string; ariaLabel?: string; inputId?: string }>(),
   {
     placeholder: "",
     ariaLabel: "",
+    inputId: undefined,
   },
 );
-const emit = defineEmits<{ "update:modelValue": [string] }>();
+const emit = defineEmits<{ "update:modelValue": [string]; blur: [] }>();
 
 const query = ref("");
 const open = ref(false);
@@ -43,6 +44,15 @@ const filtered = computed(() => {
   if (!q) return props.options;
   return props.options.filter((o) => labelFor(o).toLowerCase().includes(q) || o.address.toLowerCase().includes(q));
 });
+
+// A Discord username is friendlier, but this field ultimately picks a
+// wallet that receives real treasury funds — collapsing the value down to
+// just "Nanook" would ask non-technical members to trust a display name
+// they cannot verify (and two members could share a similar-looking one).
+// Once a known member is resolved, keep their actual address visible
+// alongside the name instead of hiding it, the same anti-impersonation
+// principle ENS resolvers use.
+const resolvedOption = computed(() => props.options.find((o) => o.address.toLowerCase() === props.modelValue.toLowerCase()));
 
 // Reflects modelValue in the text field as long as the panel is closed —
 // while typing (panel open), we leave the user's input alone rather than
@@ -80,6 +90,7 @@ function onBlur() {
   setTimeout(() => {
     open.value = false;
   }, 150);
+  emit("blur");
 }
 
 function clear() {
@@ -113,85 +124,125 @@ function onKeydown(e: KeyboardEvent) {
 
 <template>
   <div class="mp-root">
-    <input
-      ref="inputEl"
-      v-model="query"
-      class="mp-input"
-      type="text"
-      :placeholder="placeholder"
-      :aria-label="ariaLabel || undefined"
-      autocomplete="off"
-      role="combobox"
-      :aria-expanded="open"
-      :aria-controls="listboxId"
-      aria-autocomplete="list"
-      :aria-activedescendant="open && filtered.length ? `${listboxId}-option-${highlighted}` : undefined"
-      @input="onInput"
-      @focus="onFocus"
-      @blur="onBlur"
-      @keydown="onKeydown"
-    />
-    <button
-      v-if="modelValue"
-      type="button"
-      class="mp-clear"
-      :title="t('common.clear')"
-      :aria-label="t('common.clear')"
-      @mousedown.prevent="clear"
-    >
-      <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-        <path d="M4 4l8 8M12 4l-8 8" stroke-linecap="round" />
-      </svg>
-    </button>
-    <svg v-else class="mp-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-      <circle cx="7" cy="7" r="4.5" />
-      <path d="M13.5 13.5 10.6 10.6" stroke-linecap="round" />
-    </svg>
-    <ul v-if="open" class="mp-panel" role="listbox" :id="listboxId">
-      <li v-if="!filtered.length" class="mp-empty" role="status" aria-live="polite">{{ t('memberPicker.noMatch') }}</li>
-      <li
-        v-for="(o, i) in filtered"
-        :key="o.address"
-        class="mp-option"
-        :class="{ 'mp-option--active': i === highlighted }"
-        role="option"
-        :id="`${listboxId}-option-${i}`"
-        :aria-selected="i === highlighted"
-        @mousedown.prevent="select(o)"
-        @mouseenter="highlighted = i"
+    <div class="mp-input-row">
+      <img v-if="resolvedOption?.avatarUrl" class="mp-input-avatar" :src="resolvedOption.avatarUrl" alt="" />
+      <input
+        :id="inputId"
+        ref="inputEl"
+        v-model="query"
+        class="mp-input"
+        :class="{ 'mp-input--resolved': resolvedOption?.avatarUrl }"
+        type="text"
+        :placeholder="placeholder"
+        :aria-label="ariaLabel || undefined"
+        autocomplete="off"
+        role="combobox"
+        :aria-expanded="open"
+        :aria-controls="listboxId"
+        aria-autocomplete="list"
+        :aria-activedescendant="open && filtered.length ? `${listboxId}-option-${highlighted}` : undefined"
+        @input="onInput"
+        @focus="onFocus"
+        @blur="onBlur"
+        @keydown="onKeydown"
+      />
+      <button
+        v-if="modelValue"
+        type="button"
+        class="mp-clear"
+        :title="t('common.clear')"
+        :aria-label="t('common.clear')"
+        @mousedown.prevent="clear"
       >
-        <img v-if="o.avatarUrl" class="mp-avatar" :src="o.avatarUrl" alt="" />
-        <span v-else class="mp-avatar mp-avatar--placeholder" aria-hidden="true"></span>
-        <span class="mp-option-text">
-          <span class="mp-username">{{ o.username ?? short(o.address) }}</span>
-          <span v-if="o.username" class="mp-address mono">{{ short(o.address) }}</span>
-        </span>
-      </li>
-    </ul>
+        <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M4 4l8 8M12 4l-8 8" stroke-linecap="round" />
+        </svg>
+      </button>
+      <svg v-else class="mp-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+        <circle cx="7" cy="7" r="4.5" />
+        <path d="M13.5 13.5 10.6 10.6" stroke-linecap="round" />
+      </svg>
+      <ul v-if="open" class="mp-panel" role="listbox" :id="listboxId">
+        <li v-if="!filtered.length" class="mp-empty" role="status" aria-live="polite">{{ t('memberPicker.noMatch') }}</li>
+        <li
+          v-for="(o, i) in filtered"
+          :key="o.address"
+          class="mp-option"
+          :class="{ 'mp-option--active': i === highlighted }"
+          role="option"
+          :id="`${listboxId}-option-${i}`"
+          :aria-selected="i === highlighted"
+          @mousedown.prevent="select(o)"
+          @mouseenter="highlighted = i"
+        >
+          <img v-if="o.avatarUrl" class="mp-avatar" :src="o.avatarUrl" alt="" />
+          <span v-else class="mp-avatar mp-avatar--placeholder" aria-hidden="true"></span>
+          <span class="mp-option-text">
+            <span class="mp-username">{{ o.username ?? short(o.address) }}</span>
+            <span v-if="o.username" class="mp-address mono">{{ short(o.address) }}</span>
+          </span>
+        </li>
+      </ul>
+    </div>
+    <p v-if="resolvedOption?.username && !open" class="mp-resolved-address mono">{{ short(resolvedOption.address) }}</p>
   </div>
 </template>
 
 <style lang="scss" scoped>
 .mp-root {
-  position: relative;
   flex: 1;
   min-width: 0;
+}
+
+// The positioning context for the input itself and everything anchored to
+// it (avatar, clear/search icon, dropdown panel). Kept separate from
+// `.mp-root` so the resolved-address line below the input — real layout
+// height, not an overlay — can't shift what "50%"/"100%" mean for those
+// anchored elements.
+.mp-input-row {
+  position: relative;
 }
 
 .mp-input {
   width: 100%;
   box-sizing: border-box;
   border: 1px solid $color-border;
-  border-radius: 4px;
-  padding: 0.5rem 1.9rem 0.5rem 0.7rem;
+  border-radius: $radius-sm;
+  padding: $space-2 1.9rem $space-2 $space-2;
   font: inherit;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  color: $color-text;
+  background: $color-page-bg;
+  transition: border-color 0.15s ease;
 
   &:focus {
     outline: none;
-    border-color: $color-orange;
-    box-shadow: 0 0 0 3px rgba(249, 174, 60, 0.18);
+    border-color: $color-orange-dark;
   }
+
+  &--resolved {
+    padding-left: 2.6rem;
+  }
+}
+
+.mp-input-avatar {
+  position: absolute;
+  top: 50%;
+  left: 0.5rem;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid $color-border;
+  pointer-events: none;
+}
+
+// Kept visible under the field once a member is resolved (not just in the
+// dropdown) — the whole point of the display name is to be friendlier
+// than a hash, not to make the hash unverifiable before sending funds.
+.mp-resolved-address {
+  margin: $space-1 0 0;
+  font-size: $fs-caption;
+  color: $color-text-dim;
 }
 
 .mp-icon {
@@ -222,7 +273,7 @@ function onKeydown(e: KeyboardEvent) {
 
   &:hover {
     color: $color-orange-dark;
-    background: rgba(249, 174, 60, 0.14);
+    background: $color-page-bg;
   }
 }
 
@@ -233,18 +284,17 @@ function onKeydown(e: KeyboardEvent) {
   left: 0;
   right: 0;
   margin: 0;
-  padding: 0.5rem;
+  padding: $space-2;
   list-style: none;
-  background: #fff;
+  background: $color-card-bg;
   border: 1px solid $color-border;
-  border-radius: 8px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+  border-radius: $radius-md;
   max-height: 320px;
   overflow-y: auto;
 }
 
 .mp-empty {
-  padding: 0.9rem 0.8rem;
+  padding: $space-3 $space-2;
   font-size: $fs-caption;
   color: $color-text-dim;
   text-align: center;
@@ -253,24 +303,24 @@ function onKeydown(e: KeyboardEvent) {
 .mp-option {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.6rem 0.7rem;
-  border-radius: 6px;
+  gap: $space-3;
+  padding: $space-3 $space-2;
+  border-radius: $radius-sm;
   cursor: pointer;
   transition: background 0.1s ease;
 
   & + & {
-    margin-top: 0.15rem;
+    margin-top: 2px;
   }
 
   &--active {
-    background: rgba(249, 174, 60, 0.16);
+    background: $color-page-bg;
   }
 }
 
 .mp-avatar {
-  width: 30px;
-  height: 30px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   flex-shrink: 0;
   border: 1px solid $color-border;
@@ -283,14 +333,14 @@ function onKeydown(e: KeyboardEvent) {
 .mp-option-text {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 0.15rem;
   min-width: 0;
   line-height: 1.3;
 }
 
 .mp-username {
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: $fs-body;
   color: $color-black;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -298,7 +348,7 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 .mp-address {
-  font-size: 0.72rem;
+  font-size: $fs-caption;
   color: $color-text-dim;
 }
 </style>

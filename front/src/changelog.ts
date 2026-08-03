@@ -18,10 +18,17 @@ export interface ChangelogEntry {
 }
 
 export const SITE_VERSION = "3.2.0";
-export const DASHBOARD_VERSION = "1.4.0";
-export const CONTRACT_DISPLAY_VERSION = "1.2.0";
+export const DASHBOARD_VERSION = "1.5.0";
+export const CONTRACT_DISPLAY_VERSION = "1.3.0";
 
 export const SITE_CHANGELOG: ChangelogEntry[] = [
+  {
+    date: { fr: "1er août 2026", en: "August 1, 2026" },
+    title: {
+      fr: "Une véritable identité visuelle pour le site : palette « carnet de meute », illustrations dessinées à la main, charte graphique dédiée",
+      en: "A real visual identity for the site: the \"pack notebook\" palette, hand-drawn illustrations, a dedicated style guide",
+    },
+  },
   {
     date: { fr: "28 juillet 2026", en: "July 28, 2026" },
     title: {
@@ -75,6 +82,27 @@ export const SITE_CHANGELOG: ChangelogEntry[] = [
 ];
 
 export const DASHBOARD_CHANGELOG: ChangelogEntry[] = [
+  {
+    date: { fr: "3 août 2026", en: "August 3, 2026" },
+    title: {
+      fr: "Correction d'un bug pouvant bloquer silencieusement la connexion d'un membre légitime lors de sa toute première connexion",
+      en: "Fixed a bug that could silently block a legitimate member's connection on their very first login",
+    },
+  },
+  {
+    date: { fr: "2 août 2026", en: "August 2, 2026" },
+    title: {
+      fr: "Formulaire de proposition de dépense repensé : champs plus lisibles, alerte en cas d'erreur de saisie, et le pseudo Discord d'un bénéficiaire connu s'affiche à côté de son adresse pour éviter toute confusion",
+      en: "Redesigned the expense proposal form: clearer fields, inline validation, and a known beneficiary's Discord name now shows next to their address to avoid mix-ups",
+    },
+  },
+  {
+    date: { fr: "1er août 2026", en: "August 1, 2026" },
+    title: {
+      fr: "Propositions repensées : une illustration par type, les infos essentielles en un coup d'œil, le reste accessible en un clic sur « Plus de détails »",
+      en: "Proposals redesigned: one illustration per type, the essentials at a glance, everything else one click away under \"More details\"",
+    },
+  },
   {
     date: { fr: "26 juillet 2026", en: "July 26, 2026" },
     title: {
@@ -155,6 +183,13 @@ export const DASHBOARD_CHANGELOG: ChangelogEntry[] = [
 ];
 
 export const CONTRACT_CHANGELOG: ChangelogEntry[] = [
+  {
+    date: { fr: "3 août 2026", en: "August 3, 2026" },
+    title: {
+      fr: "Déploiement de test migré vers Base Sepolia (Layer 2 d'Ethereum), pour des frais de transaction quasi nuls",
+      en: "Test deployment migrated to Base Sepolia (an Ethereum Layer 2), for near-zero transaction fees",
+    },
+  },
   {
     date: { fr: "26 juillet 2026", en: "July 26, 2026" },
     title: {

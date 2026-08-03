@@ -1,13 +1,13 @@
 import { onMounted, onUnmounted } from "vue";
+import { isLocal } from "./chainMode";
 
 // In local demo mode (VITE_CHAIN=local), the demo panel (a separate tab)
 // advances time and votes accounts while this page stays open — nothing
 // notifies it, it only reloads its data on mount. Observed: a "Dormant"
 // status left displayed after a forgotten F5, while the account had
 // actually become active again on-chain in the meantime. No effect outside
-// local mode (never in prod): see DEV in useMeute.ts for why this double
+// local mode (never in prod): see chainMode.ts for why this double
 // condition eliminates the branch at compile time.
-const isLocal = import.meta.env.DEV && import.meta.env.VITE_CHAIN === "local";
 
 // The browser's `focus` event fires on any focus transition, not just
 // "came back from the demo panel tab" — switching to devtools and back

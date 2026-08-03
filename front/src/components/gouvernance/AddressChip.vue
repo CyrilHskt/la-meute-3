@@ -3,8 +3,15 @@ import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Address } from "viem";
 import { useDiscordLink } from "../../composables/useDiscordLink";
+import { useWallet } from "../../composables/useWallet";
 
 const { t } = useI18n();
+const { activeChain } = useWallet();
+// Falls back to Etherscan's URL shape if the active chain declares no
+// block explorer at all (shouldn't happen for any chain this app
+// actually targets) — better a guess than a dead link.
+const explorerUrl = computed(() => activeChain.blockExplorers?.default.url ?? "https://sepolia.etherscan.io");
+const explorerName = computed(() => activeChain.blockExplorers?.default.name ?? "Etherscan");
 
 const props = defineProps<{
   address: string;
@@ -14,8 +21,6 @@ const props = defineProps<{
   // shown separately just above: without this, this component displayed
   // it a second time (observed by the user, visual duplicate).
   addressOnly?: boolean;
-  // Bright icons/text, for use on a dark background (dashboard #111).
-  dark?: boolean;
 }>();
 
 const { discordLinkFor } = useDiscordLink();
@@ -34,48 +39,62 @@ function displayed(): string {
   return `${props.address.slice(0, 6)}…${props.address.slice(-4)}`;
 }
 
-async function copy() {
+// Clicking keeps native focus on the button, which keeps `:focus-within`
+// true on `.addr-chip` after the mouse leaves — the address/username stayed
+// hidden behind the "copied" checkmark indefinitely until something else
+// stole focus. Blurring right after the click lets the swap revert to its
+// normal hover-only behavior once the mouse actually moves away.
+async function copy(event: MouseEvent) {
+  // Captured before the `await`: the browser resets `event.currentTarget`
+  // to null once the event's synchronous dispatch finishes, so reading it
+  // after an await silently blurs nothing (the bug this fixes).
+  const button = event.currentTarget as HTMLElement;
   await navigator.clipboard.writeText(props.address);
   copied.value = true;
+  button.blur();
   setTimeout(() => (copied.value = false), 1500);
 }
 </script>
 
 <template>
-  <span class="addr-chip" :class="{ 'addr-chip--dark': dark }">
-    <template v-if="link">
-      <img class="addr-avatar" :src="link.avatarUrl" alt="" />
-      <span class="addr-username" :title="address">{{ link.username }}</span>
-    </template>
-    <span v-else class="mono">{{ displayed() }}</span>
-    <span class="addr-actions">
-      <button
-        class="icon-btn"
-        :class="{ 'icon-btn--success': copied }"
-        type="button"
-        :title="copied ? t('addressChip.copied') : t('addressChip.copy')"
-        @click="copy"
-      >
-        <svg v-if="copied" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M3 8.5 6.5 12 13 4.5" />
-        </svg>
-        <svg v-else viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4">
-          <rect x="5" y="5" width="9" height="9" rx="1.5" />
-          <path d="M3 11V3a1.5 1.5 0 0 1 1.5-1.5H11" />
-        </svg>
-      </button>
-      <a
-        class="icon-btn"
-        :href="`https://sepolia.etherscan.io/address/${address}`"
-        target="_blank"
-        rel="noopener"
-        :title="t('addressChip.viewOnEtherscan')"
-      >
-        <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4">
-          <path d="M6.5 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V10.5" />
-          <path d="M9 2h5v5M13.5 2.5 7 9" />
-        </svg>
-      </a>
+  <span class="addr-chip" :class="{ 'addr-chip--copied': copied }" :aria-label="`Adresse ${address}`">
+    <span class="addr-value-slot">
+      <span class="addr-value">
+        <template v-if="link">
+          <img class="addr-avatar" :src="link.avatarUrl" alt="" />
+          <span class="addr-username" :title="address">{{ link.username }}</span>
+        </template>
+        <span v-else class="mono">{{ displayed() }}</span>
+      </span>
+      <span class="addr-actions" :class="{ 'addr-actions--visible': copied }">
+        <button
+          class="icon-btn"
+          :class="{ 'icon-btn--success': copied }"
+          type="button"
+          :title="copied ? t('addressChip.copied') : t('addressChip.copy')"
+          @click="copy"
+        >
+          <svg v-if="copied" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M3 8.5 6.5 12 13 4.5" />
+          </svg>
+          <svg v-else viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4">
+            <rect x="5" y="5" width="9" height="9" rx="1.5" />
+            <path d="M3 11V3a1.5 1.5 0 0 1 1.5-1.5H11" />
+          </svg>
+        </button>
+        <a
+          class="icon-btn"
+          :href="`${explorerUrl}/address/${address}`"
+          target="_blank"
+          rel="noopener"
+          :title="t('addressChip.viewOnExplorer', { explorer: explorerName })"
+        >
+          <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4">
+            <path d="M6.5 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V10.5" />
+            <path d="M9 2h5v5M13.5 2.5 7 9" />
+          </svg>
+        </a>
+      </span>
     </span>
   </span>
 </template>
@@ -88,15 +107,44 @@ async function copy() {
   font-size: $fs-caption;
 }
 
-.addr-chip--dark {
-  color: rgba(255, 255, 255, 0.5);
+.addr-value-slot {
+  @media (hover: hover) {
+    display: grid;
+    grid-template-areas: "slot";
+    // Grid's default `stretch` sized both overlaid children to the width
+    // of the wider one (usually the address text) — the icon pair then
+    // rendered pinned to that stretched box's own flex-start instead of
+    // sitting where the text used to be, reading as "tiny and off in a
+    // corner." Centering both in their shared cell keeps them where the
+    // eye expects them regardless of which one is currently visible.
+    justify-items: center;
+    align-items: center;
+  }
+}
 
-  .icon-btn {
-    color: rgba(255, 255, 255, 0.5);
+.addr-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 
-    &:hover {
-      color: $color-orange;
-      background: rgba(249, 174, 60, 0.16);
+  @media (hover: hover) {
+    grid-area: slot;
+    opacity: 1;
+    transition: opacity 0.15s ease;
+
+    .addr-chip:hover &,
+    .addr-chip:focus-within &,
+    // Keeps the value hidden for the full "copied" checkmark duration even
+    // after the mouse leaves — otherwise, once focus no longer holds it
+    // (see the blur() in copy()), the value and the checkmark briefly
+    // showed at the same time, overlapping.
+    .addr-chip--copied & {
+      opacity: 0;
+      // Was still interactive while merely invisible: at the exact pixels
+      // where the icons now render, the mouse was actually hovering this
+      // hidden text underneath (native `title` tooltip, default cursor,
+      // clicks swallowed) instead of reaching the button/link on top.
+      pointer-events: none;
     }
   }
 }
@@ -105,6 +153,20 @@ async function copy() {
   display: inline-flex;
   align-items: center;
   gap: 0.15rem;
+
+  @media (hover: hover) {
+    grid-area: slot;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+
+    .addr-chip:hover &,
+    .addr-chip:focus-within &,
+    &--visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
 }
 
 .addr-avatar {
@@ -123,7 +185,7 @@ async function copy() {
   justify-content: center;
   width: 20px;
   height: 20px;
-  border-radius: 3px;
+  border-radius: $radius-sm;
   border: none;
   background: transparent;
   color: $color-text-dim;
@@ -133,12 +195,12 @@ async function copy() {
 
   &:hover {
     color: $color-orange-dark;
-    background: rgba(249, 174, 60, 0.12);
+    background: $color-page-bg;
   }
 
   &--success {
-    color: #2e9e5b;
-    background: rgba(46, 158, 91, 0.12);
+    color: $color-success;
+    background: $color-page-bg;
     transform: scale(1.15);
   }
 }

@@ -24,36 +24,35 @@ const { pendingLinkAddress, cancelDiscordLink, confirmDiscordLink } = useDiscord
   position: fixed;
   inset: 0;
   z-index: 300;
-  background: rgba(10, 10, 10, 0.55);
+  background: rgba(27, 26, 24, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
+  padding: $space-4;
 }
 
 .dcm-card {
   background: $color-card-bg;
-  border-radius: 6px;
-  padding: 1.8rem;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  padding: $space-4;
   width: 100%;
   max-width: 420px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
 }
 
 .dcm-title {
   font-family: $font-display;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  font-weight: 700;
   font-size: $fs-h4;
   color: $color-black;
-  margin: 0 0 0.9rem;
+  margin: 0 0 $space-3;
 }
 
 .dcm-text {
   font-size: $fs-caption;
   color: $color-text-dim;
   line-height: 1.6;
-  margin: 0 0 1.4rem;
+  margin: 0 0 $space-4;
 
   strong {
     color: $color-black;
@@ -63,7 +62,7 @@ const { pendingLinkAddress, cancelDiscordLink, confirmDiscordLink } = useDiscord
 .dcm-actions {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: $space-2;
 
   .btn {
     width: 100%;

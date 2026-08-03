@@ -1,19 +1,64 @@
 <script setup lang="ts">
+import { computed } from "vue";
+import { useRoute } from "vue-router";
 import NavBar from "./components/NavBar.vue";
+import HomeHeader from "./components/HomeHeader.vue";
 import VersionBadge from "./components/VersionBadge.vue";
 import ToastContainer from "./components/ToastContainer.vue";
+
+const route = useRoute();
+// Home is a hero-only page with no standard site chrome (Cyril's request):
+// it gets a minimal floating control cluster instead of the full NavBar,
+// which every other route keeps unchanged.
+const isHome = computed(() => route.name === "home");
 </script>
 
 <template>
-  <NavBar />
+  <NavBar v-if="!isHome" />
+  <HomeHeader v-else />
   <router-view />
   <footer>
     <div class="container text-center">
       <p class="credits">
-        Copyright &copy; <b>La Meute 2.0</b> 2007-{{ new Date().getFullYear() }}
+        Copyright &copy; <b>La Meute 3.0</b> 2007-{{ new Date().getFullYear() }}
       </p>
       <VersionBadge />
     </div>
   </footer>
   <ToastContainer />
 </template>
+
+<style lang="scss">
+// Unscoped on purpose: this is the global button hierarchy shared by every
+// governance component (`.btn`/`.btn-primary`/`.btn-outline`/`.btn-outline-danger`),
+// not App.vue's own markup. See src/styles/_buttons.scss for rationale.
+@use "./styles/buttons";
+
+// The legacy Aries template (public/css/theme.css) still sets
+// `body { background-color: #000 }`. Every page used to be tall enough
+// (or had its own explicit background) to fully cover it, but the
+// hero-only home page and some shorter governance tabs are now shorter
+// than the viewport on common screen sizes, exposing the black body
+// underneath. Fix it once, globally, instead of patching every view's
+// wrapper individually.
+body {
+  background: $color-page-bg;
+}
+
+// Overrides the legacy Aries template's `body { background: #000; color: #fff }`
+// (public/css/theme.css) for the footer specifically: everything else on the
+// page now uses the carnet-clair palette, but nothing had given the footer
+// its own explicit background, so it kept showing the old dark body behind
+// it — the last visible "old site" artifact once inherited by every page.
+footer {
+  background: $color-page-bg;
+  color: $color-text-dim;
+  border-top: 1px solid $color-border;
+}
+footer .credits {
+  color: $color-text-dim;
+}
+footer a {
+  color: $color-orange-dark;
+}
+</style>

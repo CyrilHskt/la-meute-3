@@ -11,7 +11,7 @@ import AddressChip from "./AddressChip.vue";
 import WalletInstallModal from "./WalletInstallModal.vue";
 
 const { t } = useI18n();
-const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient } = useWallet();
+const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient, activeChain } = useWallet();
 const { topDonors, loading, error, isAuthorized, loadAll, loadMyDonations } = useMeute();
 const { showToast } = useToast();
 
@@ -79,7 +79,7 @@ async function donate() {
         <button class="btn btn-primary" @click="onConnect">{{ t('common.connectWallet') }}</button>
       </template>
       <template v-else-if="wrongNetwork">
-        <p class="gv-error">{{ t('common.wrongNetwork') }}</p>
+        <p class="gv-error">{{ t('common.wrongNetwork', { network: activeChain.name }) }}</p>
       </template>
       <template v-else>
         <div class="gv-form-row">
@@ -121,57 +121,62 @@ async function donate() {
 .gv-donations {
   max-width: 640px;
   margin: 0 auto;
-  padding: 2.4rem 1.6rem 4rem;
+  padding: $space-5 $space-3 ($space-5 * 2);
+  background: $color-page-bg;
 }
 
-// This page lives directly on the dashboard's dark background (see
-// Dashboard.vue, background: #111) — the title and intro aren't inside
-// any white card, so the dark colors ($color-black, $color-text-dim)
-// meant for inside cards are out of the question.
 .gv-donations-title {
   font-size: $fs-section-title;
-  color: $color-orange;
+  color: $color-black;
   font-family: $font-display;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin: 0 0 1.2rem;
+  font-weight: 700;
+  margin: 0 0 $space-3;
 }
 
 .gv-donations-intro {
-  color: rgba(255, 255, 255, 0.75);
+  color: $color-text-dim;
   font-size: $fs-body;
   line-height: 1.6;
-  margin-bottom: 2rem;
+  margin-bottom: $space-4;
 }
 
 .gv-donations-panel {
   background: $color-card-bg;
   border: 1px solid $color-border;
-  border-radius: 10px;
-  padding: 1.6rem;
-  margin-bottom: 1.6rem;
+  border-radius: $radius-md;
+  padding: $space-4;
+  margin-bottom: $space-4;
 }
 
-.gv-card-title { font-size: $fs-card-title; color: $color-black; margin: 0 0 1rem; }
+.gv-card-title {
+  font-family: $font-mono;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: $fs-caption;
+  color: $color-orange-dark;
+  margin: 0 0 $space-3;
+}
 .gv-card-note { color: $color-text-dim; font-size: $fs-caption; }
 .gv-error { color: $color-danger; font-size: $fs-caption; }
 
 .gv-form-row {
   display: flex;
-  gap: 0.6rem;
+  gap: $space-2;
 
   input {
     flex: 1;
     box-sizing: border-box;
-    padding: 0.6rem 0.8rem;
+    padding: $space-2 $space-3;
     border: 1px solid $color-border;
-    border-radius: 6px;
+    border-radius: $radius-md;
     font-size: $fs-body;
-    // Without this, the typed text inherits the white set globally on
-    // <body> (public/css/theme.css) — invisible on the field's white
-    // background, which makes it look like typing doesn't work at all.
     color: $color-text;
-    background: #fff;
+    background: $color-page-bg;
+
+    &:focus {
+      outline: none;
+      border-color: $color-orange-dark;
+    }
 
     // Hides the native spin arrows (+/-) on type="number" — see GovernanceDao.vue.
     &::-webkit-inner-spin-button,
@@ -190,18 +195,17 @@ async function donate() {
 .gv-donor-row {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
-  padding: 0.7rem 0;
+  gap: $space-3;
+  padding: $space-2 0;
   border-bottom: 1px solid $color-border;
-  // Without an explicit color, this text inherits <body>'s global white
-  // (public/css/theme.css) — invisible on the card's white background.
   color: $color-text;
 
   &:last-child { border-bottom: none; }
 }
 
 .gv-donor-rank {
-  font-weight: 700;
+  font-family: $font-mono;
+  font-weight: 600;
   color: $color-text-dim;
   min-width: 1.8rem;
 }
@@ -212,7 +216,8 @@ async function donate() {
 }
 
 .gv-donor-amount {
-  font-weight: 700;
+  font-family: $font-mono;
+  font-weight: 600;
   color: $color-orange-dark;
   font-size: $fs-h4;
 }

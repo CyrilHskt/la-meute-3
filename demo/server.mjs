@@ -113,8 +113,15 @@ const DEMO_CODENAMES = [
   "Ulfric", "Runik", "Ambre", "Grondin", "Volk", "Ecorce", "Tundra",
 ];
 
-function seedDemoDiscordLinks(ctx) {
-  const accounts = (ctx.nodeAccounts ?? []).filter((addr) => addr.toLowerCase() !== ctx.founder?.toLowerCase());
+// extraExcluded: addresses to leave unlinked on top of the founder, for a
+// specific scenario only — the certification scenario uses this to keep
+// its dedicated "no Discord" applicant (ctx.roles.noDiscordApplicant)
+// unlinked, without changing the default behavior (everyone but the
+// founder gets a fake Discord link) for the isolated test scenarios,
+// which have their own invariants and don't expect this account to exist.
+function seedDemoDiscordLinks(ctx, extraExcluded = []) {
+  const excluded = new Set([ctx.founder?.toLowerCase(), ...extraExcluded.map((addr) => addr.toLowerCase())]);
+  const accounts = (ctx.nodeAccounts ?? []).filter((addr) => !excluded.has(addr.toLowerCase()));
   accounts.forEach((addr, i) => {
     discordLinks[addr.toLowerCase()] = {
       discordId: String(1000 + i),
@@ -315,7 +322,10 @@ async function handleIndexAuth(req, res, url) {
     return;
   }
   try {
-    return sendJson(res, 200, await buildIndex(ctx));
+    // discordLinks alongside the index, exactly like /governance/verify:
+    // without it a plain reread (page refresh, no new signature) showed
+    // every member as unlinked. See dao-sync.mts for the prod counterpart.
+    return sendJson(res, 200, { ...(await buildIndex(ctx)), discordLinks });
   } catch (e) {
     return sendJson(res, 503, { error: e.message ?? String(e) });
   }
@@ -446,7 +456,8 @@ async function handleApi(req, res, url) {
     discordLinks = {};
     try {
       lastMessage = await reset(ctx);
-      seedDemoDiscordLinks(ctx);
+      const extraExcluded = activeScenario.id === "certification" ? [ctx.roles.noDiscordApplicant] : [];
+      seedDemoDiscordLinks(ctx, extraExcluded);
       lastError = null;
     } catch (e) {
       lastError = e.message ?? String(e);
@@ -458,7 +469,8 @@ async function handleApi(req, res, url) {
     discordLinks = {};
     try {
       lastMessage = await reset(ctx);
-      seedDemoDiscordLinks(ctx);
+      const extraExcluded = activeScenario.id === "certification" ? [ctx.roles.noDiscordApplicant] : [];
+      seedDemoDiscordLinks(ctx, extraExcluded);
       lastError = null;
       currentIndex = 0;
     } catch (e) {
