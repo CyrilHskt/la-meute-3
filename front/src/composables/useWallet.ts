@@ -1,21 +1,22 @@
 import { ref } from "vue";
 import { createPublicClient, createWalletClient, custom, http, getContract, type Address, type Chain } from "viem";
-import { sepolia, hardhat } from "viem/chains";
+import { sepolia, hardhat, baseSepolia } from "viem/chains";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../contract";
 // Direct `i18n.global.t` rather than the `useI18n()` composable: these
 // guards live in plain module-level functions (the singleton pattern used
 // throughout this file), not inside a component's setup(), where
 // `useI18n()` requires an active injection context.
 import { i18n } from "../i18n";
-import { isLocal } from "./chainMode";
+import { isLocal, remoteChainMode } from "./chainMode";
 
-// Target network: Sepolia by default (the real, committed deployment), or
-// the local Hardhat node to test the whole cycle in a few seconds (time
-// advancement via networkHelpers) instead of real days. Configured via
-// front/.env.local (never committed, see *.local in .gitignore) — never
-// touches contract.ts, which stays the source of truth for the Sepolia
-// deployment.
-const chain: Chain = isLocal ? hardhat : sepolia;
+// Target network: Sepolia by default (the real, committed deployment), the
+// local Hardhat node to test the whole cycle in a few seconds (time
+// advancement via networkHelpers) instead of real days, or Base Sepolia
+// once VITE_CHAIN=l2 is actually turned on (not yet — see chainMode.ts).
+// Configured via front/.env.local (never committed, see *.local in
+// .gitignore) — never touches contract.ts, which stays the source of
+// truth for the Sepolia deployment.
+const chain: Chain = isLocal ? hardhat : remoteChainMode === "l2" ? baseSepolia : sepolia;
 // Locally, the address isn't fixed: the demo panel (demo/server.mjs)
 // redeploys a brand-new contract on every reset, so a new address every
 // time. A ref so it can be refreshed without restarting the dev server —
