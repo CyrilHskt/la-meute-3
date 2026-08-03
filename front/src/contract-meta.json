@@ -1,6 +1,14 @@
 {
-  "address": "0x528d68AFE81572c26f213de4Aa3e9B94578bDa3E",
-  "deployBlock": "11378008",
+  "deployments": {
+    "84532": {
+      "address": "0x093F99626181B7f83367AC2f3147ad824Fe152d8",
+      "deployBlock": "44995155"
+    },
+    "11155111": {
+      "address": "0x528d68AFE81572c26f213de4Aa3e9B94578bDa3E",
+      "deployBlock": "11378008"
+    }
+  },
   "version": "0.5.0",
   "abi": [
     {

@@ -21,9 +21,16 @@ const OUT_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "front", "s
 
 const mod = await import(CONTRACT_TS_PATH);
 
+// One entry per chain id (mirrors contract.ts's own DEPLOYMENTS) rather
+// than a single flat address/deployBlock — sync-dao.js picks the right
+// entry via CHAIN_ID so this file doesn't need regenerating on every
+// chain switch, only on an actual redeployment.
+const deployments = Object.fromEntries(
+  Object.entries(mod.DEPLOYMENTS).map(([chainId, d]) => [chainId, { address: d.address, deployBlock: d.deployBlock.toString() }]),
+);
+
 writeFileSync(OUT_PATH, JSON.stringify({
-  address: mod.CONTRACT_ADDRESS,
-  deployBlock: mod.CONTRACT_DEPLOY_BLOCK.toString(),
+  deployments,
   version: mod.CONTRACT_VERSION,
   abi: mod.CONTRACT_ABI,
 }, null, 2) + "\n");
