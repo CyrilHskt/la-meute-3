@@ -276,8 +276,6 @@ const en: typeof fr = {
         cubProbationText: "You can follow ongoing proposals, but voting rights come with your confirmation.",
         visitorCardTitle: "Your wallet is your card",
         visitorCardText: "No account to create: your wallet is your identity here, from applicant to Wolf.",
-        visitorTreasuryTitle: "The treasury, live",
-        visitorTreasuryText: "This amount comes from the contract's real balance on the blockchain — no one can fake it.",
         next: "Next",
         previous: "Previous",
         done: "Done",
