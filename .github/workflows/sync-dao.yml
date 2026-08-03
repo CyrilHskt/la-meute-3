@@ -39,9 +39,16 @@ jobs:
       # No commit step afterward: the state and snapshot are written
       # directly to Netlify Blobs by the script itself (HTTP), not to the
       # repo — publishing fresh data must never trigger a site rebuild.
+      # CHAIN_ID + BASE_SEPOLIA_RPC_URL: L2 migration (Base) — see
+      # docs/local/l2-migration-reflection.md. 84532 is Base Sepolia's
+      # chain id, matching the entry in front/src/contract.ts's
+      # DEPLOYMENTS. Rolling back to Sepolia is a one-line revert here
+      # (CHAIN_ID: "11155111", RPC_URL: secrets.SEPOLIA_RPC_URL), no code
+      # change needed.
       - run: node scripts/sync-dao.js
         env:
-          RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+          CHAIN_ID: "84532"
+          RPC_URL: ${{ secrets.BASE_SEPOLIA_RPC_URL }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           SYNC_ENDPOINT: ${{ secrets.SYNC_ENDPOINT }}
           SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
