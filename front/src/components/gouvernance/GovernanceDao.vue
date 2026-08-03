@@ -7,7 +7,6 @@ import { formatEther, parseEther, type Address } from "viem";
 import { driver } from "driver.js";
 import { useWallet } from "../../composables/useWallet";
 import { useMeute, ProposalType, type Proposal } from "../../composables/useMeute";
-import { CONTRACT_DEPLOY_BLOCK } from "../../contract";
 import { useEthPrice } from "../../composables/useEthPrice";
 import { friendlyContractError } from "../../composables/contractErrors";
 import { useToast } from "../../composables/useToast";
@@ -29,7 +28,18 @@ const props = defineProps<{ initialSubTab?: "proposals" | "members" }>();
 
 const { t } = useI18n();
 const { locale } = useLocale();
-const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient, restoreConnectionPromise, ensureContractAddressSynced, isLocal } = useWallet();
+const {
+  address,
+  wrongNetwork,
+  connect,
+  readOnlyContract,
+  writableContract,
+  publicClient,
+  restoreConnectionPromise,
+  ensureContractAddressSynced,
+  isLocal,
+  contractDeployBlock,
+} = useWallet();
 const {
   stats,
   proposals,
@@ -134,14 +144,15 @@ async function loadMyVotedProposals() {
     myVotedProposalIds.value = new Set();
     return;
   }
-  // CONTRACT_DEPLOY_BLOCK is Sepolia's real deployment block (~11.3M) — on
-  // the local demo chain the contract redeploys fresh every reset at a
-  // near-zero block height, so using that same constant as `fromBlock`
-  // silently returned zero logs there (the bug this fixes: every vote
-  // looked like it had never happened, on local demo specifically).
+  // contractDeployBlock resolves to the active remote chain's real
+  // deployment block (DEPLOYMENTS in contract.ts) — on the local demo
+  // chain the contract redeploys fresh every reset at a near-zero block
+  // height, so using that same value as `fromBlock` there would silently
+  // return zero logs (the bug this fixes: every vote looked like it had
+  // never happened, on local demo specifically).
   const logs = await readOnlyContract().getEvents.VoteCast(
     { voter: address.value },
-    { fromBlock: isLocal ? 0n : CONTRACT_DEPLOY_BLOCK },
+    { fromBlock: isLocal ? 0n : contractDeployBlock },
   );
   myVotedProposalIds.value = new Set(logs.map((log) => log.args.proposalId!.toString()));
 }

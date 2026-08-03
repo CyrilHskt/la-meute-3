@@ -1,7 +1,7 @@
 import { ref } from "vue";
 import { createPublicClient, createWalletClient, custom, http, getContract, type Address, type Chain } from "viem";
 import { sepolia, hardhat, baseSepolia } from "viem/chains";
-import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../contract";
+import { CONTRACT_ADDRESS, CONTRACT_DEPLOY_BLOCK, CONTRACT_ABI, DEPLOYMENTS } from "../contract";
 // Direct `i18n.global.t` rather than the `useI18n()` composable: these
 // guards live in plain module-level functions (the singleton pattern used
 // throughout this file), not inside a component's setup(), where
@@ -20,10 +20,18 @@ const chain: Chain = isLocal ? hardhat : remoteChainMode === "l2" ? baseSepolia 
 // Locally, the address isn't fixed: the demo panel (demo/server.mjs)
 // redeploys a brand-new contract on every reset, so a new address every
 // time. A ref so it can be refreshed without restarting the dev server —
-// see syncLocalContractAddress.
+// see syncLocalContractAddress. Remotely, looked up by the active chain's
+// id in DEPLOYMENTS rather than always the flat Sepolia constant — falls
+// back to CONTRACT_ADDRESS (Sepolia) for a chain id with no entry, which
+// cannot currently happen since `chain` above only ever resolves to a
+// chain that has one.
 const contractAddress = ref<Address>(
-  (import.meta.env.VITE_CONTRACT_ADDRESS as Address | undefined) ?? CONTRACT_ADDRESS,
+  (import.meta.env.VITE_CONTRACT_ADDRESS as Address | undefined) ?? DEPLOYMENTS[chain.id]?.address ?? CONTRACT_ADDRESS,
 );
+// Same chain-id lookup for the block to start log queries from — see
+// GovernanceDao.vue's loadMyVotedProposals. Meaningless in local mode
+// (isLocal always queries from block 0 instead, see there).
+const contractDeployBlock = DEPLOYMENTS[chain.id]?.deployBlock ?? CONTRACT_DEPLOY_BLOCK;
 
 const DEMO_SERVER_URL = "http://127.0.0.1:4100";
 
@@ -232,6 +240,7 @@ export function useWallet() {
     signMessage,
     publicClient,
     contractAddress,
+    contractDeployBlock,
     syncLocalContractAddress,
     ensureContractAddressSynced,
     onExplicitConnect,
