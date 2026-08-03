@@ -33,6 +33,7 @@ const faq = computed(() => [
   { q: t('presentation.faq3Q'), a: t('presentation.faq3A') },
   { q: t('presentation.faq4Q'), a: t('presentation.faq4A') },
   { q: t('presentation.faq5Q'), a: t('presentation.faq5A') },
+  { q: t('presentation.faq6Q'), a: t('presentation.faq6A') },
 ]);
 
 const values = computed(() => [
