@@ -3,8 +3,15 @@ import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Address } from "viem";
 import { useDiscordLink } from "../../composables/useDiscordLink";
+import { useWallet } from "../../composables/useWallet";
 
 const { t } = useI18n();
+const { activeChain } = useWallet();
+// Falls back to Etherscan's URL shape if the active chain declares no
+// block explorer at all (shouldn't happen for any chain this app
+// actually targets) — better a guess than a dead link.
+const explorerUrl = computed(() => activeChain.blockExplorers?.default.url ?? "https://sepolia.etherscan.io");
+const explorerName = computed(() => activeChain.blockExplorers?.default.name ?? "Etherscan");
 
 const props = defineProps<{
   address: string;
@@ -77,10 +84,10 @@ async function copy(event: MouseEvent) {
         </button>
         <a
           class="icon-btn"
-          :href="`https://sepolia.etherscan.io/address/${address}`"
+          :href="`${explorerUrl}/address/${address}`"
           target="_blank"
           rel="noopener"
-          :title="t('addressChip.viewOnEtherscan')"
+          :title="t('addressChip.viewOnExplorer', { explorer: explorerName })"
         >
           <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4">
             <path d="M6.5 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V10.5" />

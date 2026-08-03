@@ -241,6 +241,7 @@ export function useWallet() {
     publicClient,
     contractAddress,
     contractDeployBlock,
+    activeChain: chain,
     syncLocalContractAddress,
     ensureContractAddressSynced,
     onExplicitConnect,

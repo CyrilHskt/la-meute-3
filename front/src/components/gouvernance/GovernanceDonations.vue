@@ -11,7 +11,7 @@ import AddressChip from "./AddressChip.vue";
 import WalletInstallModal from "./WalletInstallModal.vue";
 
 const { t } = useI18n();
-const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient } = useWallet();
+const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient, activeChain } = useWallet();
 const { topDonors, loading, error, isAuthorized, loadAll, loadMyDonations } = useMeute();
 const { showToast } = useToast();
 
@@ -79,7 +79,7 @@ async function donate() {
         <button class="btn btn-primary" @click="onConnect">{{ t('common.connectWallet') }}</button>
       </template>
       <template v-else-if="wrongNetwork">
-        <p class="gv-error">{{ t('common.wrongNetwork') }}</p>
+        <p class="gv-error">{{ t('common.wrongNetwork', { network: activeChain.name }) }}</p>
       </template>
       <template v-else>
         <div class="gv-form-row">

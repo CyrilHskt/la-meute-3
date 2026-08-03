@@ -39,6 +39,7 @@ const {
   ensureContractAddressSynced,
   isLocal,
   contractDeployBlock,
+  activeChain,
 } = useWallet();
 const {
   stats,
@@ -160,7 +161,7 @@ function hasVoted(p: Proposal): boolean {
   return myVotedProposalIds.value.has(p.id.toString());
 }
 
-// For the applicant checklist ("have Sepolia ETH" step) — the wallet's
+// For the applicant checklist ("have {network} ETH" step) — the wallet's
 // balance, not the contract's.
 const myBalance = ref(0n);
 async function loadBalance() {
@@ -820,7 +821,7 @@ function startTour() {
           <button class="btn btn-primary gv-card-connect-btn" @click="onConnect">{{ t('common.connectWallet') }}</button>
         </template>
         <template v-else-if="wrongNetwork">
-          <p class="gv-error">{{ t('common.wrongNetwork') }}</p>
+          <p class="gv-error">{{ t('common.wrongNetwork', { network: activeChain.name }) }}</p>
         </template>
         <template v-else-if="role === 'visitor'">
           <p v-if="myExclusion && !myOpenApplication" class="gv-exclusion-note">
@@ -835,6 +836,7 @@ function startTour() {
             :tx-pending="txPending"
             :countdown="countdown"
             :exact-date="exactDate"
+            :active-chain="activeChain"
             @apply="applyForMembership"
             @refresh-balance="loadBalance"
           />

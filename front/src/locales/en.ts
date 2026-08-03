@@ -79,7 +79,7 @@ const en: typeof fr = {
     clear: "Clear",
     refresh: "Refresh",
     connectWallet: "Connect my wallet",
-    wrongNetwork: "Wrong network — switch to Sepolia in MetaMask.",
+    wrongNetwork: "Wrong network — switch to {network} in MetaMask.",
     loadingOnChain: "Loading on-chain data…",
     readError: "Read error: {error} — the leaderboard may be incomplete.",
     cancel: "Cancel",
@@ -93,7 +93,7 @@ const en: typeof fr = {
   addressChip: {
     copy: "Copy address",
     copied: "Copied!",
-    viewOnEtherscan: "View on Etherscan",
+    viewOnExplorer: "View on {explorer}",
   },
   memberPicker: {
     noMatch: "No matching member.",
@@ -114,7 +114,7 @@ const en: typeof fr = {
   applicationChecklist: {
     title: "Become a member",
     step1Title: "Connect your wallet",
-    step2Title: "Have Sepolia ETH",
+    step2Title: "Have {network} ETH",
     availableEth: "{amount} ETH available",
     minimumRequired: "— you need at least {amount}",
     getTestEth: "Get test ETH",
