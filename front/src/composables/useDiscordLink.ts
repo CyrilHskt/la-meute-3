@@ -1,6 +1,7 @@
 import { ref } from "vue";
 import type { Address } from "viem";
 import { useWallet } from "./useWallet";
+import { isLocal } from "./chainMode";
 
 export interface DiscordLink {
   discordId: string;
@@ -13,9 +14,7 @@ export interface DiscordLink {
 // is the demo server (demo/server.mjs), which runs the same real Discord
 // OAuth flow as prod (see demo/server.mjs, a replica of
 // netlify/functions/discord-link.mts) — just with a link stored in memory,
-// reset on every scenario reset instead of in Netlify Blobs. DEV, not just
-// VITE_CHAIN: see useMeute.ts for details.
-const isLocal = import.meta.env.DEV && import.meta.env.VITE_CHAIN === "local";
+// reset on every scenario reset instead of in Netlify Blobs.
 const DEMO_SERVER_URL = "http://127.0.0.1:4100";
 const UNLINK_URL = isLocal ? `${DEMO_SERVER_URL}/discord/unlink` : "/.netlify/functions/discord-link?action=unlink";
 const NONCE_URL = isLocal ? `${DEMO_SERVER_URL}/discord/nonce` : "/.netlify/functions/dao-sync?key=discord-nonce";

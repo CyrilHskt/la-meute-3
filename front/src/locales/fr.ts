@@ -81,7 +81,7 @@ export default {
     clear: "Vider",
     refresh: "Actualiser",
     connectWallet: "Connecter mon wallet",
-    wrongNetwork: "Mauvais réseau — connecte-toi à Sepolia dans MetaMask.",
+    wrongNetwork: "Mauvais réseau — connecte-toi à {network} dans MetaMask.",
     loadingOnChain: "Chargement des données on-chain…",
     readError: "Erreur de lecture : {error} — le classement peut être incomplet.",
     cancel: "Annuler",
@@ -95,7 +95,7 @@ export default {
   addressChip: {
     copy: "Copier l'adresse",
     copied: "Copié !",
-    viewOnEtherscan: "Voir sur Etherscan",
+    viewOnExplorer: "Voir sur {explorer}",
   },
   memberPicker: {
     noMatch: "Aucun membre trouvé.",
@@ -116,7 +116,7 @@ export default {
   applicationChecklist: {
     title: "Devenir membre",
     step1Title: "Connecter ton wallet",
-    step2Title: "Avoir des ETH Sepolia",
+    step2Title: "Avoir des ETH {network}",
     availableEth: "{amount} ETH disponibles",
     minimumRequired: "— il en faut au moins {amount}",
     getTestEth: "Obtenir des ETH de test",

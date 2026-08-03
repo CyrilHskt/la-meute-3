@@ -18,12 +18,16 @@
 // docs/local/soutenance-prep.md.
 //
 // Required env vars:
-//   RPC_URL              — Sepolia endpoint (Alchemy)
+//   RPC_URL              — endpoint (Alchemy) for the chain CHAIN_ID points to
 //   DISCORD_WEBHOOK_URL   — URL of the Discord webhook to post to
 //   SYNC_ENDPOINT         — URL of the Netlify function (e.g.
 //                           https://la-meute-3.netlify.app/.netlify/functions/dao-sync)
 //   SYNC_SECRET           — secret shared with that function
 // Optional:
+//   CHAIN_ID              — which entry of front/src/contract-meta.json's
+//                           `deployments` map to use (defaults to Sepolia,
+//                           11155111 — see docs/local/l2-migration-reflection.md
+//                           for the L2 migration this exists for)
 //   CONTRACT_ADDRESS      — overrides the address read from
 //                           front/src/contract-meta.json (generated from
 //                           front/src/contract.ts via
@@ -42,9 +46,12 @@ import meta from "../front/src/contract-meta.json" with { type: "json" };
 const BLOCK_RANGE = 9n; // fromBlock..fromBlock+9 = 10 blocks inclusive
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
+const CHAIN_ID = process.env.CHAIN_ID ?? "11155111";
+const DEPLOYMENT = meta.deployments[CHAIN_ID] ?? meta.deployments["11155111"];
+
 const RPC_URL = process.env.RPC_URL;
-const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS ?? meta.address;
-const DEPLOY_BLOCK = BigInt(meta.deployBlock);
+const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS ?? DEPLOYMENT.address;
+const DEPLOY_BLOCK = BigInt(DEPLOYMENT.deployBlock);
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 const SYNC_ENDPOINT = process.env.SYNC_ENDPOINT;
 const SYNC_SECRET = process.env.SYNC_SECRET;

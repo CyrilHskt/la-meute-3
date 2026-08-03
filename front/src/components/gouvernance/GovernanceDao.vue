@@ -7,7 +7,6 @@ import { formatEther, parseEther, type Address } from "viem";
 import { driver } from "driver.js";
 import { useWallet } from "../../composables/useWallet";
 import { useMeute, ProposalType, type Proposal } from "../../composables/useMeute";
-import { CONTRACT_DEPLOY_BLOCK } from "../../contract";
 import { useEthPrice } from "../../composables/useEthPrice";
 import { friendlyContractError } from "../../composables/contractErrors";
 import { useToast } from "../../composables/useToast";
@@ -29,7 +28,19 @@ const props = defineProps<{ initialSubTab?: "proposals" | "members" }>();
 
 const { t } = useI18n();
 const { locale } = useLocale();
-const { address, wrongNetwork, connect, readOnlyContract, writableContract, publicClient, restoreConnectionPromise, ensureContractAddressSynced, isLocal } = useWallet();
+const {
+  address,
+  wrongNetwork,
+  connect,
+  readOnlyContract,
+  writableContract,
+  publicClient,
+  restoreConnectionPromise,
+  ensureContractAddressSynced,
+  isLocal,
+  contractDeployBlock,
+  activeChain,
+} = useWallet();
 const {
   stats,
   proposals,
@@ -66,6 +77,12 @@ const role = ref<"visitor" | "cub" | "wolf">("visitor");
 const card = ref<{ rank: number; lastActivity: number; postponements: number } | null>(null);
 const fee = ref<bigint>(0n);
 const cardImage = ref<string | null>(null);
+// Declared here, not near its other usages further down: refreshMembership
+// (below) resets it on disconnect and runs from a watch(address, ...,
+// { immediate: true }) registered above the ref's original declaration
+// site — referencing it before that point threw a ReferenceError (TDZ) on
+// every load without a connected wallet, i.e. every first-time visitor.
+const expandedProposalId = ref<bigint | null>(null);
 // The browser's clock has nothing to do with the chain's clock once you
 // manipulate time on a local node (evm_increaseTime): we read the
 // timestamp of the latest block rather than Date.now().
@@ -128,14 +145,15 @@ async function loadMyVotedProposals() {
     myVotedProposalIds.value = new Set();
     return;
   }
-  // CONTRACT_DEPLOY_BLOCK is Sepolia's real deployment block (~11.3M) — on
-  // the local demo chain the contract redeploys fresh every reset at a
-  // near-zero block height, so using that same constant as `fromBlock`
-  // silently returned zero logs there (the bug this fixes: every vote
-  // looked like it had never happened, on local demo specifically).
+  // contractDeployBlock resolves to the active remote chain's real
+  // deployment block (DEPLOYMENTS in contract.ts) — on the local demo
+  // chain the contract redeploys fresh every reset at a near-zero block
+  // height, so using that same value as `fromBlock` there would silently
+  // return zero logs (the bug this fixes: every vote looked like it had
+  // never happened, on local demo specifically).
   const logs = await readOnlyContract().getEvents.VoteCast(
     { voter: address.value },
-    { fromBlock: isLocal ? 0n : CONTRACT_DEPLOY_BLOCK },
+    { fromBlock: isLocal ? 0n : contractDeployBlock },
   );
   myVotedProposalIds.value = new Set(logs.map((log) => log.args.proposalId!.toString()));
 }
@@ -143,7 +161,7 @@ function hasVoted(p: Proposal): boolean {
   return myVotedProposalIds.value.has(p.id.toString());
 }
 
-// For the applicant checklist ("have Sepolia ETH" step) — the wallet's
+// For the applicant checklist ("have {network} ETH" step) — the wallet's
 // balance, not the contract's.
 const myBalance = ref(0n);
 async function loadBalance() {
@@ -473,8 +491,8 @@ const pastTabLabel = computed(() =>
 
 // Single-card accordion, local to this component only — a `bigint | null`
 // rather than a `Set`: multi-expand was never requested and would just be
-// speculative complexity.
-const expandedProposalId = ref<bigint | null>(null);
+// speculative complexity. Declared near the top of the script (see there
+// for why).
 function toggleProposalDetail(id: bigint) {
   expandedProposalId.value = expandedProposalId.value === id ? null : id;
 }
@@ -803,7 +821,7 @@ function startTour() {
           <button class="btn btn-primary gv-card-connect-btn" @click="onConnect">{{ t('common.connectWallet') }}</button>
         </template>
         <template v-else-if="wrongNetwork">
-          <p class="gv-error">{{ t('common.wrongNetwork') }}</p>
+          <p class="gv-error">{{ t('common.wrongNetwork', { network: activeChain.name }) }}</p>
         </template>
         <template v-else-if="role === 'visitor'">
           <p v-if="myExclusion && !myOpenApplication" class="gv-exclusion-note">
@@ -818,6 +836,7 @@ function startTour() {
             :tx-pending="txPending"
             :countdown="countdown"
             :exact-date="exactDate"
+            :active-chain="activeChain"
             @apply="applyForMembership"
             @refresh-balance="loadBalance"
           />

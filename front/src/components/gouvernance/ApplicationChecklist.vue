@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { formatEther } from "viem";
+import { formatEther, type Chain } from "viem";
 import AddressChip from "./AddressChip.vue";
 import { useDiscordLink } from "../../composables/useDiscordLink";
 import type { Proposal } from "../../composables/useMeute";
@@ -17,7 +17,19 @@ const props = defineProps<{
   txPending: boolean;
   countdown: (p: Proposal) => string;
   exactDate: (p: Proposal) => string;
+  activeChain: Chain;
 }>();
+
+// No faucet URL on viem's Chain type (it only carries protocol-level
+// metadata) — one entry per chain this app actually targets, falling
+// back to Sepolia's for a chain with no faucet of its own (shouldn't
+// happen in practice, only reachable if DEPLOYMENTS in contract.ts grows
+// a chain id this map hasn't caught up with yet).
+const FAUCET_URLS: Record<number, string> = {
+  11155111: "https://www.alchemy.com/faucets/ethereum-sepolia",
+  84532: "https://www.alchemy.com/faucets/base-sepolia",
+};
+const faucetUrl = computed(() => FAUCET_URLS[props.activeChain.id] ?? FAUCET_URLS[11155111]);
 
 const emit = defineEmits<{ apply: []; "refresh-balance": [] }>();
 
@@ -59,13 +71,13 @@ const voteStep = computed<StepState>(() => (props.application ? "current" : "tod
     <div class="acl-step" :class="`acl-step--${fundsStep}`">
       <div class="acl-marker">{{ fundsStep === "done" ? "✓" : 2 }}</div>
       <div class="acl-body">
-        <div class="acl-step-title">{{ t('applicationChecklist.step2Title') }}</div>
+        <div class="acl-step-title">{{ t('applicationChecklist.step2Title', { network: activeChain.name }) }}</div>
         <div class="acl-note">
           {{ t('applicationChecklist.availableEth', { amount: formatEther(balance) }) }}
           <template v-if="fundsStep === 'current'">{{ t('applicationChecklist.minimumRequired', { amount: formatEther(fee) }) }}</template>
         </div>
         <div v-if="fundsStep === 'current'" class="acl-action">
-          <a class="acl-faucet-btn" href="https://www.alchemy.com/faucets/ethereum-sepolia" target="_blank" rel="noopener">
+          <a class="acl-faucet-btn" :href="faucetUrl" target="_blank" rel="noopener">
             {{ t('applicationChecklist.getTestEth') }}
           </a>
           <button class="acl-refresh" type="button" :title="t('applicationChecklist.refreshBalance')" @click="emit('refresh-balance')">

@@ -41,13 +41,25 @@
 // POST ?key=patch-proposal              → { proposalId, author } (no auth, but rate-limited)
 
 import { getStore } from "@netlify/blobs";
-import { createPublicClient, http, isAddress, recoverMessageAddress, type Address } from "viem";
-import { sepolia } from "viem/chains";
-import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../../src/contract.js";
+import { createPublicClient, http, isAddress, recoverMessageAddress, type Address, type Chain } from "viem";
+import { sepolia, baseSepolia } from "viem/chains";
+import { CONTRACT_ABI, DEPLOYMENTS } from "../../src/contract.js";
 import { createNonce, verifyNonce, createSession, verifySession, type NoncePurpose } from "./lib/tokens.js";
 
 const SYNC_SECRET = process.env.SYNC_SECRET;
 const RPC_URL = process.env.RPC_URL;
+
+// Which real chain this function reads from — server-side counterpart of
+// the front's composables/chainMode.ts (this function is never involved
+// in local demo mode, see demo/server.mjs, so there's no third "local"
+// value here). Defaults to Sepolia (today's real deployment); nothing
+// sets CHAIN_ID=84532 in any deployed environment yet — see
+// docs/local/l2-migration-reflection.md for when that switch actually
+// flips.
+const CHAIN_ID = process.env.CHAIN_ID ? Number(process.env.CHAIN_ID) : 11155111;
+const CHAINS_BY_ID: Record<number, Chain> = { 11155111: sepolia, 84532: baseSepolia };
+const chain = CHAINS_BY_ID[CHAIN_ID] ?? sepolia;
+const CONTRACT_ADDRESS = DEPLOYMENTS[CHAIN_ID]?.address ?? DEPLOYMENTS[11155111].address;
 
 // A single real transaction never triggers more than one call per
 // proposal — a short cooldown is enough to block abusive use (RPC read
@@ -117,7 +129,7 @@ async function handlePatchProposal(req: Request): Promise<Response> {
     return new Response("Too many requests for this proposal, try again in a few seconds", { status: 429 });
   }
 
-  const client = createPublicClient({ chain: sepolia, transport: http(RPC_URL) });
+  const client = createPublicClient({ chain, transport: http(RPC_URL) });
   const p = (await client.readContract({
     address: CONTRACT_ADDRESS,
     abi: CONTRACT_ABI,
@@ -220,7 +232,7 @@ async function verifyMembership(
     return new Response("Invalid signature", { status: 401 });
   }
 
-  const client = createPublicClient({ chain: sepolia, transport: http(RPC_URL) });
+  const client = createPublicClient({ chain, transport: http(RPC_URL) });
   const balance = (await client.readContract({
     address: CONTRACT_ADDRESS,
     abi: CONTRACT_ABI,
