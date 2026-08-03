@@ -109,6 +109,46 @@ function getInjected() {
   return (window as unknown as { ethereum?: Record<string, unknown> }).ethereum;
 }
 
+// Which provider `writableContract()`/`signMessage()` should sign through —
+// "injected" (MetaMask extension, the only path today) or "embedded"
+// (MetaMask Embedded Wallets / Discord login, see
+// EmbeddedWalletProvider.vue). Two distinct entry points on purpose
+// (`connect()` vs `connectEmbedded()`) rather than one connector that
+// guesses: this mirrors the existing rule that a wallet connection is
+// never triggered without an explicit, specific user action.
+type WalletKind = "injected" | "embedded";
+const walletKind = ref<WalletKind | null>(null);
+// Set once the embedded flow actually resolves a provider — see
+// EmbeddedWalletConnectButton.vue's `connected` emit, wired by whichever
+// component renders it (not this file: the component tree it needs
+// — Web3AuthProvider's context — can't be constructed from a plain
+// module-level singleton).
+let embeddedProvider: Parameters<typeof custom>[0] | null = null;
+
+/** Called once EmbeddedWalletConnectButton.vue emits a real EIP-1193
+ *  provider — same post-connection steps as `connect()` (resolve address,
+ *  check network, notify useMeute.ts), just from a different provider
+ *  source. Never called automatically: the whole embedded-wallet component
+ *  tree is only ever mounted after an explicit click (see App.vue /
+ *  wherever it's rendered), same rule as `connect()`. */
+async function connectEmbedded(provider: Parameters<typeof custom>[0]) {
+  embeddedProvider = provider;
+  walletKind.value = "embedded";
+  const walletClient = createWalletClient({ chain, transport: custom(provider) });
+  const [account] = await walletClient.requestAddresses();
+  const chainId = await walletClient.getChainId();
+  address.value = account;
+  wrongNetwork.value = chainId !== chain.id;
+  explicitConnectListeners.forEach((cb) => cb(account));
+}
+
+/** The EIP-1193 provider `writableContract()`/`signMessage()` should sign
+ *  through, based on which path the member connected with. */
+function getActiveProvider(): Parameters<typeof custom>[0] | undefined {
+  if (walletKind.value === "embedded") return embeddedProvider ?? undefined;
+  return getInjected() as Parameters<typeof custom>[0] | undefined;
+}
+
 async function connect() {
   const injected = getInjected();
   if (!injected) {
@@ -116,6 +156,7 @@ async function connect() {
     return;
   }
   noWalletDetected.value = false;
+  walletKind.value = "injected";
   attachWalletListeners();
 
   const walletClient = createWalletClient({
@@ -206,11 +247,10 @@ function readOnlyContract() {
 /** Signed contract: requires a connected wallet, for functions that write. */
 function writableContract() {
   if (!address.value) throw new Error(i18n.global.t("errors.walletNotConnected"));
-  const injected = (window as unknown as { ethereum: unknown }).ethereum;
   const walletClient = createWalletClient({
     account: address.value,
     chain,
-    transport: custom(injected as Parameters<typeof custom>[0]),
+    transport: custom(getActiveProvider()!),
   });
   return getContract({ address: contractAddress.value, abi: CONTRACT_ABI, client: walletClient });
 }
@@ -220,11 +260,10 @@ function writableContract() {
  *  account (see useDiscordLink.ts). */
 async function signMessage(message: string): Promise<`0x${string}`> {
   if (!address.value) throw new Error(i18n.global.t("errors.walletNotConnected"));
-  const injected = (window as unknown as { ethereum: unknown }).ethereum;
   const walletClient = createWalletClient({
     account: address.value,
     chain,
-    transport: custom(injected as Parameters<typeof custom>[0]),
+    transport: custom(getActiveProvider()!),
   });
   return walletClient.signMessage({ account: address.value, message });
 }
@@ -235,6 +274,8 @@ export function useWallet() {
     wrongNetwork,
     noWalletDetected,
     connect,
+    connectEmbedded,
+    walletKind,
     readOnlyContract,
     writableContract,
     signMessage,

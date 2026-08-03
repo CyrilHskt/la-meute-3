@@ -16,6 +16,8 @@
     "@fontsource/ibm-plex-mono": "^5.3.0",
     "@fontsource/inter": "^5.3.0",
     "@netlify/blobs": "^10.7.9",
+    "@web3auth/auth": "^11.8.2",
+    "@web3auth/modal": "^11.3.0",
     "driver.js": "^1.8.0",
     "viem": "^2.55.4",
     "vue": "^3.5.39",
