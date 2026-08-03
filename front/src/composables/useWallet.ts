@@ -7,6 +7,7 @@ import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../contract";
 // throughout this file), not inside a component's setup(), where
 // `useI18n()` requires an active injection context.
 import { i18n } from "../i18n";
+import { isLocal } from "./chainMode";
 
 // Target network: Sepolia by default (the real, committed deployment), or
 // the local Hardhat node to test the whole cycle in a few seconds (time
@@ -14,11 +15,6 @@ import { i18n } from "../i18n";
 // front/.env.local (never committed, see *.local in .gitignore) — never
 // touches contract.ts, which stays the source of truth for the Sepolia
 // deployment.
-// import.meta.env.DEV in addition to VITE_CHAIN: DEV is pinned to `false`
-// by Vite for every `vite build` (production), regardless of the content
-// of a stray .env.local present by mistake — guaranteed elimination at
-// compile time, not just "this file should never be committed".
-const isLocal = import.meta.env.DEV && import.meta.env.VITE_CHAIN === "local";
 const chain: Chain = isLocal ? hardhat : sepolia;
 // Locally, the address isn't fixed: the demo panel (demo/server.mjs)
 // redeploys a brand-new contract on every reset, so a new address every

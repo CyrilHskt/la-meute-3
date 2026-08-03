@@ -66,6 +66,12 @@ const role = ref<"visitor" | "cub" | "wolf">("visitor");
 const card = ref<{ rank: number; lastActivity: number; postponements: number } | null>(null);
 const fee = ref<bigint>(0n);
 const cardImage = ref<string | null>(null);
+// Declared here, not near its other usages further down: refreshMembership
+// (below) resets it on disconnect and runs from a watch(address, ...,
+// { immediate: true }) registered above the ref's original declaration
+// site — referencing it before that point threw a ReferenceError (TDZ) on
+// every load without a connected wallet, i.e. every first-time visitor.
+const expandedProposalId = ref<bigint | null>(null);
 // The browser's clock has nothing to do with the chain's clock once you
 // manipulate time on a local node (evm_increaseTime): we read the
 // timestamp of the latest block rather than Date.now().
@@ -473,8 +479,8 @@ const pastTabLabel = computed(() =>
 
 // Single-card accordion, local to this component only — a `bigint | null`
 // rather than a `Set`: multi-expand was never requested and would just be
-// speculative complexity.
-const expandedProposalId = ref<bigint | null>(null);
+// speculative complexity. Declared near the top of the script (see there
+// for why).
 function toggleProposalDetail(id: bigint) {
   expandedProposalId.value = expandedProposalId.value === id ? null : id;
 }

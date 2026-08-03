@@ -2,6 +2,7 @@ import { ref, readonly, watch } from "vue";
 import type { Address } from "viem";
 import { useWallet } from "./useWallet";
 import { useDiscordLink, type DiscordLink } from "./useDiscordLink";
+import { isLocal } from "./chainMode";
 // Direct `i18n.global.t` rather than `useI18n()`: this composable is also
 // invoked from useWallet.ts's connect()/accountsChanged handlers, outside
 // any component's setup() — `useI18n()` requires an active component
@@ -115,11 +116,6 @@ const error = ref<string | null>(null);
 // Locally (VITE_CHAIN=local), the overview comes from the demo panel
 // (demo/server.mjs) rather than dao-sync/Sepolia — same JSON format on
 // both sides, so only one line changes, not a second implementation.
-// DEV, not just VITE_CHAIN: DEV is pinned to `false` by Vite for every
-// `vite build` (production), even if a stray .env.local with
-// VITE_CHAIN=local were lying around by mistake — guaranteed elimination
-// at compile time, this branch doesn't even exist in the shipped code.
-const isLocal = import.meta.env.DEV && import.meta.env.VITE_CHAIN === "local";
 const NONCE_URL = isLocal ? "http://127.0.0.1:4100/discord/nonce" : "/.netlify/functions/dao-sync?key=discord-nonce";
 const GOVERNANCE_URL = isLocal
   ? "http://127.0.0.1:4100/governance/verify"
