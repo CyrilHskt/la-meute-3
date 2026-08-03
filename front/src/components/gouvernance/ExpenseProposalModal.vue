@@ -44,7 +44,13 @@ function submit() {
 <template>
   <div v-if="open" class="epm-overlay" @click.self="emit('close')">
     <div class="epm-card">
-      <p class="epm-title">{{ t('governance.dao.proposeExpense') }}</p>
+      <div class="epm-header">
+        <img class="epm-icon" src="/img/illustrations/motif-treasury-bag.png" alt="" />
+        <div>
+          <p class="epm-title">{{ t('governance.dao.proposeExpense') }}</p>
+          <p class="epm-subtitle">{{ t('governance.dao.proposeExpenseHelper') }}</p>
+        </div>
+      </div>
 
       <ProposeExpenseForm
         v-model:address="address"
@@ -60,7 +66,12 @@ function submit() {
         <button class="btn btn-outline epm-cancel" type="button" @click="emit('close')">
           {{ t('common.cancel') }}
         </button>
-        <button class="btn btn-primary epm-confirm" type="button" :disabled="txPending || !address || !amount" @click="submit">
+        <button
+          class="btn btn-primary epm-confirm"
+          type="button"
+          :disabled="txPending || !address || !amount || Number(amount) <= 0 || !reason.trim()"
+          @click="submit"
+        >
           {{ t('common.confirm') }}
         </button>
       </div>
@@ -82,11 +93,28 @@ function submit() {
 
 .epm-card {
   background: $color-card-bg;
-  border: 1px solid $color-border;
+  // Signals "this action commits the group's treasury" the same way an
+  // ongoing proposal card does (.gv-prop-card--expanded), rather than a
+  // neutral border indistinguishable from any other dialog.
+  border: 1.5px solid $color-orange-dark;
   border-radius: $radius-md;
   padding: $space-4;
   width: 100%;
   max-width: 480px;
+}
+
+.epm-header {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-2;
+  margin: 0 0 $space-3;
+}
+
+.epm-icon {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .epm-title {
@@ -94,7 +122,13 @@ function submit() {
   font-weight: 700;
   font-size: $fs-h4;
   color: $color-black;
-  margin: 0 0 $space-3;
+  margin: 0;
+}
+
+.epm-subtitle {
+  font-size: $fs-caption;
+  color: $color-text-dim;
+  margin: $space-1 0 0;
 }
 
 .epm-error {

@@ -797,7 +797,7 @@ function startTour() {
         <template v-if="!address">
           <p class="gv-card-title">{{ t('governance.dao.myCard') }}</p>
           <p class="gv-card-note">{{ t('governance.dao.connectToSeeCard') }}</p>
-          <button class="btn btn-primary" @click="onConnect">{{ t('common.connectWallet') }}</button>
+          <button class="btn btn-primary gv-card-connect-btn" @click="onConnect">{{ t('common.connectWallet') }}</button>
         </template>
         <template v-else-if="wrongNetwork">
           <p class="gv-error">{{ t('common.wrongNetwork') }}</p>
@@ -1022,6 +1022,11 @@ function startTour() {
   border: 1px solid $color-border;
   border-radius: $radius-md;
   padding: $space-3;
+}
+
+.gv-card-connect-btn {
+  display: block;
+  margin: $space-3 auto 0;
 }
 
 // Direct-child combinator, not a descendant selector: `:last-child` also
