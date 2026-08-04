@@ -103,6 +103,9 @@ const en: typeof fr = {
     text: "A wallet is your identity on the Meute — no account to create, no password. MetaMask is free, installs in 2 minutes, and works directly in your browser.",
     install: "Install MetaMask",
     retry: "I already have a wallet, try again",
+    or: "or",
+    continueWithDiscord: "Continue with Discord",
+    discordFailed: "Connection failed, try again in a moment.",
     dismiss: "Continue without a wallet for now",
   },
   discordConsent: {

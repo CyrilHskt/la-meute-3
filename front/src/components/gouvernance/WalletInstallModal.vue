@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import { defineAsyncComponent, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useWallet } from "../../composables/useWallet";
 
 const { t } = useI18n();
-const { noWalletDetected, connect } = useWallet();
+const { noWalletDetected, connect, connectEmbedded, activeChain, isLocal } = useWallet();
 
 function retry() {
   noWalletDetected.value = false;
@@ -11,6 +12,32 @@ function retry() {
 }
 function dismiss() {
   noWalletDetected.value = false;
+  showDiscordOption.value = false;
+  discordError.value = null;
+}
+
+// Real trigger for the embedded-wallet path (issue #121) — only loaded
+// (and only offered) once the member actually clicks it. Never shown in
+// local demo mode: MetaMask Embedded Wallets needs a real connection to
+// its own servers, which local mode (isLocal) never has.
+const showDiscordOption = ref(false);
+const discordError = ref<string | null>(null);
+const EmbeddedWalletProvider = defineAsyncComponent(() => import("./EmbeddedWalletProvider.vue"));
+const EmbeddedWalletConnectButton = defineAsyncComponent(() => import("./EmbeddedWalletConnectButton.vue"));
+
+function openDiscordOption() {
+  discordError.value = null;
+  showDiscordOption.value = true;
+}
+
+async function onEmbeddedConnected(provider: Parameters<typeof connectEmbedded>[0]) {
+  await connectEmbedded(provider);
+  noWalletDetected.value = false;
+  showDiscordOption.value = false;
+}
+
+function onEmbeddedFailed(message: string) {
+  discordError.value = message;
 }
 </script>
 
@@ -32,6 +59,22 @@ function dismiss() {
         </a>
         <button class="btn btn-outline" type="button" @click="retry">{{ t('walletInstall.retry') }}</button>
       </div>
+
+      <template v-if="!isLocal">
+        <p class="wim-or">{{ t('walletInstall.or') }}</p>
+        <template v-if="!showDiscordOption">
+          <button class="btn btn-outline wim-discord-btn" type="button" @click="openDiscordOption">
+            {{ t('walletInstall.continueWithDiscord') }}
+          </button>
+        </template>
+        <template v-else>
+          <EmbeddedWalletProvider :chain="activeChain">
+            <EmbeddedWalletConnectButton @connected="onEmbeddedConnected" @failed="onEmbeddedFailed" />
+          </EmbeddedWalletProvider>
+          <p v-if="discordError" class="wim-discord-error">{{ t('walletInstall.discordFailed') }}</p>
+        </template>
+      </template>
+
       <button class="wim-dismiss" type="button" @click="dismiss">{{ t('walletInstall.dismiss') }}</button>
     </div>
   </div>
@@ -92,6 +135,24 @@ function dismiss() {
   gap: $space-2;
 
   .btn { width: 100%; }
+}
+
+.wim-or {
+  font-size: $fs-caption;
+  color: $color-text-dim;
+  margin: $space-3 0 $space-2;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.wim-discord-btn {
+  width: 100%;
+}
+
+.wim-discord-error {
+  color: $color-danger;
+  font-size: $fs-caption;
+  margin-top: $space-2;
 }
 
 .wim-dismiss {

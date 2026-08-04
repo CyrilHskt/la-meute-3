@@ -105,6 +105,9 @@ export default {
     text: "Un wallet, c'est ton identité sur la Meute — pas de compte à créer, pas de mot de passe. MetaMask est gratuit, s'installe en 2 minutes et fonctionne directement dans ton navigateur.",
     install: "Installer MetaMask",
     retry: "J'ai déjà un wallet, réessayer",
+    or: "ou",
+    continueWithDiscord: "Continuer avec Discord",
+    discordFailed: "La connexion a échoué, réessaie dans un instant.",
     dismiss: "Continuer sans wallet pour l'instant",
   },
   discordConsent: {

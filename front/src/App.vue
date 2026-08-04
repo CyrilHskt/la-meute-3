@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent } from "vue";
+import { computed } from "vue";
 import { useRoute } from "vue-router";
 import NavBar from "./components/NavBar.vue";
 import HomeHeader from "./components/HomeHeader.vue";
@@ -11,21 +11,12 @@ const route = useRoute();
 // it gets a minimal floating control cluster instead of the full NavBar,
 // which every other route keeps unchanged.
 const isHome = computed(() => route.name === "home");
-
-// PR1 of the embedded-wallet onboarding (issue #121): this reference exists
-// solely so Vite/Rollup traces the dynamic import() and code-splits
-// @web3auth/modal's dependency tree into its own chunk — the `v-if="false"`
-// below means it never actually loads for a real visitor yet. PR2 moves
-// this into the real "Continuer avec Discord" trigger (WalletInstallModal.vue
-// or similar), replacing this placeholder.
-const EmbeddedWalletProviderAsync = defineAsyncComponent(() => import("./components/gouvernance/EmbeddedWalletProvider.vue"));
 </script>
 
 <template>
   <NavBar v-if="!isHome" />
   <HomeHeader v-else />
   <router-view />
-  <component :is="EmbeddedWalletProviderAsync" v-if="false" :chain="null as never" />
   <footer>
     <div class="container text-center">
       <p class="credits">
