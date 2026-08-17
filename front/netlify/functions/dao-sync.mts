@@ -125,11 +125,17 @@ async function handlePatchProposal(req: Request): Promise<Response> {
   const store = getStore("dao");
 
   const existing = await store.getWithMetadata("rate-limit", { type: "json" });
-  const rateLimits = (existing?.data ?? {}) as Record<string, number>;
-  const lastPatch = rateLimits[proposalId];
+  const storedRateLimits = (existing?.data ?? {}) as Record<string, number>;
+  const lastPatch = storedRateLimits[proposalId];
   if (lastPatch && Date.now() - lastPatch < PATCH_COOLDOWN_MS) {
     return new Response("Too many requests for this proposal, try again in a few seconds", { status: 429 });
   }
+  // Only timestamps that can still block a request are kept: an entry
+  // older than the cooldown is decorative, and one key per proposal, never
+  // removed, is an ever-growing blob for no reason.
+  const rateLimits = Object.fromEntries(
+    Object.entries(storedRateLimits).filter(([, timestamp]) => Date.now() - timestamp < PATCH_COOLDOWN_MS),
+  );
   rateLimits[proposalId] = Date.now();
   // Conditional write: if another concurrent request updated "rate-limit"
   // between our read and this write, `modified` comes back false — treat
