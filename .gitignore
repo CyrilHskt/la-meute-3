@@ -49,6 +49,11 @@ CLAUDE.md
 # Local Netlify folder
 .netlify
 
+# Impeccable design-skill product/design context (local use only)
+/PRODUCT.md
+/DESIGN.md
+/.impeccable/
+
 # Ignition deployment journal on the local Hardhat node (chain-31337) —
 # recreated on every `npm run demo` (reset), unlike chain-11155111
 # (Sepolia) which must stay versioned.

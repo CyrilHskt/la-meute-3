@@ -46,6 +46,21 @@ import meta from "../front/src/contract-meta.json" with { type: "json" };
 const BLOCK_RANGE = 9n; // fromBlock..fromBlock+9 = 10 blocks inclusive
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
+// Deployed at this same address via a deterministic (Nick's method)
+// deployer on virtually every EVM chain, including Base Sepolia — see
+// https://www.multicall3.com/deployments. Used to batch every member-card
+// read, every proposal read, and the handful of singleton reads
+// (activeWolves, treasury balance, block timestamp) into a single
+// eth_call per run instead of one eth_call per item — that per-item cost,
+// repeated on every cron run, was the main driver of Alchemy free-tier
+// compute-unit exhaustion (see .github/workflows/sync-dao.yml).
+const MULTICALL3_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11";
+const MULTICALL3_ABI = [
+  "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) payable returns (tuple(bool success, bytes returnData)[] returnData)",
+  "function getEthBalance(address addr) view returns (uint256 balance)",
+  "function getCurrentBlockTimestamp() view returns (uint256 timestamp)",
+];
+
 const CHAIN_ID = process.env.CHAIN_ID ?? "11155111";
 const DEPLOYMENT = meta.deployments[CHAIN_ID] ?? meta.deployments["11155111"];
 
@@ -161,9 +176,17 @@ async function postToDiscord(content) {
 async function main() {
   const fetchRequest = new ethers.FetchRequest(RPC_URL);
   fetchRequest.timeout = 15_000;
-  const provider = new ethers.JsonRpcProvider(fetchRequest);
+  // A plain `staticNetwork: true` still performs one real eth_chainId call
+  // before locking in — insufficient on a dead/quota-exhausted RPC, which
+  // is exactly what caused every run to retry eth_chainId once per second
+  // for the full 25-minute CI timeout during the Alchemy free-tier
+  // incident (see docs/local/soutenance-prep.md). Passing an actual
+  // Network instance skips that detection call entirely.
+  const network = ethers.Network.from(Number(CHAIN_ID));
+  const provider = new ethers.JsonRpcProvider(fetchRequest, network, { staticNetwork: network });
   const abi = loadAbi(import.meta.url);
   const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, provider);
+  const multicall = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, provider);
 
   const state = await loadState();
   const minted = new Set(state.minted);
@@ -245,13 +268,64 @@ async function main() {
   // Always recomputed, even without a new block: dormancy depends on the
   // current time, not just past events, and the treasury can change with
   // no associated event (none in this contract, but as a precaution).
+  //
+  // Every member card, every proposal, and the singleton reads
+  // (activeWolves, treasury balance, current timestamp) are batched into
+  // one aggregate3 multicall instead of one eth_call per item — this is
+  // the part of the run whose cost used to scale with the pack's size on
+  // every single invocation (see MULTICALL3_ADDRESS comment above).
   const currentMembers = [...minted].filter((a) => !burned.has(a));
-  console.log(`Refreshing ${currentMembers.length} member card(s)...`);
-  const [cards, dormancyDelay] = await Promise.all([
-    Promise.all(currentMembers.map((addr) => contract.card(addr))),
-    contract.DORMANCY_DELAY(), // read from the chain — never hardcoded here
-  ]);
-  const now = Number((await provider.getBlock(Number(toBlock))).timestamp);
+  const proposalIdList = [...proposalIds];
+  console.log(`Refreshing ${currentMembers.length} member card(s) and ${proposalIdList.length} proposal(s) via multicall...`);
+
+  const calls = [
+    ...currentMembers.map((addr) => ({
+      target: CONTRACT_ADDRESS,
+      allowFailure: false,
+      callData: contract.interface.encodeFunctionData("card", [addr]),
+    })),
+    ...proposalIdList.map((id) => ({
+      target: CONTRACT_ADDRESS,
+      allowFailure: false,
+      callData: contract.interface.encodeFunctionData("proposal", [id]),
+    })),
+    {
+      target: CONTRACT_ADDRESS,
+      allowFailure: false,
+      callData: contract.interface.encodeFunctionData("activeWolves", []),
+    },
+    {
+      // Read live rather than hardcoded: it's a `constant` today (Meute.sol
+      // line 117) but nothing guarantees it stays 180 days across a future
+      // redeploy, and batching it here costs zero extra RPC requests —
+      // same pattern the front already follows (GovernanceDao.vue reads it
+      // live too, never trusts a fixed value).
+      target: CONTRACT_ADDRESS,
+      allowFailure: false,
+      callData: contract.interface.encodeFunctionData("DORMANCY_DELAY", []),
+    },
+    {
+      target: MULTICALL3_ADDRESS,
+      allowFailure: false,
+      callData: multicall.interface.encodeFunctionData("getEthBalance", [CONTRACT_ADDRESS]),
+    },
+    {
+      target: MULTICALL3_ADDRESS,
+      allowFailure: false,
+      callData: multicall.interface.encodeFunctionData("getCurrentBlockTimestamp", []),
+    },
+  ];
+  const results = await multicall.aggregate3.staticCall(calls);
+
+  let cursor = 0;
+  const cards = currentMembers.map((_, i) => contract.interface.decodeFunctionResult("card", results[cursor + i].returnData)[0]);
+  cursor += currentMembers.length;
+  const rawProposals = proposalIdList.map((_, i) => contract.interface.decodeFunctionResult("proposal", results[cursor + i].returnData)[0]);
+  cursor += proposalIdList.length;
+  const activeWolvesCount = contract.interface.decodeFunctionResult("activeWolves", results[cursor++].returnData)[0];
+  const dormancyDelay = contract.interface.decodeFunctionResult("DORMANCY_DELAY", results[cursor++].returnData)[0];
+  const treasuryWei = multicall.interface.decodeFunctionResult("getEthBalance", results[cursor++].returnData)[0];
+  const now = Number(multicall.interface.decodeFunctionResult("getCurrentBlockTimestamp", results[cursor++].returnData)[0]);
 
   let cubs = 0;
   let dormantWolves = 0;
@@ -267,32 +341,24 @@ async function main() {
     members.push({ address: currentMembers[i], rank, dormant });
   });
 
-  const [treasuryWei, activeWolvesCount] = await Promise.all([
-    provider.getBalance(CONTRACT_ADDRESS),
-    contract.activeWolves(),
-  ]);
-
-  console.log(`Refreshing ${proposalIds.size} proposal(s)...`);
-  const proposals = await Promise.all(
-    [...proposalIds].map(async (id) => {
-      const p = await contract.proposal(id);
-      return {
-        id,
-        proposalType: Number(p.proposalType),
-        target: p.target,
-        author: proposalAuthors[id],
-        deadline: p.deadline.toString(),
-        activeSnapshot: Number(p.activeSnapshot),
-        snapshotFrozen: p.snapshotFrozen,
-        executed: p.executed,
-        approveVotes: Number(p.approveVotes),
-        rejectVotes: Number(p.rejectVotes),
-        postponeVotes: Number(p.postponeVotes),
-        amount: p.amount.toString(),
-        reason: p.reason,
-      };
-    }),
-  );
+  const proposals = proposalIdList.map((id, i) => {
+    const p = rawProposals[i];
+    return {
+      id,
+      proposalType: Number(p.proposalType),
+      target: p.target,
+      author: proposalAuthors[id],
+      deadline: p.deadline.toString(),
+      activeSnapshot: Number(p.activeSnapshot),
+      snapshotFrozen: p.snapshotFrozen,
+      executed: p.executed,
+      approveVotes: Number(p.approveVotes),
+      rejectVotes: Number(p.rejectVotes),
+      postponeVotes: Number(p.postponeVotes),
+      amount: p.amount.toString(),
+      reason: p.reason,
+    };
+  });
   const votesCast = Object.values(memberActivity).reduce((sum, a) => sum + a.votesSubmitted, 0);
   const openProposals = proposals.filter((p) => !p.executed).length;
 
