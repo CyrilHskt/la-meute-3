@@ -84,6 +84,11 @@ interface DaoIndex {
     reason: string;
   }[];
   memberActivity: Record<string, { votesSubmitted: number; openProposals: number }>;
+  // _hasVoted is private on the contract (no getter) — rebuilt off-chain
+  // from VoteCast events by the indexer (scripts/sync-dao.js /
+  // demo/actions.js's buildIndex), same principle as memberActivity just
+  // above. Keyed by lowercased voter address, values are proposal ids.
+  votedProposalsByVoter: Record<string, string[]>;
   topDonors: { address: Address; total: string }[];
   members: { address: Address; rank: number; dormant: boolean }[];
   // Only present on the ?key=index reread path (the ?key=governance
@@ -100,6 +105,12 @@ export interface Member {
 const stats = ref<Stats | null>(null);
 const proposals = ref<Proposal[]>([]);
 const memberActivity = ref<Map<string, { votesSubmitted: number; openProposals: number }>>(new Map());
+const votedProposalsByVoter = ref<Map<string, Set<string>>>(new Map());
+// Votes just cast by the connected wallet, not yet confirmed by the next
+// indexer pass (up to 30 min away) — merged with votedProposalsByVoter so
+// the vote button greys out immediately instead of waiting on the cron.
+// See recordLocalVote()/hasVotedOn() below.
+const locallyVotedProposalIds = ref<Set<string>>(new Set());
 const topDonors = ref<Donor[]>([]);
 const members = ref<Member[]>([]);
 // Individual donation: "about me" data, read live (not via the shared
@@ -259,6 +270,9 @@ function applyIndex(index: DaoIndex) {
     .sort((a, b) => (a.id > b.id ? -1 : 1));
 
   memberActivity.value = new Map(Object.entries(index.memberActivity));
+  votedProposalsByVoter.value = new Map(
+    Object.entries(index.votedProposalsByVoter ?? {}).map(([addr, ids]) => [addr, new Set(ids)]),
+  );
 
   topDonors.value = (index.topDonors ?? []).map((d) => ({ address: d.address, total: BigInt(d.total) }));
   members.value = index.members ?? [];
@@ -267,6 +281,24 @@ function applyIndex(index: DaoIndex) {
   // itself with the sibling field) — never overwrite with {} there, that
   // would wipe links the caller is about to set.
   if (index.discordLinks) setLinks(index.discordLinks);
+}
+
+/** True once the indexer's snapshot confirms the vote, or immediately
+ *  after a successful `vote()` tx via recordLocalVote() — see
+ *  GovernanceDao.vue's hasVoted(). */
+function hasVotedOn(address: Address | null, proposalId: bigint): boolean {
+  if (!address) return false;
+  const idStr = proposalId.toString();
+  const voterKey = address.toLowerCase();
+  return (votedProposalsByVoter.value.get(voterKey)?.has(idStr) ?? false) || locallyVotedProposalIds.value.has(idStr);
+}
+
+/** Grays out the vote button right after a successful tx, without waiting
+ *  on the indexer's next pass (up to 30 min away) — see GovernanceDao.vue's
+ *  vote(). Superseded (but never contradicted) by the snapshot once the
+ *  indexer catches up. */
+function recordLocalVote(proposalId: bigint) {
+  locallyVotedProposalIds.value = new Set(locallyVotedProposalIds.value).add(proposalId.toString());
 }
 
 // Declared at module level, not inside useMeute(): they only ever touch
@@ -286,6 +318,8 @@ function resetSession() {
   stats.value = null;
   proposals.value = [];
   memberActivity.value = new Map();
+  votedProposalsByVoter.value = new Map();
+  locallyVotedProposalIds.value = new Set();
   topDonors.value = [];
   members.value = [];
   myDonations.value = 0n;
@@ -502,6 +536,8 @@ export function useMeute() {
     stats: readonly(stats),
     proposals: readonly(proposals),
     memberActivity: readonly(memberActivity),
+    hasVotedOn,
+    recordLocalVote,
     topDonors: readonly(topDonors),
     members: readonly(members),
     myDonations: readonly(myDonations),

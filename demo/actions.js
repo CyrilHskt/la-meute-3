@@ -610,7 +610,16 @@ export async function buildIndex(ctx) {
     memberActivity[k] ??= { votesSubmitted: 0, openProposals: 0 };
     memberActivity[k][key]++;
   };
-  for (const log of await founder.queryFilter(founder.filters.VoteCast())) bump(log.args.voter, "votesSubmitted");
+  // Same reasoning as the real indexer (scripts/sync-dao.js): _hasVoted is
+  // private on the contract (no getter), so "did this member already vote
+  // on this proposal" is rebuilt from VoteCast events, not a live RPC scan
+  // from the front — see GovernanceDao.vue's loadMyVotedProposals.
+  const votedProposalsByVoter = {};
+  for (const log of await founder.queryFilter(founder.filters.VoteCast())) {
+    bump(log.args.voter, "votesSubmitted");
+    const voterKey = log.args.voter.toLowerCase();
+    (votedProposalsByVoter[voterKey] ??= []).push(log.args.proposalId.toString());
+  }
   for (const log of await founder.queryFilter(founder.filters.ProposalOpened())) bump(log.args.author, "openProposals");
 
   // Same reasoning as above: ctx.ids only records proposals opened through
@@ -651,6 +660,7 @@ export async function buildIndex(ctx) {
     stats: { treasuryWei: treasuryWei.toString(), activeWolves, dormantWolves, cubs, votesCast, openProposals },
     proposals,
     memberActivity,
+    votedProposalsByVoter,
     topDonors,
     members,
   };
