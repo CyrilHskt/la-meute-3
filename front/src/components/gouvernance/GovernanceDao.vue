@@ -491,7 +491,7 @@ function toggleProposalDetail(id: bigint) {
   expandedProposalId.value = expandedProposalId.value === id ? null : id;
 }
 
-const { typeLabels, authorKnown, proposalPrefix, PAST_STATUS_LABELS, pastStatus } = useProposalFormatting(t);
+const { typeLabels, authorKnown, proposalPrefix, PAST_STATUS_LABELS, pastStatus, requiredQuorum } = useProposalFormatting(t);
 
 // The Discord link isn't required anywhere on-chain (no privileged role
 // to check it): an applicant who calls applyForMembership() directly,
@@ -500,26 +500,6 @@ const { typeLabels, authorKnown, proposalPrefix, PAST_STATUS_LABELS, pastStatus 
 // enforcing the rule stays a voting choice, never a front-side block.
 function applicationWithoutDiscord(p: Proposal): boolean {
   return p.proposalType === ProposalType.Admission && !p.executed && !discordLinkFor(p.target);
-}
-
-// Two conditions, like in the contract (Meute.sol, _isPassed): a
-// participation quorum (75% of the active Wolves at snapshot time must
-// have voted, yes or no), then "yes" must exceed "no" among the votes
-// cast — not a simple "yes" threshold against the active count.
-const QUORUM_NUM = 3;
-const QUORUM_DEN = 4;
-
-function requiredQuorum(p: Proposal): number {
-  return Math.floor((p.activeSnapshot * QUORUM_NUM) / QUORUM_DEN) + 1;
-}
-
-function quorumReached(p: Proposal): boolean {
-  const cast = p.approveVotes + p.rejectVotes;
-  return cast * QUORUM_DEN > p.activeSnapshot * QUORUM_NUM;
-}
-
-function isApproved(p: Proposal): boolean {
-  return quorumReached(p) && p.approveVotes > p.rejectVotes;
 }
 
 // Conflict of interest (Meute.sol, vote() -> ConflictOfInterest): the
@@ -590,7 +570,7 @@ const myExclusion = computed(() => {
         p.proposalType === ProposalType.Exclusion &&
         p.executed &&
         p.target.toLowerCase() === address.value!.toLowerCase() &&
-        isApproved(p),
+        pastStatus(p) === "approved",
     ) ?? null
   );
 });

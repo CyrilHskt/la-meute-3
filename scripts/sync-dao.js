@@ -153,7 +153,9 @@ async function getAllLogsChunked(provider, address, fromBlock, toBlock) {
 }
 
 // 75% quorum + strict majority among votes cast — same rule as Meute.sol
-// (_isPassed / _executeConfirmation), keep in sync if it changes again. A
+// (_quorumReached, the authority) and as the front
+// (useProposalFormatting.ts, sole TypeScript copy). Three copies across
+// three languages, nothing can share them: they must move together. A
 // confirmation is a 3-outcome vote: `postponeVotes` counts toward quorum,
 // and the "Approve" outcome must exceed both other outcomes, not just
 // "Reject".
