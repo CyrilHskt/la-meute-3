@@ -44,6 +44,7 @@ import { getStore } from "@netlify/blobs";
 import { createPublicClient, http, isAddress, recoverMessageAddress, type Address, type Chain } from "viem";
 import { sepolia, baseSepolia } from "viem/chains";
 import { CONTRACT_ABI, DEPLOYMENTS } from "../../src/contract.js";
+import { EMPTY_SNAPSHOT, type DaoSnapshot } from "../../src/daoSnapshot.js";
 import { createNonce, verifyNonce, createSession, verifySession, type NoncePurpose } from "./lib/tokens.js";
 
 const SYNC_SECRET = process.env.SYNC_SECRET;
@@ -67,31 +68,6 @@ const CONTRACT_ADDRESS = DEPLOYMENTS[CHAIN_ID]?.address ?? DEPLOYMENTS[11155111]
 // invocations of a serverless function: the timestamp of the last patch
 // per proposal is itself stored in the blob.
 const PATCH_COOLDOWN_MS = 10_000;
-
-const DEFAULT_INDEX = {
-  updatedAt: null,
-  lastBlock: "0",
-  stats: {
-    treasuryWei: "0",
-    activeWolves: 0,
-    dormantWolves: 0,
-    cubs: 0,
-    votesCast: 0,
-    openProposals: 0,
-  },
-  config: {
-    feeWei: "0",
-    dormancyDelaySeconds: 0,
-    maxPostponements: 0,
-    voteDurationSeconds: 0,
-    now: 0,
-  },
-  proposals: [] as Record<string, unknown>[],
-  memberActivity: {},
-  votedProposalsByVoter: {} as Record<string, string[]>,
-  topDonors: [] as { address: string; total: string }[],
-  members: [] as { address: string; rank: number; dormant: boolean }[],
-};
 
 const DEFAULT_DISCORD_LINKS = {} as Record<string, { discordId: string; username: string; avatarUrl: string; linkedAt: string }>;
 
@@ -158,7 +134,7 @@ async function handlePatchProposal(req: Request): Promise<Response> {
     reason: string;
   };
 
-  const index = ((await store.get("index", { type: "json" })) ?? DEFAULT_INDEX) as typeof DEFAULT_INDEX;
+  const index = ((await store.get("index", { type: "json" })) ?? EMPTY_SNAPSHOT) as DaoSnapshot;
   const patched = {
     id: proposalId,
     proposalType: Number(p.proposalType),
@@ -283,7 +259,7 @@ async function handleGovernance(req: Request): Promise<Response> {
 async function readIndexAndDiscordLinks() {
   const store = getStore("dao");
   return {
-    index: (await store.get("index", { type: "json" })) ?? DEFAULT_INDEX,
+    index: (await store.get("index", { type: "json" })) ?? EMPTY_SNAPSHOT,
     discordLinks: (await store.get("discord-links", { type: "json" })) ?? DEFAULT_DISCORD_LINKS,
   };
 }
@@ -331,7 +307,7 @@ export default async (req: Request) => {
 
   if (req.method === "GET") {
     const value = await store.get(key, { type: "json" });
-    return Response.json(value ?? (key === "index" ? DEFAULT_INDEX : DEFAULT_STATE));
+    return Response.json(value ?? (key === "index" ? EMPTY_SNAPSHOT : DEFAULT_STATE));
   }
 
   if (req.method === "POST") {

@@ -3,6 +3,7 @@ import type { Address } from "viem";
 import { useWallet } from "./useWallet";
 import { useDiscordLink, type DiscordLink } from "./useDiscordLink";
 import { isLocal } from "./chainMode";
+import type { DaoSnapshot } from "../daoSnapshot";
 // Direct `i18n.global.t` rather than `useI18n()`: this composable is also
 // invoked from useWallet.ts's connect()/accountsChanged handlers, outside
 // any component's setup() — `useI18n()` requires an active component
@@ -67,52 +68,11 @@ export interface DaoConfig {
   now: number;
 }
 
-interface DaoIndex {
-  stats: {
-    treasuryWei: string;
-    activeWolves: number;
-    dormantWolves: number;
-    cubs: number;
-    votesCast: number;
-    openProposals: number;
-  };
-  // Read live rather than hardcoded (see sync-dao.js's DORMANCY_DELAY
-  // comment) — GovernanceDao.vue reads these from here instead of
-  // live-calling the chain on every page mount, for every visitor.
-  config: {
-    feeWei: string;
-    dormancyDelaySeconds: number;
-    maxPostponements: number;
-    voteDurationSeconds: number;
-    now: number;
-  };
-  proposals: {
-    id: string;
-    proposalType: number;
-    target: Address;
-    author: Address;
-    deadline: string;
-    activeSnapshot: number;
-    snapshotFrozen: boolean;
-    executed: boolean;
-    approveVotes: number;
-    rejectVotes: number;
-    postponeVotes: number;
-    amount: string;
-    reason: string;
-  }[];
-  memberActivity: Record<string, { votesSubmitted: number; openProposals: number }>;
-  // _hasVoted is private on the contract (no getter) — rebuilt off-chain
-  // from VoteCast events by the indexer (scripts/sync-dao.js /
-  // demo/actions.js's buildIndex), same principle as memberActivity just
-  // above. Keyed by lowercased voter address, values are proposal ids.
-  votedProposalsByVoter: Record<string, string[]>;
-  topDonors: { address: Address; total: string }[];
-  members: { address: Address; rank: number; dormant: boolean }[];
-  // Only present on the ?key=index reread path (the ?key=governance
-  // response carries it as a sibling of `index`, not inside it).
-  discordLinks?: Record<string, DiscordLink>;
-}
+// The published snapshot, plus the one field the reread path bolts onto
+// it: `discordLinks` is only present on ?key=index (the ?key=governance
+// response carries it as a sibling of `index`, not inside it), so it isn't
+// part of what the indexer publishes — see daoSnapshot.ts.
+type DaoIndex = DaoSnapshot & { discordLinks?: Record<string, DiscordLink> };
 
 export interface Member {
   address: Address;

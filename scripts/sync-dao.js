@@ -416,6 +416,10 @@ async function main() {
 
   const votedProposalsByVoterJson = Object.fromEntries([...votedProposalsByVoter].map(([addr, ids]) => [addr, [...ids]]));
 
+  // Snapshot shape defined in front/src/daoSnapshot.ts (DaoSnapshot) — the
+  // front and the Netlify function type themselves against it, this script
+  // can't import it (plain JS), so any field added below has to be added
+  // there too, and in demo/actions.js's buildIndex.
   await saveJson("index", {
     updatedAt: new Date().toISOString(),
     lastBlock: toBlock.toString(),
