@@ -79,6 +79,13 @@ const DEFAULT_INDEX = {
     votesCast: 0,
     openProposals: 0,
   },
+  config: {
+    feeWei: "0",
+    dormancyDelaySeconds: 0,
+    maxPostponements: 0,
+    voteDurationSeconds: 0,
+    now: 0,
+  },
   proposals: [] as Record<string, unknown>[],
   memberActivity: {},
   votedProposalsByVoter: {} as Record<string, string[]>,

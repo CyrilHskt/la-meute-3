@@ -548,6 +548,16 @@ export async function buildIndex(ctx) {
   const founder = ctx.contracts.get(ctx.founder);
   const treasuryWei = await ctx.provider.getBalance(ctx.contractAddress);
   const activeWolves = Number(await founder.activeWolves());
+  // Mirrors the real indexer's `config` (scripts/sync-dao.js) — the front
+  // reads fee/dormancy/etc. from the snapshot rather than live RPC calls,
+  // in local demo mode too.
+  const [fee, dormancyDelay, maxPostponements, voteDuration, block] = await Promise.all([
+    founder.fee(),
+    founder.DORMANCY_DELAY(),
+    founder.MAX_POSTPONEMENTS(),
+    founder.VOTE_DURATION(),
+    ctx.provider.getBlock("latest"),
+  ]);
 
   // Leaderboard built off-chain from the real DonationReceived events —
   // not just donations triggered by the panel: a donation made directly
@@ -658,6 +668,13 @@ export async function buildIndex(ctx) {
 
   return {
     stats: { treasuryWei: treasuryWei.toString(), activeWolves, dormantWolves, cubs, votesCast, openProposals },
+    config: {
+      feeWei: fee.toString(),
+      dormancyDelaySeconds: Number(dormancyDelay),
+      maxPostponements: Number(maxPostponements),
+      voteDurationSeconds: Number(voteDuration),
+      now: Number(block.timestamp),
+    },
     proposals,
     memberActivity,
     votedProposalsByVoter,
