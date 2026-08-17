@@ -25,9 +25,11 @@
 //   SYNC_SECRET           — secret shared with that function
 // Optional:
 //   CHAIN_ID              — which entry of front/src/contract-meta.json's
-//                           `deployments` map to use (defaults to Sepolia,
-//                           11155111 — see docs/local/l2-migration-reflection.md
-//                           for the L2 migration this exists for)
+//                           `deployments` map to use. The cron passes
+//                           84532 (Base Sepolia), what production has run
+//                           on since 2026-08-03; the 11155111 (Sepolia)
+//                           default is the rollback path — see
+//                           docs/local/l2-migration-reflection.md
 //   CONTRACT_ADDRESS      — overrides the address read from
 //                           front/src/contract-meta.json (generated from
 //                           front/src/contract.ts via
@@ -44,7 +46,6 @@ import meta from "../front/src/contract-meta.json" with { type: "json" };
 // compute-units/second throughput (429 error even sequentially with no
 // delay).
 const BLOCK_RANGE = 9n; // fromBlock..fromBlock+9 = 10 blocks inclusive
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 // Deployed at this same address via a deterministic (Nick's method)
 // deployer on virtually every EVM chain, including Base Sepolia — see
@@ -79,13 +80,30 @@ const TYPE_LABELS = ["Admission", "Confirmation", "Exclusion", "Expense"];
 const Rank = { Cub: 0, Wolf: 1 };
 const VoteChoice = { Approve: 0, Reject: 1, Postpone: 2 };
 
+// Everything in the state is chain-specific: block cursor, but also the
+// members/proposals/donations accumulated on that chain. Reusing it across
+// chains would be silently wrong, and a cursor left on the other chain's
+// block height either rescans tens of millions of blocks (10 at a time —
+// guaranteed CI timeout) or skips every past event. Only the migration
+// itself hits this, but nothing in the code used to notice it: the L2
+// switch was handled by manually clearing the blob.
+//
+// A state written before this field existed is adopted as-is rather than
+// discarded: the only such blob in existence is the current chain's, and
+// wiping it would trigger a pointless full rescan.
+function stateForChain(state) {
+  if (state.chainId == null || String(state.chainId) === CHAIN_ID) return { ...state, chainId: CHAIN_ID };
+  console.log(`State belongs to chain ${state.chainId}, now running on ${CHAIN_ID} — starting over from the deployment block.`);
+  return { chainId: CHAIN_ID, lastBlock: null };
+}
+
 async function loadState() {
   const res = await fetch(`${SYNC_ENDPOINT}?key=state`, {
     headers: { "x-sync-secret": SYNC_SECRET },
     signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) throw new Error(`Failed to read state (HTTP ${res.status})`);
-  const state = await res.json();
+  const state = stateForChain(await res.json());
   // `lastBlock: null` = never run yet (the function's default value) — we
   // then start from one block before deployment, instead of trying
   // `BigInt(null)`. One before, not at, DEPLOY_BLOCK itself: `fromBlock`
@@ -137,7 +155,9 @@ async function getAllLogsChunked(provider, address, fromBlock, toBlock) {
 }
 
 // 75% quorum + strict majority among votes cast — same rule as Meute.sol
-// (_isPassed / _executeConfirmation), keep in sync if it changes again. A
+// (_quorumReached, the authority) and as the front
+// (useProposalFormatting.ts, sole TypeScript copy). Three copies across
+// three languages, nothing can share them: they must move together. A
 // confirmation is a 3-outcome vote: `postponeVotes` counts toward quorum,
 // and the "Approve" outcome must exceed both other outcomes, not just
 // "Reject".
@@ -244,8 +264,8 @@ async function main() {
     for (const log of decoded) {
       if (log.name === "Transfer") {
         const { from, to } = log.args;
-        if (from === ZERO_ADDRESS) minted.add(to.toLowerCase());
-        if (to === ZERO_ADDRESS) burned.add(from.toLowerCase());
+        if (from === ethers.ZeroAddress) minted.add(to.toLowerCase());
+        if (to === ethers.ZeroAddress) burned.add(from.toLowerCase());
       } else if (log.name === "VoteCast") {
         bump(log.args.voter, "votesSubmitted");
         const voterKey = log.args.voter.toLowerCase();
@@ -416,6 +436,31 @@ async function main() {
 
   const votedProposalsByVoterJson = Object.fromEntries([...votedProposalsByVoter].map(([addr, ids]) => [addr, [...ids]]));
 
+  // Write ordering, and what a crash between these two writes actually
+  // costs. `index` (what the front reads) goes out first, `state` (the
+  // cursor) second, and they are two separate HTTP POSTs — so a run can
+  // die in between. That is deliberate and safe, because each write is
+  // itself atomic (one setJSON) and reprocessing a block range is a no-op:
+  //   - `memberActivity` counters are rebuilt from the *persisted* state on
+  //     every run, so replaying a range re-increments up to the same total,
+  //     never past it;
+  //   - minted/burned/proposalIds/votedProposalsByVoter are Sets, re-adding
+  //     a known entry changes nothing.
+  // A crash after `index` only leaves the snapshot briefly ahead of the
+  // cursor; the next run rewrites both and the gap closes by itself.
+  //
+  // The one residue: Discord posts happen *during* the event loop above,
+  // i.e. before either write. A crash after a post but before `state` is
+  // saved means the next run reprocesses those events and posts them
+  // again — duplicate notifications, never duplicate data. Accepted as-is:
+  // the alternative (buffering messages until after `state` is written)
+  // trades a visible duplicate for a silently lost announcement, which is
+  // worse for a governance feed.
+  //
+  // Snapshot shape defined in front/src/daoSnapshot.ts (DaoSnapshot) — the
+  // front and the Netlify function type themselves against it, this script
+  // can't import it (plain JS), so any field added below has to be added
+  // there too, and in demo/actions.js's buildIndex.
   await saveJson("index", {
     updatedAt: new Date().toISOString(),
     lastBlock: toBlock.toString(),
@@ -445,6 +490,7 @@ async function main() {
   });
 
   await saveJson("state", {
+    chainId: CHAIN_ID,
     lastBlock: toBlock.toString(),
     minted: [...minted],
     burned: [...burned],

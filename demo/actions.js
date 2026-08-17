@@ -540,9 +540,12 @@ export async function lateWakeUp(ctx) {
   return "loup3 se réveille enfin — trop tard pour peser sur le vote déjà clos (le snapshot ne bouge plus rétroactivement).";
 }
 
-/** Overview (stats + proposals), same format as dao-sync on the Sepolia
- *  side — so the front can display local mode with the same code as prod
- *  mode, just a different source. */
+/** Overview (stats + proposals), same shape the real indexer publishes —
+ *  so the front can display local mode with the same code as prod mode,
+ *  just a different source. That shape is defined in
+ *  front/src/daoSnapshot.ts (DaoSnapshot); this file is plain JS and can't
+ *  import it, so any field added there has to be added here and in
+ *  scripts/sync-dao.js. */
 export async function buildIndex(ctx) {
   if (!ctx.provider) throw new Error("Pas encore connecté — clique sur Réinitialiser.");
   const founder = ctx.contracts.get(ctx.founder);
@@ -653,7 +656,7 @@ export async function buildIndex(ctx) {
       id: id.toString(),
       proposalType: Number(p.proposalType),
       target: p.target,
-      author: proposalAuthors[id] ?? "0x0000000000000000000000000000000000000000",
+      author: proposalAuthors[id] ?? ethers.ZeroAddress,
       deadline: p.deadline.toString(),
       activeSnapshot: Number(p.activeSnapshot),
       snapshotFrozen: p.snapshotFrozen,

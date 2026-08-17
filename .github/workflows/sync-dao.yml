@@ -19,10 +19,11 @@ on:
     - cron: "*/30 * * * *"
   workflow_dispatch:
 
-# false, not true: the job performs non-idempotent side effects (Discord
-# posts, two sequential non-atomic Netlify Blobs writes) — cancelling a
-# run mid-flight risks a corrupt/partial state, so an overlapping run
-# queues behind it instead of killing it.
+# false, not true: a run killed mid-flight can have posted to Discord
+# without having saved its cursor, and the next run would then re-announce
+# the same proposals (see the write-ordering comment in
+# scripts/sync-dao.js — the snapshot itself repairs, the Discord posts
+# don't). An overlapping run queues behind this one instead of killing it.
 concurrency:
   group: sync-dao
   cancel-in-progress: false

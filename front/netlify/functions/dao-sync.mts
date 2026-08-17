@@ -22,12 +22,14 @@
 //             shared snapshot reflects that action for everyone
 //             immediately, without waiting for the job's next pass (up to
 //             5 min). No secret required: the client never says "here's
-//             the value, write it", only "reread proposal #X" — the
-//             function itself reads the on-chain truth before writing,
-//             impossible to inject made-up data from the browser.
+//             the value, write it", only "reread proposal #X, here's the
+//             transaction that touched it" — every field written comes
+//             either from `proposal(id)` read on-chain or from the
+//             ProposalOpened log of that receipt, so nothing the browser
+//             sends ends up stored as-is.
 //
 // GET  ?key=state                       → internal state (x-sync-secret header required)
-// GET  ?key=discord-nonce&wallet=       → single-use token, prerequisite for ?key=governance (see below)
+// GET  ?key=discord-nonce&wallet=       → short-lived token, prerequisite for ?key=governance (see below)
 // POST ?key=governance                  → { wallet, signature, nonce } → { session, index, discordLinks },
 //                                          reserved to current members (card verified live on-chain
 //                                          on this call) — see the de-anonymization discussion in
@@ -38,12 +40,23 @@
 //                                          (no new signature as long as it's valid, ~30 min)
 // POST ?key=index|state                 → writes the JSON body (x-sync-secret header required) — used by
 //                                          the indexing job, never by the front
-// POST ?key=patch-proposal              → { proposalId, author } (no auth, but rate-limited)
+// POST ?key=patch-proposal              → { proposalId, txHash } (no auth, but rate-limited)
 
 import { getStore } from "@netlify/blobs";
-import { createPublicClient, http, isAddress, recoverMessageAddress, type Address, type Chain } from "viem";
+import {
+  createPublicClient,
+  http,
+  isAddress,
+  recoverMessageAddress,
+  zeroAddress,
+  type Address,
+  type Chain,
+  type PublicClient,
+} from "viem";
 import { sepolia, baseSepolia } from "viem/chains";
 import { CONTRACT_ABI, DEPLOYMENTS } from "../../src/contract.js";
+import { EMPTY_SNAPSHOT, type DaoSnapshot } from "../../src/daoSnapshot.js";
+import { authorFromLogs } from "./lib/proposalAuthor.js";
 import { createNonce, verifyNonce, createSession, verifySession, type NoncePurpose } from "./lib/tokens.js";
 
 const SYNC_SECRET = process.env.SYNC_SECRET;
@@ -52,10 +65,10 @@ const RPC_URL = process.env.RPC_URL;
 // Which real chain this function reads from — server-side counterpart of
 // the front's composables/chainMode.ts (this function is never involved
 // in local demo mode, see demo/server.mjs, so there's no third "local"
-// value here). Defaults to Sepolia (today's real deployment); nothing
-// sets CHAIN_ID=84532 in any deployed environment yet — see
-// docs/local/l2-migration-reflection.md for when that switch actually
-// flips.
+// value here). Production sets CHAIN_ID=84532 (Base Sepolia) and has done
+// since 2026-08-03 — see docs/local/l2-migration-reflection.md. The
+// Sepolia default is the rollback path, kept so an env var lost on Netlify
+// falls back to a chain that still has a live deployment.
 const CHAIN_ID = process.env.CHAIN_ID ? Number(process.env.CHAIN_ID) : 11155111;
 const CHAINS_BY_ID: Record<number, Chain> = { 11155111: sepolia, 84532: baseSepolia };
 const chain = CHAINS_BY_ID[CHAIN_ID] ?? sepolia;
@@ -68,34 +81,10 @@ const CONTRACT_ADDRESS = DEPLOYMENTS[CHAIN_ID]?.address ?? DEPLOYMENTS[11155111]
 // per proposal is itself stored in the blob.
 const PATCH_COOLDOWN_MS = 10_000;
 
-const DEFAULT_INDEX = {
-  updatedAt: null,
-  lastBlock: "0",
-  stats: {
-    treasuryWei: "0",
-    activeWolves: 0,
-    dormantWolves: 0,
-    cubs: 0,
-    votesCast: 0,
-    openProposals: 0,
-  },
-  config: {
-    feeWei: "0",
-    dormancyDelaySeconds: 0,
-    maxPostponements: 0,
-    voteDurationSeconds: 0,
-    now: 0,
-  },
-  proposals: [] as Record<string, unknown>[],
-  memberActivity: {},
-  votedProposalsByVoter: {} as Record<string, string[]>,
-  topDonors: [] as { address: string; total: string }[],
-  members: [] as { address: string; rank: number; dormant: boolean }[],
-};
-
 const DEFAULT_DISCORD_LINKS = {} as Record<string, { discordId: string; username: string; avatarUrl: string; linkedAt: string }>;
 
 const DEFAULT_STATE = {
+  chainId: null, // which chain the cursor below belongs to — see stateForChain in scripts/sync-dao.js
   lastBlock: null, // null = never run yet; sync-dao.js then falls back to CONTRACT_DEPLOY_BLOCK
   minted: [],
   burned: [],
@@ -106,25 +95,47 @@ const DEFAULT_STATE = {
   donations: {} as Record<string, string>,
 };
 
+/** Fetches the receipt of the transaction the client claims to have just
+ *  sent and pulls the author out of it (see lib/proposalAuthor.ts for why
+ *  the author can't simply be reread). Returns null on an unreachable or
+ *  unknown transaction — an unknown author is displayed as "unknown", the
+ *  next indexer pass fills it in. Scanning ProposalOpened logs by range
+ *  isn't an option here: the RPC plan caps eth_getLogs at 10 blocks (see
+ *  scripts/sync-dao.js). */
+async function readAuthorFromReceipt(client: PublicClient, txHash: `0x${string}`, proposalId: string): Promise<Address | null> {
+  try {
+    const receipt = await client.getTransactionReceipt({ hash: txHash });
+    return authorFromLogs(receipt.logs, proposalId, CONTRACT_ADDRESS);
+  } catch {
+    return null;
+  }
+}
+
 async function handlePatchProposal(req: Request): Promise<Response> {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
   if (!RPC_URL) return new Response("RPC_URL not configured on the server", { status: 500 });
 
-  const body = (await req.json()) as { proposalId?: string; author?: string };
+  const body = (await req.json()) as { proposalId?: string; txHash?: string };
   const proposalId = body.proposalId;
-  const author = body.author;
-  if (!proposalId || !/^\d+$/.test(proposalId) || !author || !isAddress(author)) {
-    return new Response("proposalId (integer) and author (address) required", { status: 400 });
+  const txHash = body.txHash;
+  if (!proposalId || !/^\d+$/.test(proposalId) || !txHash || !/^0x[0-9a-fA-F]{64}$/.test(txHash)) {
+    return new Response("proposalId (integer) and txHash (32-byte hash) required", { status: 400 });
   }
 
   const store = getStore("dao");
 
   const existing = await store.getWithMetadata("rate-limit", { type: "json" });
-  const rateLimits = (existing?.data ?? {}) as Record<string, number>;
-  const lastPatch = rateLimits[proposalId];
+  const storedRateLimits = (existing?.data ?? {}) as Record<string, number>;
+  const lastPatch = storedRateLimits[proposalId];
   if (lastPatch && Date.now() - lastPatch < PATCH_COOLDOWN_MS) {
     return new Response("Too many requests for this proposal, try again in a few seconds", { status: 429 });
   }
+  // Only timestamps that can still block a request are kept: an entry
+  // older than the cooldown is decorative, and one key per proposal, never
+  // removed, is an ever-growing blob for no reason.
+  const rateLimits = Object.fromEntries(
+    Object.entries(storedRateLimits).filter(([, timestamp]) => Date.now() - timestamp < PATCH_COOLDOWN_MS),
+  );
   rateLimits[proposalId] = Date.now();
   // Conditional write: if another concurrent request updated "rate-limit"
   // between our read and this write, `modified` comes back false — treat
@@ -158,7 +169,14 @@ async function handlePatchProposal(req: Request): Promise<Response> {
     reason: string;
   };
 
-  const index = ((await store.get("index", { type: "json" })) ?? DEFAULT_INDEX) as typeof DEFAULT_INDEX;
+  const index = ((await store.get("index", { type: "json" })) ?? EMPTY_SNAPSHOT) as DaoSnapshot;
+  const existingIndex = index.proposals.findIndex((existing) => existing.id === proposalId);
+  // A vote or an execution never re-emits ProposalOpened: for a proposal
+  // already in the snapshot the author is simply carried over, and the
+  // receipt is only read for the one call that follows an opening.
+  const knownAuthor = existingIndex >= 0 ? index.proposals[existingIndex].author : undefined;
+  const author = knownAuthor ?? (await readAuthorFromReceipt(client, txHash as `0x${string}`, proposalId)) ?? zeroAddress;
+
   const patched = {
     id: proposalId,
     proposalType: Number(p.proposalType),
@@ -175,7 +193,6 @@ async function handlePatchProposal(req: Request): Promise<Response> {
     reason: p.reason,
   };
 
-  const existingIndex = index.proposals.findIndex((existing) => existing.id === proposalId);
   const proposals =
     existingIndex >= 0
       ? index.proposals.map((existing, i) => (i === existingIndex ? patched : existing))
@@ -283,7 +300,7 @@ async function handleGovernance(req: Request): Promise<Response> {
 async function readIndexAndDiscordLinks() {
   const store = getStore("dao");
   return {
-    index: (await store.get("index", { type: "json" })) ?? DEFAULT_INDEX,
+    index: (await store.get("index", { type: "json" })) ?? EMPTY_SNAPSHOT,
     discordLinks: (await store.get("discord-links", { type: "json" })) ?? DEFAULT_DISCORD_LINKS,
   };
 }
@@ -331,7 +348,7 @@ export default async (req: Request) => {
 
   if (req.method === "GET") {
     const value = await store.get(key, { type: "json" });
-    return Response.json(value ?? (key === "index" ? DEFAULT_INDEX : DEFAULT_STATE));
+    return Response.json(value ?? (key === "index" ? EMPTY_SNAPSHOT : DEFAULT_STATE));
   }
 
   if (req.method === "POST") {

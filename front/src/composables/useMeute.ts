@@ -3,6 +3,7 @@ import type { Address } from "viem";
 import { useWallet } from "./useWallet";
 import { useDiscordLink, type DiscordLink } from "./useDiscordLink";
 import { isLocal } from "./chainMode";
+import type { DaoSnapshot } from "../daoSnapshot";
 // Direct `i18n.global.t` rather than `useI18n()`: this composable is also
 // invoked from useWallet.ts's connect()/accountsChanged handlers, outside
 // any component's setup() — `useI18n()` requires an active component
@@ -67,52 +68,11 @@ export interface DaoConfig {
   now: number;
 }
 
-interface DaoIndex {
-  stats: {
-    treasuryWei: string;
-    activeWolves: number;
-    dormantWolves: number;
-    cubs: number;
-    votesCast: number;
-    openProposals: number;
-  };
-  // Read live rather than hardcoded (see sync-dao.js's DORMANCY_DELAY
-  // comment) — GovernanceDao.vue reads these from here instead of
-  // live-calling the chain on every page mount, for every visitor.
-  config: {
-    feeWei: string;
-    dormancyDelaySeconds: number;
-    maxPostponements: number;
-    voteDurationSeconds: number;
-    now: number;
-  };
-  proposals: {
-    id: string;
-    proposalType: number;
-    target: Address;
-    author: Address;
-    deadline: string;
-    activeSnapshot: number;
-    snapshotFrozen: boolean;
-    executed: boolean;
-    approveVotes: number;
-    rejectVotes: number;
-    postponeVotes: number;
-    amount: string;
-    reason: string;
-  }[];
-  memberActivity: Record<string, { votesSubmitted: number; openProposals: number }>;
-  // _hasVoted is private on the contract (no getter) — rebuilt off-chain
-  // from VoteCast events by the indexer (scripts/sync-dao.js /
-  // demo/actions.js's buildIndex), same principle as memberActivity just
-  // above. Keyed by lowercased voter address, values are proposal ids.
-  votedProposalsByVoter: Record<string, string[]>;
-  topDonors: { address: Address; total: string }[];
-  members: { address: Address; rank: number; dormant: boolean }[];
-  // Only present on the ?key=index reread path (the ?key=governance
-  // response carries it as a sibling of `index`, not inside it).
-  discordLinks?: Record<string, DiscordLink>;
-}
+// The published snapshot, plus the one field the reread path bolts onto
+// it: `discordLinks` is only present on ?key=index (the ?key=governance
+// response carries it as a sibling of `index`, not inside it), so it isn't
+// part of what the indexer publishes — see daoSnapshot.ts.
+type DaoIndex = DaoSnapshot & { discordLinks?: Record<string, DiscordLink> };
 
 export interface Member {
   address: Address;
@@ -144,7 +104,7 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 
 // Locally (VITE_CHAIN=local), the overview comes from the demo panel
-// (demo/server.mjs) rather than dao-sync/Sepolia — same JSON format on
+// (demo/server.mjs) rather than the dao-sync function — same JSON format on
 // both sides, so only one line changes, not a second implementation.
 const NONCE_URL = isLocal ? "http://127.0.0.1:4100/discord/nonce" : "/.netlify/functions/dao-sync?key=discord-nonce";
 const GOVERNANCE_URL = isLocal
@@ -355,7 +315,7 @@ function resetSession() {
 }
 
 /** Proof of Meute membership: verifies the on-chain balance, signs a
- *  message containing a single-use nonce, then exchanges that proof for
+ *  message containing a short-lived nonce, then exchanges that proof for
  *  a session token and the full snapshot (proposals, members, donations,
  *  Discord identities). Does nothing noisy on failure (not a member,
  *  signature refused, network): the page simply stays in its
@@ -550,7 +510,7 @@ async function loadMyDonations(address: Address | null) {
 // component's onMounted `loadAll()` can run *before* the wallet address is
 // restored (useWallet.ts, tryRestoreConnection) and the stored session
 // reapplied, in which case `loadAll()`'s guard returns without fetching
-// and nothing else ever retries — permanently empty on Sepolia, papered
+// and nothing else ever retries — permanently empty against a real chain, papered
 // over locally by useLocalAutoRefresh's focus event. `stats === null`
 // keeps the common case (onMounted already fetched, or the verification
 // flow that populates the snapshot itself) from refetching.
