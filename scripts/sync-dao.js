@@ -434,6 +434,27 @@ async function main() {
 
   const votedProposalsByVoterJson = Object.fromEntries([...votedProposalsByVoter].map(([addr, ids]) => [addr, [...ids]]));
 
+  // Write ordering, and what a crash between these two writes actually
+  // costs. `index` (what the front reads) goes out first, `state` (the
+  // cursor) second, and they are two separate HTTP POSTs — so a run can
+  // die in between. That is deliberate and safe, because each write is
+  // itself atomic (one setJSON) and reprocessing a block range is a no-op:
+  //   - `memberActivity` counters are rebuilt from the *persisted* state on
+  //     every run, so replaying a range re-increments up to the same total,
+  //     never past it;
+  //   - minted/burned/proposalIds/votedProposalsByVoter are Sets, re-adding
+  //     a known entry changes nothing.
+  // A crash after `index` only leaves the snapshot briefly ahead of the
+  // cursor; the next run rewrites both and the gap closes by itself.
+  //
+  // The one residue: Discord posts happen *during* the event loop above,
+  // i.e. before either write. A crash after a post but before `state` is
+  // saved means the next run reprocesses those events and posts them
+  // again — duplicate notifications, never duplicate data. Accepted as-is:
+  // the alternative (buffering messages until after `state` is written)
+  // trades a visible duplicate for a silently lost announcement, which is
+  // worse for a governance feed.
+  //
   // Snapshot shape defined in front/src/daoSnapshot.ts (DaoSnapshot) — the
   // front and the Netlify function type themselves against it, this script
   // can't import it (plain JS), so any field added below has to be added
