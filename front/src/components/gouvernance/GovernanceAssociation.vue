@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { usePackSize } from "../../composables/usePackSize";
 
 const { t } = useI18n();
-const { totalWolves, totalCubs } = usePackSize();
 
 const discordInviteUrl = "https://discord.gg/Wy5rScG";
 
@@ -81,18 +79,20 @@ const legal = computed(() => [
       <div class="gv-info-card">
         <h3 class="gv-card-title">{{ t('association.packSizeTitle') }}</h3>
         <!--
-          Placeholder pending issue #99 (public totalWolves()/totalCubs()
-          getters, requires a contract change + redeploy — out of scope
-          here). Intentionally unwired: renders "—" rather than a guessed
-          number until usePackSize.ts has real data to return.
+          Deliberately not a live figure: the contract exposes no public
+          totalWolves()/totalCubs() getter (issue #99 — a Solidity change
+          plus a redeploy). "—" is rendered flat rather than through an
+          always-null composable, which only suggested a feature that
+          doesn't exist. The live pack figures are on the Meute tab, read
+          from the snapshot.
         -->
         <div class="gv-pack-size-tiles">
           <div class="gv-pack-size-tile">
-            <div class="gv-pack-size-value">{{ totalWolves ?? '—' }}</div>
+            <div class="gv-pack-size-value">—</div>
             <div class="gv-pack-size-label">{{ t('association.packSizeWolves') }}</div>
           </div>
           <div class="gv-pack-size-tile">
-            <div class="gv-pack-size-value">{{ totalCubs ?? '—' }}</div>
+            <div class="gv-pack-size-value">—</div>
             <div class="gv-pack-size-label">{{ t('association.packSizeCubs') }}</div>
           </div>
         </div>
