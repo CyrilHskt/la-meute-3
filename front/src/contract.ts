@@ -36,8 +36,8 @@ export const DEPLOYMENTS: Record<number, Deployment> = {
   // to "l2" anywhere yet) so the migration can be exercised end-to-end
   // before flipping the default over for real.
   84532: {
-    address: "0x093F99626181B7f83367AC2f3147ad824Fe152d8",
-    deployBlock: 44995155n,
+    address: "0x71D5E89D8295B933c140332fa056609A8dad2218",
+    deployBlock: 45591994n,
   },
 };
 
