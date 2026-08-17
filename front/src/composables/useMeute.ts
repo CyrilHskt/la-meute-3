@@ -59,6 +59,14 @@ export interface Donor {
   total: bigint;
 }
 
+export interface DaoConfig {
+  fee: bigint;
+  dormancyDelay: number;
+  maxPostponements: number;
+  voteDuration: number;
+  now: number;
+}
+
 interface DaoIndex {
   stats: {
     treasuryWei: string;
@@ -67,6 +75,16 @@ interface DaoIndex {
     cubs: number;
     votesCast: number;
     openProposals: number;
+  };
+  // Read live rather than hardcoded (see sync-dao.js's DORMANCY_DELAY
+  // comment) — GovernanceDao.vue reads these from here instead of
+  // live-calling the chain on every page mount, for every visitor.
+  config: {
+    feeWei: string;
+    dormancyDelaySeconds: number;
+    maxPostponements: number;
+    voteDurationSeconds: number;
+    now: number;
   };
   proposals: {
     id: string;
@@ -103,6 +121,7 @@ export interface Member {
 }
 
 const stats = ref<Stats | null>(null);
+const config = ref<DaoConfig | null>(null);
 const proposals = ref<Proposal[]>([]);
 const memberActivity = ref<Map<string, { votesSubmitted: number; openProposals: number }>>(new Map());
 const votedProposalsByVoter = ref<Map<string, Set<string>>>(new Map());
@@ -259,6 +278,13 @@ let loadAllRerun: Promise<void> | null = null;
 
 function applyIndex(index: DaoIndex) {
   stats.value = { ...index.stats, treasuryWei: BigInt(index.stats.treasuryWei) };
+  config.value = {
+    fee: BigInt(index.config.feeWei),
+    dormancyDelay: index.config.dormancyDelaySeconds,
+    maxPostponements: index.config.maxPostponements,
+    voteDuration: index.config.voteDurationSeconds,
+    now: index.config.now,
+  };
 
   proposals.value = index.proposals
     .map((p) => ({
@@ -316,6 +342,7 @@ function resetSession() {
   membershipError.value = null;
   session.value = null;
   stats.value = null;
+  config.value = null;
   proposals.value = [];
   memberActivity.value = new Map();
   votedProposalsByVoter.value = new Map();
@@ -534,6 +561,7 @@ watch(isAuthorized, (authorized) => {
 export function useMeute() {
   return {
     stats: readonly(stats),
+    config: readonly(config),
     proposals: readonly(proposals),
     memberActivity: readonly(memberActivity),
     hasVotedOn,

@@ -41,6 +41,7 @@ const {
 } = useWallet();
 const {
   stats,
+  config,
   proposals,
   memberActivity,
   hasVotedOn,
@@ -102,6 +103,21 @@ const maxPostponements = ref(2);
 // VOTE_DURATION` reliably derives the proposal's opening date without
 // needing to store it on-chain.
 const voteDuration = ref(7 * 24 * 60 * 60);
+
+// `config` (fee, DORMANCY_DELAY, MAX_POSTPONEMENTS, VOTE_DURATION, and the
+// chain's current timestamp) comes from the snapshot (useMeute.ts,
+// sync-dao.js's multicall) instead of a live RPC read on every page
+// mount — the previous version called the chain 5 times per visitor, on
+// every single page load, independent of any actual DAO activity. Left
+// at their defaults above until the first snapshot loads.
+function applyConfigFromSnapshot() {
+  if (!config.value) return;
+  fee.value = config.value.fee;
+  dormancyDelay.value = config.value.dormancyDelay;
+  maxPostponements.value = config.value.maxPostponements;
+  voteDuration.value = config.value.voteDuration;
+  now.value = config.value.now;
+}
 
 const myDiscord = computed(() => discordLinkFor(address.value));
 
@@ -165,11 +181,7 @@ onMounted(async () => {
   // otherwise be read against the stale pre-sync address.
   await ensureContractAddressSynced();
   await loadAll();
-  fee.value = (await readOnlyContract().read.fee()) as bigint;
-  dormancyDelay.value = Number((await readOnlyContract().read.DORMANCY_DELAY()) as bigint);
-  maxPostponements.value = Number(await readOnlyContract().read.MAX_POSTPONEMENTS());
-  voteDuration.value = Number((await readOnlyContract().read.VOTE_DURATION()) as bigint);
-  now.value = Number((await publicClient.getBlock()).timestamp);
+  applyConfigFromSnapshot();
 
   const discordResult = consumeDiscordCallbackParam();
   if (discordResult === "linked") showToast(t('governance.dao.discordLinked'));
@@ -194,7 +206,7 @@ onMounted(async () => {
 // had actually become active again in the meantime).
 useLocalAutoRefresh(async () => {
   await loadAll();
-  now.value = Number((await publicClient.getBlock()).timestamp);
+  applyConfigFromSnapshot();
   await refreshMembership();
   await loadBalance();
   await loadMyDonations(address.value);

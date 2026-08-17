@@ -324,6 +324,27 @@ async function main() {
       allowFailure: false,
       callData: contract.interface.encodeFunctionData("DORMANCY_DELAY", []),
     },
+    // Same reasoning as DORMANCY_DELAY just above — batched here at zero
+    // extra RPC cost so the front (GovernanceDao.vue) can read all four
+    // from the snapshot instead of live-calling the chain on every page
+    // mount, for every visitor (traffic-driven, not activity-driven —
+    // this is what actually burned through Alchemy's throughput, not the
+    // cron itself).
+    {
+      target: CONTRACT_ADDRESS,
+      allowFailure: false,
+      callData: contract.interface.encodeFunctionData("fee", []),
+    },
+    {
+      target: CONTRACT_ADDRESS,
+      allowFailure: false,
+      callData: contract.interface.encodeFunctionData("MAX_POSTPONEMENTS", []),
+    },
+    {
+      target: CONTRACT_ADDRESS,
+      allowFailure: false,
+      callData: contract.interface.encodeFunctionData("VOTE_DURATION", []),
+    },
     {
       target: MULTICALL3_ADDRESS,
       allowFailure: false,
@@ -344,6 +365,9 @@ async function main() {
   cursor += proposalIdList.length;
   const activeWolvesCount = contract.interface.decodeFunctionResult("activeWolves", results[cursor++].returnData)[0];
   const dormancyDelay = contract.interface.decodeFunctionResult("DORMANCY_DELAY", results[cursor++].returnData)[0];
+  const fee = contract.interface.decodeFunctionResult("fee", results[cursor++].returnData)[0];
+  const maxPostponements = contract.interface.decodeFunctionResult("MAX_POSTPONEMENTS", results[cursor++].returnData)[0];
+  const voteDuration = contract.interface.decodeFunctionResult("VOTE_DURATION", results[cursor++].returnData)[0];
   const treasuryWei = multicall.interface.decodeFunctionResult("getEthBalance", results[cursor++].returnData)[0];
   const now = Number(multicall.interface.decodeFunctionResult("getCurrentBlockTimestamp", results[cursor++].returnData)[0]);
 
@@ -402,6 +426,16 @@ async function main() {
       cubs,
       votesCast,
       openProposals,
+    },
+    // Read live rather than hardcoded (see DORMANCY_DELAY comment above) —
+    // GovernanceDao.vue reads these from here instead of live-calling the
+    // chain on every page mount.
+    config: {
+      feeWei: fee.toString(),
+      dormancyDelaySeconds: Number(dormancyDelay),
+      maxPostponements: Number(maxPostponements),
+      voteDurationSeconds: Number(voteDuration),
+      now,
     },
     proposals,
     memberActivity,
