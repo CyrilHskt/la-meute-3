@@ -2,14 +2,12 @@ import { ref, type Ref } from "vue";
 import { decodeEventLog, type Address, type Log, type PublicClient } from "viem";
 import { CONTRACT_ABI } from "../contract";
 import { friendlyContractError } from "./contractErrors";
-import type { Proposal } from "./useMeute";
 
 /** Runs a proposal-affecting transaction (create/vote/execute) and keeps the
  *  local + shared (Netlify Blobs) snapshots in sync afterward. See
  *  netlify/functions/dao-sync.mts for the shared-snapshot side. */
 export function useProposalTx(deps: {
   publicClient: PublicClient;
-  proposals: Readonly<Ref<readonly Proposal[]>>;
   refreshProposal: (id: bigint, author?: Address) => Promise<unknown>;
   loadAll: () => Promise<unknown>;
   refreshMembership: () => Promise<unknown>;
@@ -52,14 +50,16 @@ export function useProposalTx(deps: {
   // (up to 5 min). Never blocks the local display nor fails the transaction
   // if this call fails — the fallback job will catch up eventually anyway.
   // See netlify/functions/dao-sync.mts.
-  async function patchProposalRemote(id: bigint) {
-    const p = deps.proposals.value.find((existing) => existing.id === id);
-    if (!p) return;
+  // The transaction hash is sent rather than the author: the function
+  // rereads the proposal on-chain and, when this transaction is the one
+  // that opened it, decodes the author from its own ProposalOpened log —
+  // an author sent by the browser would be an unverifiable claim.
+  async function patchProposalRemote(id: bigint, txHash: `0x${string}`) {
     try {
       await fetch("/.netlify/functions/dao-sync?key=patch-proposal", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ proposalId: id.toString(), author: p.author }),
+        body: JSON.stringify({ proposalId: id.toString(), txHash }),
       });
     } catch {
       // Best-effort — see comment above.
@@ -94,7 +94,7 @@ export function useProposalTx(deps: {
         deps.loadBalance(),
         deps.loadMyDonations(deps.address.value),
       ]);
-      if (affectedId !== undefined) await patchProposalRemote(affectedId);
+      if (affectedId !== undefined) await patchProposalRemote(affectedId, hash);
       deps.now.value = Number((await deps.publicClient.getBlock()).timestamp);
       deps.showToast(successMessage);
     } catch (e) {

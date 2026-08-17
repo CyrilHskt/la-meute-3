@@ -301,7 +301,6 @@ async function refreshMembership() {
 
 const { txError, txPending, runTx } = useProposalTx({
   publicClient,
-  proposals,
   refreshProposal,
   loadAll,
   refreshMembership,
