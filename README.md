@@ -9,14 +9,14 @@
 </p>
 
 <p align="center">
-  <kbd>Solidity 0.8.28</kbd> · <kbd>Hardhat 3</kbd> · <kbd>Vue 3</kbd> · <kbd>viem</kbd> · <kbd>Sepolia</kbd>
+  <kbd>Solidity 0.8.28</kbd> · <kbd>Hardhat 3</kbd> · <kbd>Vue 3</kbd> · <kbd>viem</kbd> · <kbd>Base Sepolia</kbd>
 </p>
 
 <p align="center">
   <a href="https://github.com/CyrilHskt/la-meute-3/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/CyrilHskt/la-meute-3/actions/workflows/ci.yml/badge.svg?branch=main" /></a>
   <img alt="contract version" src="https://img.shields.io/github/v/tag/CyrilHskt/la-meute-3?filter=contract-v*&label=contract&color=5319e7" />
   <img alt="front version" src="https://img.shields.io/github/v/tag/CyrilHskt/la-meute-3?filter=front-v*&label=front&color=1d76db" />
-  <img alt="network" src="https://img.shields.io/badge/network-Sepolia_testnet-8a2be2" />
+  <img alt="network" src="https://img.shields.io/badge/network-Base_Sepolia_testnet-8a2be2" />
   <img alt="made in France" src="https://img.shields.io/badge/made%20in-France-EF4135?labelColor=0055A4" />
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-yellow" /></a>
 </p>
@@ -84,7 +84,9 @@ are moved on-chain.
 ## 🧱 Stack
 
 Solidity 0.8.28 · Hardhat 3 · OpenZeppelin 5.6 · Vue 3 · TypeScript · viem
-Deployed via Hardhat Ignition on a public testnet (Sepolia). No real ETH involved.
+Deployed via Hardhat Ignition on Base Sepolia, an Ethereum L2 testnet — the
+production network since 2026-08-03. The original Sepolia (L1) deployment is
+still live and kept as a rollback target. No real ETH involved either way.
 
 ## ⚙️ Commands
 
@@ -92,9 +94,13 @@ Deployed via Hardhat Ignition on a public testnet (Sepolia). No real ETH involve
 
 ```shell
 npx hardhat test            # all tests
-npx hardhat test solidity   # Solidity unit tests
-npx hardhat test mocha      # TypeScript integration tests
+npx hardhat test mocha      # the whole suite — test/Meute.ts, 73 cases
 ```
+
+The suite is written in TypeScript. `contracts/test/` only holds helper
+contracts used *by* those tests (`RejectEther.sol`,
+`ReentrantExpenseBeneficiary.sol`), not `*.t.sol` unit tests — so
+`npx hardhat test solidity` would run nothing.
 
 ### Deployment
 
@@ -104,11 +110,16 @@ On a local simulated chain:
 npx hardhat ignition deploy ignition/modules/<Module>.ts
 ```
 
-On Sepolia, you need an account funded with test ETH. The private key is read from
-the `SEPOLIA_PRIVATE_KEY` configuration variable, set via the `hardhat-keystore`
-plugin (it's never written in plaintext to the repo):
+On a public testnet, you need an account funded with test ETH. The private key
+is read from a configuration variable set via the `hardhat-keystore` plugin
+(it's never written in plaintext to the repo):
 
 ```shell
+# Base Sepolia — the production network
+npx hardhat keystore set BASE_SEPOLIA_PRIVATE_KEY
+npx hardhat ignition deploy --network baseSepolia ignition/modules/<Module>.ts
+
+# Sepolia (L1) — kept as the rollback target
 npx hardhat keystore set SEPOLIA_PRIVATE_KEY
 npx hardhat ignition deploy --network sepolia ignition/modules/<Module>.ts
 ```

@@ -104,7 +104,7 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 
 // Locally (VITE_CHAIN=local), the overview comes from the demo panel
-// (demo/server.mjs) rather than dao-sync/Sepolia — same JSON format on
+// (demo/server.mjs) rather than the dao-sync function — same JSON format on
 // both sides, so only one line changes, not a second implementation.
 const NONCE_URL = isLocal ? "http://127.0.0.1:4100/discord/nonce" : "/.netlify/functions/dao-sync?key=discord-nonce";
 const GOVERNANCE_URL = isLocal
@@ -510,7 +510,7 @@ async function loadMyDonations(address: Address | null) {
 // component's onMounted `loadAll()` can run *before* the wallet address is
 // restored (useWallet.ts, tryRestoreConnection) and the stored session
 // reapplied, in which case `loadAll()`'s guard returns without fetching
-// and nothing else ever retries — permanently empty on Sepolia, papered
+// and nothing else ever retries — permanently empty against a real chain, papered
 // over locally by useLocalAutoRefresh's focus event. `stats === null`
 // keeps the common case (onMounted already fetched, or the verification
 // flow that populates the snapshot itself) from refetching.

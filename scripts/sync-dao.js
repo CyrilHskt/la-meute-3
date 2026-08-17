@@ -25,9 +25,11 @@
 //   SYNC_SECRET           — secret shared with that function
 // Optional:
 //   CHAIN_ID              — which entry of front/src/contract-meta.json's
-//                           `deployments` map to use (defaults to Sepolia,
-//                           11155111 — see docs/local/l2-migration-reflection.md
-//                           for the L2 migration this exists for)
+//                           `deployments` map to use. The cron passes
+//                           84532 (Base Sepolia), what production has run
+//                           on since 2026-08-03; the 11155111 (Sepolia)
+//                           default is the rollback path — see
+//                           docs/local/l2-migration-reflection.md
 //   CONTRACT_ADDRESS      — overrides the address read from
 //                           front/src/contract-meta.json (generated from
 //                           front/src/contract.ts via
