@@ -29,7 +29,7 @@
 //             sends ends up stored as-is.
 //
 // GET  ?key=state                       → internal state (x-sync-secret header required)
-// GET  ?key=discord-nonce&wallet=       → single-use token, prerequisite for ?key=governance (see below)
+// GET  ?key=discord-nonce&wallet=       → short-lived token, prerequisite for ?key=governance (see below)
 // POST ?key=governance                  → { wallet, signature, nonce } → { session, index, discordLinks },
 //                                          reserved to current members (card verified live on-chain
 //                                          on this call) — see the de-anonymization discussion in

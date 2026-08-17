@@ -31,7 +31,17 @@ function createToken(data: Record<string, unknown>): string {
  *  signature), that it hasn't expired, and that it matches the wallet
  *  using it — without needing to store it anywhere (no Blobs for this,
  *  just a self-verifying signature, same principle as `state` in
- *  discord-link.mts). */
+ *  discord-link.mts).
+ *
+ *  Storing nothing means consuming nothing: these tokens are short-lived,
+ *  NOT single-use — a nonce and the signature made over it stay valid for
+ *  their whole TTL, however many times they're replayed. That's the
+ *  accepted trade-off, since every use is already bound to a wallet whose
+ *  signature the replayer had to obtain in the first place: replaying a
+ *  membership proof only opens a session for a wallet one already
+ *  controls, and replaying an unlink is idempotent. Real single use would
+ *  mean persisting consumed tokens (Blobs), which this deliberately
+ *  avoids. */
 function verifyToken(token: string, wallet: string, maxAgeMs: number): Record<string, unknown> | false {
   const [payload, sig] = (token ?? "").split(".");
   if (!payload || !sig) return false;

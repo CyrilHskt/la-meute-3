@@ -315,7 +315,7 @@ function resetSession() {
 }
 
 /** Proof of Meute membership: verifies the on-chain balance, signs a
- *  message containing a single-use nonce, then exchanges that proof for
+ *  message containing a short-lived nonce, then exchanges that proof for
  *  a session token and the full snapshot (proposals, members, donations,
  *  Discord identities). Does nothing noisy on failure (not a member,
  *  signature refused, network): the page simply stays in its
