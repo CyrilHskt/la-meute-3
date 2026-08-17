@@ -197,6 +197,17 @@ async function main() {
   // put it back into the snapshot on every refresh.
   const proposalAuthors = state.proposalAuthors ?? {};
   const memberActivity = state.memberActivity ?? {};
+  // _hasVoted is private on the contract (no getter) — "did this member
+  // already vote on this proposal" is rebuilt here from VoteCast events,
+  // same principle as everything else in this function, so the front
+  // never has to scan eth_getLogs itself (see GovernanceDao.vue's
+  // loadMyVotedProposals). Kept as Set<string> per voter while scanning:
+  // a Set makes replaying an already-processed block range (the known
+  // index-before-state write-ordering issue below) naturally idempotent —
+  // re-adding an already-known proposalId is a no-op, never a duplicate.
+  const votedProposalsByVoter = new Map(
+    Object.entries(state.votedProposalsByVoter ?? {}).map(([addr, ids]) => [addr, new Set(ids)]),
+  );
   // The contract only accumulates totalDonations[address] (O(1) read, see
   // Meute.sol) — the leaderboard is built here, off-chain, never through
   // an on-chain loop over an unbounded number of donors.
@@ -231,6 +242,9 @@ async function main() {
         if (to === ZERO_ADDRESS) burned.add(from.toLowerCase());
       } else if (log.name === "VoteCast") {
         bump(log.args.voter, "votesSubmitted");
+        const voterKey = log.args.voter.toLowerCase();
+        if (!votedProposalsByVoter.has(voterKey)) votedProposalsByVoter.set(voterKey, new Set());
+        votedProposalsByVoter.get(voterKey).add(log.args.proposalId.toString());
       } else if (log.name === "DonationReceived") {
         const { donor, amount, totalDonated } = log.args;
         // totalDonated comes directly from the contract (totalDonations):
@@ -370,6 +384,8 @@ async function main() {
     .sort((a, b) => (BigInt(a.total) < BigInt(b.total) ? 1 : -1))
     .slice(0, 20);
 
+  const votedProposalsByVoterJson = Object.fromEntries([...votedProposalsByVoter].map(([addr, ids]) => [addr, [...ids]]));
+
   await saveJson("index", {
     updatedAt: new Date().toISOString(),
     lastBlock: toBlock.toString(),
@@ -383,6 +399,7 @@ async function main() {
     },
     proposals,
     memberActivity,
+    votedProposalsByVoter: votedProposalsByVoterJson,
     topDonors,
     members,
   });
@@ -394,6 +411,7 @@ async function main() {
     proposalIds: [...proposalIds],
     proposalAuthors,
     memberActivity,
+    votedProposalsByVoter: votedProposalsByVoterJson,
     donations,
   });
   console.log(`State and snapshot up to date (Netlify Blobs): last block processed ${toBlock}.`);
