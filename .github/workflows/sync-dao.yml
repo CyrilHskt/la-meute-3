@@ -2,15 +2,30 @@ name: Sync DAO
 
 on:
   schedule:
-    # Every 5 minutes (the minimum GitHub Actions allows) — acts as a
-    # safety net: most actions are already reflected immediately via
-    # ?key=patch-proposal (netlify/functions/dao-sync.mts), this cron just
-    # catches up on the rest (global stats, cases where the immediate
-    # patch failed). The actual frequency can vary a bit depending on
-    # GitHub's load, but the persisted state (last processed block)
-    # guarantees no event is ever missed or processed twice.
-    - cron: "*/5 * * * *"
+    # Every 30 minutes — acts as a safety net: most actions are already
+    # reflected immediately via ?key=patch-proposal
+    # (netlify/functions/dao-sync.mts), this cron just catches up on the
+    # rest (global stats, cases where the immediate patch failed). The
+    # actual frequency can vary a bit depending on GitHub's load, but the
+    # persisted state (last processed block) guarantees no event is ever
+    # missed or processed twice.
+    # Was every 5 minutes (288 runs/day): each run unconditionally
+    # re-reads every member's card and every proposal (see
+    # scripts/sync-dao.js), so the full-refresh cost scales with both run
+    # count AND pack size — that combination burned through Alchemy's
+    # free-tier monthly compute units well before month's end. 30 minutes
+    # (48 runs/day) plus batching those reads into one multicall keeps
+    # this sustainable.
+    - cron: "*/30 * * * *"
   workflow_dispatch:
+
+# false, not true: the job performs non-idempotent side effects (Discord
+# posts, two sequential non-atomic Netlify Blobs writes) — cancelling a
+# run mid-flight risks a corrupt/partial state, so an overlapping run
+# queues behind it instead of killing it.
+concurrency:
+  group: sync-dao
+  cancel-in-progress: false
 
 jobs:
   sync:
