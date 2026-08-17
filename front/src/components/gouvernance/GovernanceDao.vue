@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useLocale } from "../../composables/useLocale";
 import { useGuidedTour } from "../../composables/useGuidedTour";
-import { formatEther, parseEther, type Address } from "viem";
+import { formatEther, parseEther, zeroAddress, type Address } from "viem";
 import { driver } from "driver.js";
 import { useWallet } from "../../composables/useWallet";
 import { useMeute, ProposalType, type Proposal } from "../../composables/useMeute";
@@ -342,8 +342,6 @@ function toPickerOption(addr: string) {
 // from everything the front has already seen. Confirm/Exclude have their
 // own dedicated page ("Members" tab): those always target an existing
 // member, better suited to a browsable list than a field to search in.
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-
 const knownBeneficiaries = computed(() => {
   const addrs = new Set<string>([
     ...members.value.map((m) => m.address),
@@ -351,7 +349,7 @@ const knownBeneficiaries = computed(() => {
     ...proposals.value.flatMap((p) => [p.author, p.target]),
     ...topDonors.value.map((d) => d.address),
   ]);
-  addrs.delete(ZERO_ADDRESS);
+  addrs.delete(zeroAddress);
   return [...addrs].map(toPickerOption);
 });
 

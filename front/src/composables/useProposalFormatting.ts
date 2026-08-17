@@ -1,9 +1,8 @@
 import { computed } from "vue";
+import { zeroAddress } from "viem";
 import { ProposalType, type Proposal } from "./useMeute";
 
 type Translate = (key: string, params?: Record<string, unknown>) => string;
-
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 // Two conditions, like in the contract (Meute.sol, _isPassed): a
 // participation quorum (75% of the active Wolves at snapshot time must
@@ -33,7 +32,7 @@ export function useProposalFormatting(t: Translate) {
   // without local history) falls back to the zero address, no point
   // displaying "opened by 0x000...000".
   function authorKnown(p: Proposal): boolean {
-    return p.author.toLowerCase() !== ZERO_ADDRESS;
+    return p.author.toLowerCase() !== zeroAddress;
   }
 
   function proposalPrefix(p: Proposal): string {

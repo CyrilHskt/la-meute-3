@@ -44,7 +44,6 @@ import meta from "../front/src/contract-meta.json" with { type: "json" };
 // compute-units/second throughput (429 error even sequentially with no
 // delay).
 const BLOCK_RANGE = 9n; // fromBlock..fromBlock+9 = 10 blocks inclusive
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 // Deployed at this same address via a deterministic (Nick's method)
 // deployer on virtually every EVM chain, including Base Sepolia — see
@@ -261,8 +260,8 @@ async function main() {
     for (const log of decoded) {
       if (log.name === "Transfer") {
         const { from, to } = log.args;
-        if (from === ZERO_ADDRESS) minted.add(to.toLowerCase());
-        if (to === ZERO_ADDRESS) burned.add(from.toLowerCase());
+        if (from === ethers.ZeroAddress) minted.add(to.toLowerCase());
+        if (to === ethers.ZeroAddress) burned.add(from.toLowerCase());
       } else if (log.name === "VoteCast") {
         bump(log.args.voter, "votesSubmitted");
         const voterKey = log.args.voter.toLowerCase();

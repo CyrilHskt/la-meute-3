@@ -656,7 +656,7 @@ export async function buildIndex(ctx) {
       id: id.toString(),
       proposalType: Number(p.proposalType),
       target: p.target,
-      author: proposalAuthors[id] ?? "0x0000000000000000000000000000000000000000",
+      author: proposalAuthors[id] ?? ethers.ZeroAddress,
       deadline: p.deadline.toString(),
       activeSnapshot: Number(p.activeSnapshot),
       snapshotFrozen: p.snapshotFrozen,
