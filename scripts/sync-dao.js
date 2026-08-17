@@ -87,8 +87,14 @@ async function loadState() {
   if (!res.ok) throw new Error(`Failed to read state (HTTP ${res.status})`);
   const state = await res.json();
   // `lastBlock: null` = never run yet (the function's default value) — we
-  // then start from the deployment block, instead of trying `BigInt(null)`.
-  return state.lastBlock == null ? { ...state, lastBlock: DEPLOY_BLOCK.toString() } : state;
+  // then start from one block before deployment, instead of trying
+  // `BigInt(null)`. One before, not at, DEPLOY_BLOCK itself: `fromBlock`
+  // below is always `lastBlock + 1`, and the constructor's founder
+  // mint(s) — a Transfer event — happen in the same transaction as the
+  // deployment, i.e. in DEPLOY_BLOCK itself. Starting at DEPLOY_BLOCK
+  // would skip that block and silently lose the founder's own mint (only
+  // visible once activeWolves() and the members list disagree).
+  return state.lastBlock == null ? { ...state, lastBlock: (DEPLOY_BLOCK - 1n).toString() } : state;
 }
 
 async function saveJson(key, value) {
