@@ -79,13 +79,30 @@ const TYPE_LABELS = ["Admission", "Confirmation", "Exclusion", "Expense"];
 const Rank = { Cub: 0, Wolf: 1 };
 const VoteChoice = { Approve: 0, Reject: 1, Postpone: 2 };
 
+// Everything in the state is chain-specific: block cursor, but also the
+// members/proposals/donations accumulated on that chain. Reusing it across
+// chains would be silently wrong, and a cursor left on the other chain's
+// block height either rescans tens of millions of blocks (10 at a time —
+// guaranteed CI timeout) or skips every past event. Only the migration
+// itself hits this, but nothing in the code used to notice it: the L2
+// switch was handled by manually clearing the blob.
+//
+// A state written before this field existed is adopted as-is rather than
+// discarded: the only such blob in existence is the current chain's, and
+// wiping it would trigger a pointless full rescan.
+function stateForChain(state) {
+  if (state.chainId == null || String(state.chainId) === CHAIN_ID) return { ...state, chainId: CHAIN_ID };
+  console.log(`State belongs to chain ${state.chainId}, now running on ${CHAIN_ID} — starting over from the deployment block.`);
+  return { chainId: CHAIN_ID, lastBlock: null };
+}
+
 async function loadState() {
   const res = await fetch(`${SYNC_ENDPOINT}?key=state`, {
     headers: { "x-sync-secret": SYNC_SECRET },
     signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) throw new Error(`Failed to read state (HTTP ${res.status})`);
-  const state = await res.json();
+  const state = stateForChain(await res.json());
   // `lastBlock: null` = never run yet (the function's default value) — we
   // then start from one block before deployment, instead of trying
   // `BigInt(null)`. One before, not at, DEPLOY_BLOCK itself: `fromBlock`
@@ -449,6 +466,7 @@ async function main() {
   });
 
   await saveJson("state", {
+    chainId: CHAIN_ID,
     lastBlock: toBlock.toString(),
     minted: [...minted],
     burned: [...burned],

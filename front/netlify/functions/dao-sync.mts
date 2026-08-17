@@ -84,6 +84,7 @@ const PATCH_COOLDOWN_MS = 10_000;
 const DEFAULT_DISCORD_LINKS = {} as Record<string, { discordId: string; username: string; avatarUrl: string; linkedAt: string }>;
 
 const DEFAULT_STATE = {
+  chainId: null, // which chain the cursor below belongs to — see stateForChain in scripts/sync-dao.js
   lastBlock: null, // null = never run yet; sync-dao.js then falls back to CONTRACT_DEPLOY_BLOCK
   minted: [],
   burned: [],
