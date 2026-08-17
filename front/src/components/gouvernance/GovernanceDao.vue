@@ -37,14 +37,14 @@ const {
   publicClient,
   restoreConnectionPromise,
   ensureContractAddressSynced,
-  isLocal,
-  contractDeployBlock,
   activeChain,
 } = useWallet();
 const {
   stats,
   proposals,
   memberActivity,
+  hasVotedOn,
+  recordLocalVote,
   topDonors,
   members,
   myDonations,
@@ -136,29 +136,16 @@ watch(proposals, loadConfirmationPostponements, { immediate: true });
 // `_hasVoted` is private in the contract (no getter) — the vote/reject/
 // postpone buttons must still gray out once the connected wallet has
 // already voted, to avoid sending it into a guaranteed AlreadyVoted
-// revert. VoteCast is indexed on `voter`, so a single filtered log query
-// gets every proposal this address has voted on, without one read per
-// proposal (Meute.sol, VoteCast, line ~216).
-const myVotedProposalIds = ref<Set<string>>(new Set());
-async function loadMyVotedProposals() {
-  if (!address.value) {
-    myVotedProposalIds.value = new Set();
-    return;
-  }
-  // contractDeployBlock resolves to the active remote chain's real
-  // deployment block (DEPLOYMENTS in contract.ts) — on the local demo
-  // chain the contract redeploys fresh every reset at a near-zero block
-  // height, so using that same value as `fromBlock` there would silently
-  // return zero logs (the bug this fixes: every vote looked like it had
-  // never happened, on local demo specifically).
-  const logs = await readOnlyContract().getEvents.VoteCast(
-    { voter: address.value },
-    { fromBlock: isLocal ? 0n : contractDeployBlock },
-  );
-  myVotedProposalIds.value = new Set(logs.map((log) => log.args.proposalId!.toString()));
-}
+// revert. Rebuilt off-chain from VoteCast events by the indexer
+// (scripts/sync-dao.js) and read straight from the snapshot — this used
+// to be a live eth_getLogs scan here, but Alchemy's free plan caps that at
+// 10 blocks/request, and on Base's ~2s block time that range was blown
+// within seconds of a redeploy, taking the whole onMounted() down with it
+// (nothing after it ever ran: fee, DORMANCY_DELAY, etc.), which looked
+// like the wallet connection itself was broken. See useMeute.ts's
+// hasVotedOn/recordLocalVote for the snapshot + optimistic-local merge.
 function hasVoted(p: Proposal): boolean {
-  return myVotedProposalIds.value.has(p.id.toString());
+  return hasVotedOn(address.value, p.id);
 }
 
 // For the applicant checklist ("have {network} ETH" step) — the wallet's
@@ -178,7 +165,6 @@ onMounted(async () => {
   // otherwise be read against the stale pre-sync address.
   await ensureContractAddressSynced();
   await loadAll();
-  await loadMyVotedProposals();
   fee.value = (await readOnlyContract().read.fee()) as bigint;
   dormancyDelay.value = Number((await readOnlyContract().read.DORMANCY_DELAY()) as bigint);
   maxPostponements.value = Number(await readOnlyContract().read.MAX_POSTPONEMENTS());
@@ -252,7 +238,6 @@ watch(
     void refreshMembership().catch((e) => console.error("refreshMembership failed", e));
     void loadBalance().catch((e) => console.error("loadBalance failed", e));
     void loadMyDonations(address.value).catch((e) => console.error("loadMyDonations failed", e));
-    void loadMyVotedProposals().catch((e) => console.error("loadMyVotedProposals failed", e));
   },
   { immediate: true },
 );
@@ -392,7 +377,7 @@ async function vote(id: bigint, choice: number) {
   );
   if (!txError.value) {
     await invalidatePostponements(id);
-    await loadMyVotedProposals();
+    recordLocalVote(id);
   }
 }
 async function execute(id: bigint) {

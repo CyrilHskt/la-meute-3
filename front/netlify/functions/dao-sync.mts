@@ -81,6 +81,7 @@ const DEFAULT_INDEX = {
   },
   proposals: [] as Record<string, unknown>[],
   memberActivity: {},
+  votedProposalsByVoter: {} as Record<string, string[]>,
   topDonors: [] as { address: string; total: string }[],
   members: [] as { address: string; rank: number; dormant: boolean }[],
 };
@@ -94,6 +95,7 @@ const DEFAULT_STATE = {
   proposalIds: [],
   proposalAuthors: {},
   memberActivity: {},
+  votedProposalsByVoter: {} as Record<string, string[]>,
   donations: {} as Record<string, string>,
 };
 
