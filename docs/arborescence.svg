@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 720" width="920" height="720" font-family="Inter,Helvetica,Arial,sans-serif">
 <rect width="920" height="720" fill="#f5f0ea"/>
-<text x="30" y="38" font-size="21" font-weight="600" fill="#1b1a18">La Meute 3.0 — arborescence de l'application</text>
+<text x="30" y="38" font-size="21" font-weight="600" fill="#1b1a18">La Meute 3.0 — application tree</text>
 <line x1="30" y1="52" x2="890" y2="52" stroke="#1b1a18" stroke-width="2"/>
-<text x="30" y="74" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" font-weight="600" fill="#a34a20" text-anchor="start" letter-spacing="0.08em">DEUX ROUTES, UN ONGLET DANS L'URL — TOUT LE RESTE EST DE L'ÉTAT LOCAL</text>
+<text x="30" y="74" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" font-weight="600" fill="#a34a20" text-anchor="start" letter-spacing="0.08em">TWO ROUTES, ONE TAB IN THE URL — EVERYTHING ELSE IS LOCAL STATE</text>
 <rect x="30" y="92" width="250" height="42" fill="#eae3d8" stroke="#c9c0b3"/>
 <rect x="30" y="92" width="3" height="42" fill="#3f7d4a"/>
 <text x="42" y="111" font-size="13" font-weight="600" fill="#1b1a18">/</text>
@@ -10,46 +10,46 @@
 <rect x="30" y="152" width="250" height="42" fill="#eae3d8" stroke="#c9c0b3"/>
 <rect x="30" y="152" width="3" height="42" fill="#a34a20"/>
 <text x="42" y="171" font-size="13" font-weight="600" fill="#1b1a18">/gouvernance</text>
-<text x="42" y="188" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">Dashboard.vue · ?tab= dans l'URL</text>
+<text x="42" y="188" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">Dashboard.vue · ?tab= in the URL</text>
 <line x1="155" y1="134" x2="155" y2="152" stroke="#4a4a48" stroke-width="1.3"/>
 <rect x="120" y="230" width="300" height="46" fill="#eae3d8" stroke="#c9c0b3"/>
 <rect x="120" y="230" width="3" height="46" fill="#3f7d4a"/>
-<text x="132" y="249" font-size="12.5" font-weight="500" fill="#1b1a18">Présentation</text>
+<text x="132" y="249" font-size="12.5" font-weight="500" fill="#1b1a18">Presentation</text>
 <text x="132" y="266" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">?tab=presentation</text>
-<text x="132" y="280" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">public — le projet expliqué</text>
+<text x="132" y="280" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">public — the project explained</text>
 <path d="M60 194 L60 253 L120 253" fill="none" stroke="#4a4a48" stroke-width="1.3"/>
 <rect x="120" y="296" width="300" height="46" fill="#eae3d8" stroke="#c9c0b3"/>
 <rect x="120" y="296" width="3" height="46" fill="#3f7d4a"/>
 <text x="132" y="315" font-size="12.5" font-weight="500" fill="#1b1a18">Association 1901</text>
 <text x="132" y="332" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">?tab=association</text>
-<text x="132" y="346" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">public — statuts, bureau, documents</text>
+<text x="132" y="346" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">public — bylaws, board, documents</text>
 <path d="M60 194 L60 319 L120 319" fill="none" stroke="#4a4a48" stroke-width="1.3"/>
 <rect x="120" y="362" width="300" height="46" fill="#eae3d8" stroke="#c9c0b3"/>
 <rect x="120" y="362" width="3" height="46" fill="#a34a20"/>
-<text x="132" y="381" font-size="12.5" font-weight="500" fill="#1b1a18">Gouvernance</text>
+<text x="132" y="381" font-size="12.5" font-weight="500" fill="#1b1a18">Governance</text>
 <text x="132" y="398" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">?tab=dao</text>
-<text x="132" y="412" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">RÉSERVÉ AUX MEMBRES</text>
+<text x="132" y="412" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">MEMBERS ONLY</text>
 <path d="M60 194 L60 385 L120 385" fill="none" stroke="#4a4a48" stroke-width="1.3"/>
 <rect x="120" y="480" width="300" height="46" fill="#eae3d8" stroke="#c9c0b3"/>
 <rect x="120" y="480" width="3" height="46" fill="#3f7d4a"/>
-<text x="132" y="499" font-size="12.5" font-weight="500" fill="#1b1a18">Dons</text>
+<text x="132" y="499" font-size="12.5" font-weight="500" fill="#1b1a18">Donations</text>
 <text x="132" y="516" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">?tab=donations</text>
-<text x="132" y="530" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">public — don libre, classement</text>
+<text x="132" y="530" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">public — open donation, leaderboard</text>
 <path d="M60 194 L60 503 L120 503" fill="none" stroke="#4a4a48" stroke-width="1.3"/>
 <line x1="60" y1="194" x2="60" y2="503" stroke="#4a4a48" stroke-width="1.3"/>
 <rect x="470" y="370" width="290" height="40" fill="#eae3d8" stroke="#c9c0b3"/>
 <rect x="470" y="370" width="3" height="40" fill="#a34a20"/>
-<text x="482" y="389" font-size="12.5" font-weight="500" fill="#1b1a18">Propositions</text>
-<text x="482" y="406" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">en cours · passées · pagination</text>
+<text x="482" y="389" font-size="12.5" font-weight="500" fill="#1b1a18">Proposals</text>
+<text x="482" y="406" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">open · past · pagination</text>
 <path d="M440 385 L440 390 L470 390" fill="none" stroke="#4a4a48" stroke-width="1.3"/>
 <rect x="470" y="416" width="290" height="40" fill="#eae3d8" stroke="#c9c0b3"/>
 <rect x="470" y="416" width="3" height="40" fill="#a34a20"/>
-<text x="482" y="435" font-size="12.5" font-weight="500" fill="#1b1a18">Gestion des membres</text>
-<text x="482" y="452" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">titulariser · exclure · réveiller</text>
+<text x="482" y="435" font-size="12.5" font-weight="500" fill="#1b1a18">Member management</text>
+<text x="482" y="452" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">confirm · exclude · wake up</text>
 <path d="M440 385 L440 436 L470 436" fill="none" stroke="#4a4a48" stroke-width="1.3"/>
 <line x1="440" y1="385" x2="440" y2="436" stroke="#4a4a48" stroke-width="1.3"/>
 <line x1="420" y1="385" x2="440" y2="385" stroke="#4a4a48" stroke-width="1.3"/>
-<text x="470" y="300" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" font-weight="600" fill="#a34a20" text-anchor="start" letter-spacing="0.08em">SUPERPOSITIONS, DEPUIS N'IMPORTE QUEL ONGLET</text>
+<text x="470" y="300" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" font-weight="600" fill="#a34a20" text-anchor="start" letter-spacing="0.08em">OVERLAYS, FROM ANY TAB</text>
 <rect x="470" y="318" width="0" height="0" fill="#eae3d8" stroke="#c9c0b3"/>
 <rect x="470" y="318" width="3" height="0" fill="#1b1a18"/>
 <text x="482" y="337" font-size="13" font-weight="600" fill="#1b1a18"></text>
@@ -64,27 +64,27 @@
 <text x="482" y="337" font-size="13" font-weight="600" fill="#1b1a18"></text>
 <rect x="470" y="478" width="290" height="40" fill="#f5f0ea" stroke="#c9c0b3"/>
 <rect x="470" y="478" width="3" height="40" fill="#8a6529"/>
-<text x="482" y="497" font-size="12.5" font-weight="500" fill="#1b1a18">Détail d'une proposition</text>
-<text x="482" y="514" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">votes, quorum, échéance</text>
+<text x="482" y="497" font-size="12.5" font-weight="500" fill="#1b1a18">Proposal detail</text>
+<text x="482" y="514" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">votes, quorum, deadline</text>
 <rect x="470" y="524" width="290" height="40" fill="#f5f0ea" stroke="#c9c0b3"/>
 <rect x="470" y="524" width="3" height="40" fill="#8a6529"/>
-<text x="482" y="543" font-size="12.5" font-weight="500" fill="#1b1a18">Proposer une dépense</text>
-<text x="482" y="560" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">bénéficiaire, montant, motif</text>
+<text x="482" y="543" font-size="12.5" font-weight="500" fill="#1b1a18">Propose an expense</text>
+<text x="482" y="560" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">beneficiary, amount, reason</text>
 <rect x="470" y="570" width="290" height="40" fill="#f5f0ea" stroke="#c9c0b3"/>
 <rect x="470" y="570" width="3" height="40" fill="#8a6529"/>
-<text x="482" y="589" font-size="12.5" font-weight="500" fill="#1b1a18">Consentement Discord</text>
-<text x="482" y="606" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">avant toute liaison OAuth2</text>
+<text x="482" y="589" font-size="12.5" font-weight="500" fill="#1b1a18">Discord consent</text>
+<text x="482" y="606" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">before any OAuth2 linking</text>
 <rect x="470" y="616" width="290" height="40" fill="#f5f0ea" stroke="#c9c0b3"/>
 <rect x="470" y="616" width="3" height="40" fill="#8a6529"/>
-<text x="482" y="635" font-size="12.5" font-weight="500" fill="#1b1a18">Wallet absent</text>
-<text x="482" y="652" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">guide d'installation</text>
+<text x="482" y="635" font-size="12.5" font-weight="500" fill="#1b1a18">No wallet</text>
+<text x="482" y="652" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">installation guide</text>
 <rect x="30" y="560" width="410" height="96" fill="#f5f0ea" stroke="#c9c0b3"/>
 <rect x="30" y="560" width="3" height="96" fill="#a34a20"/>
-<text x="42" y="579" font-size="13" font-weight="600" fill="#1b1a18">Le mur « membres »</text>
-<text x="42" y="596" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">L'onglet Gouvernance et ses deux sous-onglets exigent :</text>
-<text x="42" y="610" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">  1. une signature du wallet sur un nonce court</text>
-<text x="42" y="624" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">  2. un solde de carte vérifié on-chain, à chaque</text>
-<text x="42" y="638" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">     première demande — jamais depuis un cache</text>
-<text x="42" y="652" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">Session de 30 min ensuite, pour éviter de re-signer.</text>
-<text x="30" y="700" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">Une seule page applicative : l'onglet vit dans l'URL pour qu'un rechargement ou un lien partagé retombe au bon endroit.</text>
+<text x="42" y="579" font-size="13" font-weight="600" fill="#1b1a18">The members-only wall</text>
+<text x="42" y="596" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">L'onglet Governance et ses deux sous-onglets exigent :</text>
+<text x="42" y="610" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">  1. a wallet signature over a short-lived nonce</text>
+<text x="42" y="624" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">  2. a card balance verified on-chain, on every</text>
+<text x="42" y="638" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">     initial request — never from a cache</text>
+<text x="42" y="652" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">A 30-min session then, to avoid re-signing.</text>
+<text x="30" y="700" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">One application page: the tab lives in the URL so a refresh or a shared link lands in the right place.</text>
 </svg>

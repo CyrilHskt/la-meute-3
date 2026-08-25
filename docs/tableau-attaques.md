@@ -1,69 +1,67 @@
-# Tableau des attaques connues
+# Table of known attacks
 
-Catalogue des attaques documentées sur la technologie employée — Solidity et
-l'EVM pour la chaîne, plus la surface applicative qui entoure le contrat — et,
-pour chacune, ce qui protège **cette** application, la preuve associée, et le
-risque qui subsiste.
+Every documented attack on the technology in use — Solidity and the EVM for the
+chain, plus the application surface around the contract — with what protects
+*this* application, the evidence for it, and what risk remains.
 
-Trois colonnes de statut :
-**Neutralisée** (une défense explicite existe et est testée) ·
-**Mitigée** (le risque est réduit, pas supprimé) ·
-**Sans objet** (le motif vulnérable n'existe pas dans ce code).
+Three statuses: **Neutralised** (an explicit, tested defence exists) ·
+**Mitigated** (the risk is reduced, not removed) · **Not applicable** (the
+vulnerable pattern does not exist in this code).
 
 ---
 
-## 1. Attaques sur le contrat
+## 1. Attacks on the contract
 
-| Attaque | Statut | Protection dans La Meute 3.0 | Preuve |
+| Attack | Status | What protects La Meute 3.0 | Evidence |
 |---|---|---|---|
-| **Reentrancy** — le destinataire d'un transfert rappelle le contrat avant la fin de l'exécution | Neutralisée | Deux défenses cumulées : `prop.executed = true` écrit **avant** tout appel externe (checks-effects-interactions), et le modifier `nonReentrant` d'OpenZeppelin. Les deux seuls appels externes (`_refund`, `_executeExpense`) partent de `execute()` | `ReentrantExpenseBeneficiary.sol` : contrat d'attaque réel qui tente la réentrance depuis son `receive()`, la suite assère l'échec |
-| **Reentrancy en lecture** (*read-only reentrancy*) — lire un état incohérent pendant un appel externe | Sans objet | Aucune vue n'est consultée par un tiers pendant un appel externe : les transferts sont la toute dernière opération, après l'écriture d'état | Lecture de `execute()` |
-| **DoS par limite de gas** — boucle sur une structure non bornée | **Mitigée** | `activeWolves()` itère sur `_wolves`. La taille n'est pas contrôlable par un attaquant (devenir Loup exige une candidature, 90 j de probation et un vote à 75 %), et `pruneDormant()` — permissionless — permet à quiconque de retirer un dormant vérifié | `pruneDormant` testé ; risque documenté dans [security.md](security.md) |
-| **DoS par revert inattendu** — un destinataire qui refuse les fonds bloque le traitement | **Mitigée** | Chaque proposition est traitée isolément : un bénéficiaire qui refuse l'ETH ne bloque que **sa** dépense, jamais celles des autres. Pas de traitement par lot | `RejectEther.sol` |
-| **Force feeding** — envoi d'ETH forcé via `selfdestruct` ou adresse `CREATE2` pré-calculée | Neutralisée par conception | Aucune invariante ne dépend du solde. Le quorum se calcule sur un **nombre** de Loups ; `address(this).balance` n'est lu qu'à un seul endroit, pour vérifier qu'une dépense votée est payable | Lecture de `_quorumReached` et `_executeExpense` |
-| **Valeur de retour d'appel externe ignorée** | Neutralisée | `.call{value:}` renvoie `false` au lieu de revert : la valeur est testée et `TransferFailed` est levée | `_refund`, `_executeExpense` |
-| **Dépassement arithmétique** (*overflow / underflow*) | Neutralisée | Solidity 0.8.x revert nativement. Deux points renforcés : élargissement en `uint256` **avant** multiplication dans le calcul de quorum, et saturation du compteur de reports (un `uint8` qui boucle rendrait des reports à un Louveteau qui les a épuisés) | `_quorumReached`, `_executeConfirmation` |
-| **Contrôle d'accès manquant ou trop large** | Neutralisée | Aucun rôle privilégié n'existe après déploiement — donc aucune clé à voler. Chaque fonction mutante porte son garde de rang, vérifié on-chain | Tests par fonction ; absence d'`owner`/`pause`/`upgrade` |
-| **Front-running / MEV** — observer une transaction en attente pour la devancer | Neutralisée sur le vecteur pertinent | Le dénominateur du quorum est **gelé à l'ouverture**. Sans ce gel, réveiller des dormants complices juste avant la clôture ferait échouer n'importe quelle proposition en gonflant l'électorat | `activeSnapshot` / `snapshotFrozen` ; tests de dormance |
-| **Dépendance à `block.timestamp`** | Sans objet en pratique | Les délais se comptent en jours (7 / 90 / 180). La marge de manipulation d'un validateur se compte en secondes | Constantes `VOTE_DURATION`, `PROBATION_DURATION`, `DORMANCY_DELAY` |
-| **Spam / griefing** — inonder le contrat de propositions | **Mitigée** | Une seule candidature ouverte par adresse, et chaque candidature immobilise la cotisation 7 jours. Aucune boucle on-chain sur les propositions, donc la chaîne n'est pas affectée | `_applicationOpen` ; limite hors chaîne documentée |
-| **Double vote** | Neutralisée | Registre `_hasVoted[proposalId][voter]` | Tests de vote |
-| **Vote sur son propre cas** (conflit d'intérêts) | Neutralisée | La cible d'une exclusion ou d'une dépense ne peut pas voter, et sort du dénominateur pour ne pas rendre le quorum inatteignable | `ConflictOfInterest`, `_activeForQuorum` |
-| **Censure par inaction** — personne n'exécute un résultat voté | Neutralisée | `execute()` est ouverte à quiconque, membre ou non : le bénéficiaire d'une décision peut la déclencher lui-même | `execute()` sans garde de rang |
-| **Décision emportée par un votant unique** | Neutralisée | Bug réel trouvé en revue : une version antérieure ne comparait que les « oui » au snapshot. Corrigé en exigeant **quorum de participation ET majorité stricte** | `_isPassed` |
-| **`tx.origin` détourné par hameçonnage** | Sans objet | `tx.origin` n'est utilisé nulle part ; toutes les vérifications passent par `msg.sender` | Absence d'occurrence dans le source |
-| **Collision de stockage / `delegatecall`** | Sans objet | Aucun proxy, aucun `delegatecall`, aucune upgradabilité — choix assumé | Absence d'occurrence |
-| **Aléa manipulable** (*bad randomness*) | Sans objet | Le contrat ne tire aucun aléa | Absence d'occurrence |
-| **Transfert non désiré du jeton** | Neutralisée | Carte non transférable : `_update` bloque tout transfert entre détenteurs, tout en laissant passer frappe et destruction | Tests de non-transférabilité |
+| **Reentrancy** — the recipient of a transfer calls back before execution finishes | Neutralised | Two defences stacked: `prop.executed = true` written **before** any external call (checks-effects-interactions), and OpenZeppelin's `nonReentrant`. The only two external calls (`_refund`, `_executeExpense`) both originate in `execute()` | `ReentrantExpenseBeneficiary.sol` — a real attacking contract that re-enters from its `receive()`; the suite asserts it fails |
+| **Read-only reentrancy** — reading inconsistent state during an external call | Not applicable | No view is consulted by a third party mid-call: transfers are the last operation, after state is written | `execute()` |
+| **DoS by gas limit** — looping over an unbounded structure | **Mitigated** | `activeWolves()` iterates `_wolves`. Its size is not attacker-controlled (becoming a Wolf takes an application, 90 days of probation and a 75% vote), and `pruneDormant()` is permissionless, so anyone can remove a verified-dormant member | `pruneDormant` tests; risk documented in [security.md](security.md) |
+| **DoS by unexpected revert** — a recipient refusing funds blocks processing | **Mitigated** | Each proposal is handled on its own: a beneficiary refusing ETH blocks only **its** expense, never anyone else's. No batch processing | `RejectEther.sol` |
+| **Force feeding** — ETH pushed in via `selfdestruct` or a precomputed `CREATE2` address | Neutralised by design | No invariant depends on the balance. Quorum is computed from a *count* of Wolves; `address(this).balance` is read in exactly one place, to check a voted expense is payable | `_quorumReached`, `_executeExpense` |
+| **Ignored external call return value** | Neutralised | `.call{value:}` returns `false` rather than reverting: the value is checked and `TransferFailed` raised | `_refund`, `_executeExpense` |
+| **Arithmetic overflow / underflow** | Neutralised | Solidity 0.8.x reverts natively. Two places hardened further: widening to `uint256` **before** multiplying in the quorum check, and saturating the postponement counter — a wrapped `uint8` would hand postponements back to a Cub who had exhausted them | `_quorumReached`, `_executeConfirmation` |
+| **Missing or over-broad access control** | Neutralised | No privileged role exists after deployment, so there is no key to steal. Every mutating function carries its rank guard, verified on-chain | Per-function tests; absence of `owner` / `pause` / `upgrade` |
+| **Front-running / MEV** — watching the mempool to get ahead of a transaction | Neutralised on the relevant vector | The quorum denominator is **frozen at proposal opening**. Without that, waking dormant accomplices just before closing would defeat any proposal by inflating the electorate | `activeSnapshot` / `snapshotFrozen`; dormancy tests |
+| **`block.timestamp` dependence** | Not applicable in practice | Delays are measured in days (7 / 90 / 180); a validator's manipulation window is seconds | `VOTE_DURATION`, `PROBATION_DURATION`, `DORMANCY_DELAY` |
+| **Spam / griefing** — flooding the contract with proposals | **Mitigated** | One open application per address, and each locks the fee for seven days. No on-chain loop over proposals, so the chain is unaffected | `_applicationOpen`; off-chain limit documented |
+| **Double voting** | Neutralised | `_hasVoted[proposalId][voter]` registry | Voting tests |
+| **Voting on your own case** (conflict of interest) | Neutralised | The target of an exclusion or an expense cannot vote, and is removed from the denominator so the quorum does not become unreachable | `ConflictOfInterest`, `_activeForQuorum` |
+| **Censorship by inaction** — nobody executes a passed vote | Neutralised | `execute()` is open to anyone, member or not, so whoever benefits from a decision can trigger it | `execute()` carries no rank guard |
+| **A decision carried by a single voter** | Neutralised | A real bug found in review: an earlier version compared only "yes" against the snapshot. Fixed by requiring **participation quorum AND strict majority** | `_isPassed` |
+| **`tx.origin` phishing** | Not applicable | `tx.origin` appears nowhere; every check uses `msg.sender` | No occurrence in source |
+| **Storage collision / `delegatecall`** | Not applicable | No proxy, no `delegatecall`, no upgradeability — a deliberate choice | No occurrence |
+| **Bad randomness** | Not applicable | The contract draws no randomness | No occurrence |
+| **Unwanted token transfer** | Neutralised | The card is non-transferable: `_update` blocks holder-to-holder transfer while allowing mint and burn | Non-transferability tests |
 
 ---
 
-## 2. Analyse critique des interactions utilisateur
+## 2. Critical analysis of user interactions
 
-Le contrat peut être correct et l'application rester attaquable : tout ce qui
-**écrit dans ce que les utilisateurs lisent** fait partie de la surface. Cette
-section applique le tableau ci-dessus aux interactions réelles.
+A correct contract does not make an application safe: anything that **writes
+what users read** is part of the surface. This section applies the table above
+to the real interactions.
 
-| Interaction | Attaque envisagée | Statut | Ce qui protège |
+| Interaction | Attack considered | Status | What protects it |
 |---|---|---|---|
-| Rafraîchir l'instantané après une transaction (`?key=patch-proposal`, endpoint public) | Injecter des données inventées depuis le navigateur | **Faille réelle trouvée puis corrigée** | L'endpoint recopiait le champ `author` du corps de la requête : n'importe qui pouvait changer l'auteur affiché d'une proposition jusqu'au passage suivant de l'indexeur. Le client n'envoie plus que l'identifiant et le hash de **sa** transaction ; le serveur relit la proposition on-chain et décode l'auteur depuis le log `ProposalOpened` du reçu, en vérifiant la correspondance d'identifiant. Le pire cas devient un auteur inconnu, plus un auteur falsifié |
-| Prouver son appartenance pour lire la gouvernance | Rejouer une signature capturée | **Mitigée, assumée** | Nonce signé, horodaté, lié au wallet et à un usage précis, valable 5 min — mais sans stockage, donc **non consommé** : rejouable pendant sa durée de vie. Sans conséquence, puisque rejouer n'ouvre une session que pour un wallet déjà contrôlé par l'attaquant |
-| Rester connecté sans re-signer | Conserver l'accès après exclusion | **Mitigée, assumée** | Le solde de carte est vérifié **on-chain à chaque première demande**, jamais depuis un cache : un membre exclu ne peut plus obtenir de session. Compromis assumé : une session déjà émise reste valable jusqu'à 30 min |
-| Lier son compte Discord (OAuth2) | CSRF sur le retour d'autorisation | Neutralisée | Paramètre `state` signé et vérifié au retour |
-| Revenir sur le site après OAuth | Redirection ouverte (*open redirect*) | Neutralisée | `returnTo` borné à la même origine ; toute valeur externe retombe sur la racine |
-| Délier son compte Discord | Délier le compte d'autrui | Neutralisée | Exige une signature du wallet concerné — c'est ce qui fait du droit à l'effacement un droit exercé par le membre, pas une faveur d'administrateur |
-| Appeler l'endpoint public en boucle | Épuiser le quota RPC | **Mitigée** | Un patch par proposition toutes les 10 s, le compteur étant lui-même stocké et purgé de ses entrées expirées |
-| Lire l'instantané sans être membre | Accéder aux données de gouvernance | Neutralisée | Instantané servi uniquement contre session valide, elle-même adossée à une signature et à une vérification de solde |
-| Toute écriture depuis l'interface | Un serveur agit à la place de l'utilisateur | Sans objet par conception | Aucune écriture ne transite par un serveur : toute mutation d'état est une transaction signée par le wallet |
+| Refreshing the snapshot after a transaction (`?key=patch-proposal`, public endpoint) | Injecting made-up data from the browser | **Real vulnerability, found and fixed** | The endpoint copied `author` straight from the request body, so anyone could change the displayed author of any proposal until the next indexer pass. The client now sends only the proposal id and the hash of **its own** transaction; the server rereads the proposal on-chain and decodes the author from the `ProposalOpened` log of that receipt, checking the id matches. The worst case becomes an unknown author, not a forged one |
+| Proving membership to read governance | Replaying a captured signature | **Mitigated, accepted** | The nonce is signed, timestamped, bound to the wallet and to one purpose, valid 5 minutes — but stored nowhere, therefore **not consumed**: replayable within its lifetime. Harmless, since replaying only opens a session for a wallet the attacker already controls |
+| Staying signed in without re-signing | Keeping access after exclusion | **Mitigated, accepted** | The card balance is verified **on-chain on every initial request**, never from a cache, so an excluded member cannot obtain a session. Accepted trade-off: a session already issued stays valid for up to 30 minutes |
+| Linking a Discord account (OAuth2) | CSRF on the authorisation callback | Neutralised | The `state` parameter is signed and verified on return |
+| Returning to the site after OAuth | Open redirect | Neutralised | `returnTo` is bounded to the same origin; anything external falls back to the root |
+| Unlinking a Discord account | Unlinking someone else's | Neutralised | Requires a signature from the wallet concerned — which is what makes the erasure right the member's own rather than an administrator's favour |
+| Hammering the public endpoint | Exhausting the RPC quota | **Mitigated** | One patch per proposal per 10 seconds, the counter itself stored and purged of expired entries |
+| Reading the snapshot without being a member | Accessing governance data | Neutralised | The snapshot is served only against a valid session, itself backed by a signature and a balance check |
+| Any write from the interface | A server acting on the user's behalf | Not applicable by design | No write passes through a server: every state change is a wallet-signed transaction |
 
 ---
 
-## 3. Ce qui reste ouvert
+## 3. What remains open
 
-Énoncé volontairement, plutôt qu'omis :
+Stated deliberately rather than omitted:
 
-- La boucle d'`activeWolves()` est **mitigée** par `pruneDormant`, pas supprimée : l'ensemble peut croître entre deux purges et rien n'oblige quiconque à appeler la fonction.
-- Un bénéficiaire dont le `receive()` revert bloque sa propre dépense. Le motif *pull payment* l'éviterait, au prix d'une étape supplémentaire pour tous les bénéficiaires légitimes.
-- N propositions ouvertes depuis N adresses restent possibles. La chaîne n'en souffre pas ; l'indexeur hors chaîne relit toutes les propositions à chaque passage.
-- Une session déjà émise survit jusqu'à 30 minutes à une exclusion.
-- Le contrat n'étant pas upgradable, aucune de ces limites ne peut être corrigée autrement que par un redéploiement — c'est le prix assumé de l'absence de rôle privilégié.
+- The `activeWolves()` loop is **mitigated** by `pruneDormant`, not removed: the set can grow between purges and nobody is obliged to call it.
+- A beneficiary whose `receive()` reverts blocks its own expense. A pull-payment pattern would avoid it, at the cost of an extra step for every legitimate beneficiary.
+- N proposals opened from N addresses remain possible. The chain does not suffer; the off-chain indexer rereads every proposal on each pass.
+- A session already issued outlives an exclusion by up to 30 minutes.
+- The contract is not upgradeable, so none of these can be fixed except by redeploying — the accepted price of having no privileged role.
