@@ -66,7 +66,7 @@ const RPC_URL = process.env.RPC_URL;
 // the front's composables/chainMode.ts (this function is never involved
 // in local demo mode, see demo/server.mjs, so there's no third "local"
 // value here). Production sets CHAIN_ID=84532 (Base Sepolia) and has done
-// since 2026-08-03 — see docs/local/l2-migration-reflection.md. The
+// since 2026-08-03 — see docs/architecture.md. The
 // Sepolia default is the rollback path, kept so an env var lost on Netlify
 // falls back to a chain that still has a live deployment.
 const CHAIN_ID = process.env.CHAIN_ID ? Number(process.env.CHAIN_ID) : 11155111;

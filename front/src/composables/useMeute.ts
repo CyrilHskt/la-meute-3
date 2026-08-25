@@ -15,8 +15,8 @@ import { i18n } from "../i18n";
 // (netlify/functions/dao-sync.mts) — never scanned live by the browser,
 // neither locally nor in prod. Scanning the entire contract history
 // ourselves on every page load ran into the limits of a free RPC (block
-// range, throughput) and would only have gotten worse over time — see the
-// discussion in docs/local/soutenance-prep.md. The data itself lives in
+// range, throughput) and would only have gotten worse over time — see
+// docs/architecture.md. The data itself lives in
 // Netlify Blobs, not committed to the repo: publishing a refresh must
 // never trigger a site rebuild, the two are unrelated.
 //
