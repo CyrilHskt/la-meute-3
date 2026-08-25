@@ -24,27 +24,29 @@ interface Deployment {
 // address dynamically from the demo panel instead (see useWallet.ts,
 // VITE_CONTRACT_ADDRESS / syncLocalContractAddress).
 export const DEPLOYMENTS: Record<number, Deployment> = {
-  // Sepolia (11155111) — the real, committed deployment, active in prod
-  // today (see docs/local/l2-cost-simulation-scenario.md).
+  // Sepolia (11155111) — the original L1 deployment, still live, kept as
+  // the documented rollback target since the Base migration (see
+  // docs/local/l2-cost-simulation-scenario.md). No longer what prod reads.
   11155111: {
     address: "0x528d68AFE81572c26f213de4Aa3e9B94578bDa3E",
     deployBlock: 11378008n,
   },
-  // Base Sepolia (84532) — L2 migration target (see
-  // docs/local/l2-migration-reflection.md). Deployed ahead of the actual
-  // switch (composables/chainMode.ts's `remoteChainMode` doesn't resolve
-  // to "l2" anywhere yet) so the migration can be exercised end-to-end
-  // before flipping the default over for real.
+  // Base Sepolia (84532) — the deployment production actually runs on
+  // since 2026-08-03 (see docs/local/l2-migration-reflection.md): Netlify
+  // sets VITE_CHAIN=l2 and CHAIN_ID=84532, and the sync-dao cron indexes
+  // this chain.
   84532: {
     address: "0x71D5E89D8295B933c140332fa056609A8dad2218",
     deployBlock: 45591994n,
   },
 };
 
-// Flat exports kept equal to the Sepolia entry, for the consumers that
-// aren't chain-aware yet (scripts/generate-contract-meta.js,
-// netlify/functions/dao-sync.mts, scripts/sync-dao.js — wiring those up is
-// a later step of the migration, not this one).
+// Last-resort fallback, pinned to the Sepolia entry. Every consumer now
+// picks its deployment out of DEPLOYMENTS by chain id
+// (scripts/generate-contract-meta.js, netlify/functions/dao-sync.mts,
+// scripts/sync-dao.js, composables/useWallet.ts); these two only get used
+// for a chain id absent from the map, which the code above makes
+// unreachable today.
 export const CONTRACT_ADDRESS = DEPLOYMENTS[11155111].address;
 export const CONTRACT_DEPLOY_BLOCK = DEPLOYMENTS[11155111].deployBlock;
 

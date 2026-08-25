@@ -169,10 +169,12 @@ async function handleCallback(_req: Request, url: URL): Promise<Response> {
 
 // Signed message, never a plain HTTP request: without proof of wallet
 // ownership, anyone could have unlinked any address's Discord account
-// just by knowing its address (public by nature). The nonce (single-use,
-// short-lived, purpose-bound) prevents a captured/replayed signature from
-// unlinking the account again later — same principle as membershipMessage
-// in dao-sync.mts.
+// just by knowing its address (public by nature). The nonce (short-lived,
+// purpose-bound, 5 min — see lib/tokens.ts) bounds how long a captured
+// signature stays usable, and keeps an unlink signature from being reused
+// as a membership proof — same principle as membershipMessage in
+// dao-sync.mts. Within that window the signature is replayable, which is
+// harmless here: unlinking twice is idempotent.
 function unlinkMessage(wallet: string, nonce: string): string {
   return `Délier mon compte Discord de La Meute (${wallet}) — ${nonce}`;
 }

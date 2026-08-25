@@ -1,7 +1,7 @@
 # Front — La Meute
 
-Web interface to interact with the `Meute` contract deployed on Sepolia
-(C7). Vue 3 + Vite + TypeScript, `viem` to talk to the contract.
+Web interface to interact with the `Meute` contract deployed on Base
+Sepolia (C7). Vue 3 + Vite + TypeScript, `viem` to talk to the contract.
 
 Governance truth lives on-chain: writes always go through the connected
 wallet (MetaMask or equivalent), which signs transactions — no privileged
