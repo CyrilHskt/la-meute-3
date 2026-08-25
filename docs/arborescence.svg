@@ -81,10 +81,9 @@
 <rect x="30" y="560" width="410" height="96" fill="#f5f0ea" stroke="#c9c0b3"/>
 <rect x="30" y="560" width="3" height="96" fill="#a34a20"/>
 <text x="42" y="579" font-size="13" font-weight="600" fill="#1b1a18">The members-only wall</text>
-<text x="42" y="596" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">L'onglet Governance et ses deux sous-onglets exigent :</text>
-<text x="42" y="610" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">  1. a wallet signature over a short-lived nonce</text>
-<text x="42" y="624" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">  2. a card balance verified on-chain, on every</text>
-<text x="42" y="638" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">     initial request — never from a cache</text>
-<text x="42" y="652" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">A 30-min session then, to avoid re-signing.</text>
+<text x="42" y="596" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">The Governance tab and its two sub-tabs require:</text>
+<text x="42" y="610" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">1. a wallet signature over a short-lived nonce</text>
+<text x="42" y="624" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">2. a card balance checked on-chain, never cached</text>
+<text x="42" y="638" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">A 30-min session then, to avoid re-signing.</text>
 <text x="30" y="700" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" fill="#4a4a48">One application page: the tab lives in the URL so a refresh or a shared link lands in the right place.</text>
 </svg>
