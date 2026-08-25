@@ -198,7 +198,7 @@ async function handleDiscordCallback(req, res, url) {
   }
 }
 
-// Replica of dao-sync.mts's signed tokens (single-use nonce + short
+// Replica of dao-sync.mts's signed tokens (short-lived nonce + short
 // session) — same self-verifying HMAC principle, reuses
 // DISCORD_STATE_SECRET (already in place for the OAuth `state`), no new
 // env var for the demo. The entire governance page (not just the Discord

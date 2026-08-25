@@ -9,19 +9,19 @@ import { CONTRACT_ADDRESS, CONTRACT_DEPLOY_BLOCK, CONTRACT_ABI, DEPLOYMENTS } fr
 import { i18n } from "../i18n";
 import { isLocal, remoteChainMode } from "./chainMode";
 
-// Target network: Sepolia by default (the real, committed deployment), the
-// local Hardhat node to test the whole cycle in a few seconds (time
-// advancement via networkHelpers) instead of real days, or Base Sepolia
-// once VITE_CHAIN=l2 is actually turned on (not yet — see chainMode.ts).
-// Configured via front/.env.local (never committed, see *.local in
-// .gitignore) — never touches contract.ts, which stays the source of
-// truth for the Sepolia deployment.
+// Target network: Base Sepolia in production (VITE_CHAIN=l2, set on
+// Netlify since 2026-08-03), the local Hardhat node to test the whole
+// cycle in a few seconds (time advancement via networkHelpers) instead of
+// real days, or Sepolia as the rollback default when VITE_CHAIN is unset —
+// see chainMode.ts. Configured via front/.env.local (never committed, see
+// *.local in .gitignore) — never touches contract.ts, which stays the
+// source of truth for every deployment's address.
 const chain: Chain = isLocal ? hardhat : remoteChainMode === "l2" ? baseSepolia : sepolia;
 // Locally, the address isn't fixed: the demo panel (demo/server.mjs)
 // redeploys a brand-new contract on every reset, so a new address every
 // time. A ref so it can be refreshed without restarting the dev server —
 // see syncLocalContractAddress. Remotely, looked up by the active chain's
-// id in DEPLOYMENTS rather than always the flat Sepolia constant — falls
+// id in DEPLOYMENTS rather than a single hardcoded constant — falls
 // back to CONTRACT_ADDRESS (Sepolia) for a chain id with no entry, which
 // cannot currently happen since `chain` above only ever resolves to a
 // chain that has one.
@@ -66,8 +66,8 @@ function syncLocalContractAddress(): Promise<void> {
 /** Awaited before any contract read whose result would be wrong against
  *  the pre-sync (env-provided) address — in local demo mode the address in
  *  VITE_CONTRACT_ADDRESS is stale as soon as the panel redeploys. Resolves
- *  immediately outside local mode: the Sepolia address is a compile-time
- *  constant, there is nothing to resolve. */
+ *  immediately outside local mode: a deployed chain's address is a
+ *  compile-time constant (DEPLOYMENTS), there is nothing to resolve. */
 function ensureContractAddressSynced(): Promise<void> {
   if (!isLocal) return Promise.resolve();
   return (firstAddressSync ??= fetchLocalContractAddress());
