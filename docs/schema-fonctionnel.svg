@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 1015" width="920" height="1015" font-family="Inter,Helvetica,Arial,sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#1b1a18"/></marker><marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#3f7d4a"/></marker><marker id="ad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#4a4a48"/></marker></defs>
+<rect width="920" height="1015" fill="#f5f0ea"/>
+<text x="30" y="38" font-size="21" font-weight="600" fill="#1b1a18">La Meute 3.0 — schéma fonctionnel</text>
+<line x1="30" y1="52" x2="890" y2="52" stroke="#1b1a18" stroke-width="2"/>
+<rect x="30" y="70" width="548" height="905" fill="none" stroke="#c9c0b3" stroke-dasharray="4 4"/>
+<rect x="640" y="70" width="250" height="424" fill="none" stroke="#c9c0b3" stroke-dasharray="4 4"/>
+<text x="44" y="88" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" font-weight="600" fill="#a34a20" text-anchor="start" letter-spacing="0.08em">SUR LA CHAÎNE — contracts/Meute.sol</text>
+<text x="654" y="88" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" font-weight="600" fill="#a34a20" text-anchor="start" letter-spacing="0.08em">HORS CHAÎNE — DÉRIVÉ</text>
+<text x="44" y="118" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" font-weight="600" fill="#a34a20" text-anchor="start" letter-spacing="0.08em">1 · OUVERTURE — n'importe quel Loup, sans convocation</text>
+<rect x="44" y="130" width="504" height="38" fill="#eae3d8" stroke="#c9c0b3" stroke-width="1"/>
+<rect x="44" y="130" width="3" height="38" fill="#3f7d4a"/>
+<text x="58" y="151" font-size="13.5" font-weight="500" fill="#1b1a18">Candidature</text>
+<text x="58" y="170" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">applyForMembership()  ·  cotisation exacte</text>
+<rect x="44" y="176" width="504" height="38" fill="#eae3d8" stroke="#c9c0b3" stroke-width="1"/>
+<rect x="44" y="176" width="3" height="38" fill="#8a6529"/>
+<text x="58" y="197" font-size="13.5" font-weight="500" fill="#1b1a18">Titularisation</text>
+<text x="58" y="216" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">openConfirmationVote()  ·  probation 90 j écoulée</text>
+<rect x="44" y="222" width="504" height="38" fill="#eae3d8" stroke="#c9c0b3" stroke-width="1"/>
+<rect x="44" y="222" width="3" height="38" fill="#b23b2e"/>
+<text x="58" y="243" font-size="13.5" font-weight="500" fill="#1b1a18">Exclusion</text>
+<text x="58" y="262" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">proposeExclusion()</text>
+<rect x="44" y="268" width="504" height="38" fill="#eae3d8" stroke="#c9c0b3" stroke-width="1"/>
+<rect x="44" y="268" width="3" height="38" fill="#a34a20"/>
+<text x="58" y="289" font-size="13.5" font-weight="500" fill="#1b1a18">Dépense</text>
+<text x="58" y="308" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">proposeExpense(bénéficiaire, montant, motif)</text>
+<line x1="296" y1="314" x2="296" y2="336" stroke="#1b1a18" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="44" y="336" width="504" height="58" fill="#eae3d8" stroke="#c9c0b3" stroke-width="1"/>
+<rect x="44" y="336" width="3" height="58" fill="#1b1a18"/>
+<text x="58" y="357" font-size="13.5" font-weight="600" fill="#1b1a18">Proposition ouverte</text>
+<text x="58" y="376" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">deadline = maintenant + 7 jours</text>
+<text x="58" y="391" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">activeSnapshot GELÉ à l'ouverture — le dénominateur ne bougera plus</text>
+<line x1="296" y1="394" x2="296" y2="418" stroke="#1b1a18" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="44" y="418" width="504" height="74" fill="#eae3d8" stroke="#c9c0b3" stroke-width="1"/>
+<rect x="44" y="418" width="3" height="74" fill="#3f7d4a"/>
+<text x="58" y="439" font-size="13.5" font-weight="600" fill="#1b1a18">vote(proposalId, choix)</text>
+<text x="58" y="458" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">Loups actifs uniquement — un dormant sort du dénominateur</text>
+<text x="58" y="473" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">réveille le votant  ·  conflit d'intérêts bloqué sur exclusion et dépense</text>
+<text x="58" y="488" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">Approuver / Refuser / Reporter (titularisation seulement)</text>
+<path d="M548 440 q34 0 34 22 q0 22 -34 22" fill="none" stroke="#4a4a48" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#ad)"/>
+<text x="556" y="428" font-family="IBM Plex Mono,Menlo,monospace" font-size="9.5" font-weight="600" fill="#4a4a48" text-anchor="start" letter-spacing="0.08em">×N</text>
+<line x1="296" y1="492" x2="296" y2="520" stroke="#1b1a18" stroke-width="1.5" marker-end="url(#a)"/>
+<text x="304" y="512" font-family="IBM Plex Mono,Menlo,monospace" font-size="10" font-weight="500" fill="#4a4a48" text-anchor="start" letter-spacing="0.08em">après 7 jours</text>
+<rect x="44" y="520" width="504" height="52" fill="#eae3d8" stroke="#c9c0b3" stroke-width="1"/>
+<rect x="44" y="520" width="3" height="52" fill="#1b1a18"/>
+<text x="58" y="541" font-size="13.5" font-weight="600" fill="#1b1a18">execute(proposalId)</text>
+<text x="58" y="560" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">appelable par QUICONQUE, membre ou non — aucun rôle ne retient un résultat</text>
+<line x1="296" y1="572" x2="296" y2="598" stroke="#1b1a18" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="44" y="598" width="504" height="58" fill="#eae3d8" stroke="#c9c0b3" stroke-width="1"/>
+<rect x="44" y="598" width="3" height="58" fill="#a34a20"/>
+<text x="58" y="619" font-size="13.5" font-weight="600" fill="#1b1a18">Quorum, puis majorité</text>
+<text x="58" y="638" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">votes exprimés × 4  &gt;  activeSnapshot × 3        (soit plus de 75 %)</text>
+<text x="58" y="653" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">puis : oui &gt; non, strictement — l'égalité échoue</text>
+<line x1="296" y1="656" x2="296" y2="686" stroke="#1b1a18" stroke-width="1.5" marker-end="url(#a)"/>
+<text x="44" y="678" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" font-weight="600" fill="#a34a20" text-anchor="start" letter-spacing="0.08em">2 · EFFET, SELON LE TYPE</text>
+<rect x="44" y="690" width="504" height="34" fill="#eae3d8" stroke="#c9c0b3" stroke-width="1"/>
+<rect x="44" y="690" width="3" height="34" fill="#3f7d4a"/>
+<text x="58" y="711" font-size="13.5" font-weight="500" fill="#1b1a18">Admission</text>
+<text x="58" y="730" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">carte Louveteau frappée, ou cotisation remboursée</text>
+<rect x="44" y="732" width="504" height="34" fill="#eae3d8" stroke="#c9c0b3" stroke-width="1"/>
+<rect x="44" y="732" width="3" height="34" fill="#8a6529"/>
+<text x="58" y="753" font-size="13.5" font-weight="500" fill="#1b1a18">Titularisation</text>
+<text x="58" y="772" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">Loup, ou report (2 max), ou carte brûlée</text>
+<rect x="44" y="774" width="504" height="34" fill="#eae3d8" stroke="#c9c0b3" stroke-width="1"/>
+<rect x="44" y="774" width="3" height="34" fill="#b23b2e"/>
+<text x="58" y="795" font-size="13.5" font-weight="500" fill="#1b1a18">Exclusion</text>
+<text x="58" y="814" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">carte brûlée</text>
+<rect x="44" y="816" width="504" height="34" fill="#eae3d8" stroke="#c9c0b3" stroke-width="1"/>
+<rect x="44" y="816" width="3" height="34" fill="#a34a20"/>
+<text x="58" y="837" font-size="13.5" font-weight="500" fill="#1b1a18">Dépense</text>
+<text x="58" y="856" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">transfert ETH vers le bénéficiaire</text>
+<line x1="296" y1="858" x2="296" y2="884" stroke="#1b1a18" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="44" y="884" width="504" height="66" fill="#f5f0ea" stroke="#c9c0b3" stroke-width="1"/>
+<rect x="44" y="884" width="3" height="66" fill="#1b1a18"/>
+<text x="58" y="905" font-size="13.5" font-weight="600" fill="#1b1a18">Événements émis</text>
+<text x="58" y="924" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">ProposalOpened · VoteCast · ProposalExecuted</text>
+<text x="58" y="939" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">Transfer (frappe/destruction) · DonationReceived · MemberWokenUp</text>
+<text x="58" y="954" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">l'auteur d'une proposition n'existe QUE dans l'événement</text>
+<rect x="654" y="118" width="222" height="74" fill="#eae3d8" stroke="#c9c0b3" stroke-width="1"/>
+<rect x="654" y="118" width="3" height="74" fill="#a34a20"/>
+<text x="668" y="139" font-size="13.5" font-weight="600" fill="#1b1a18">Indexeur</text>
+<text x="668" y="158" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">scripts/sync-dao.js</text>
+<text x="668" y="173" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">cron GitHub Actions, 30 min</text>
+<text x="668" y="188" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">parcourt les blocs nouveaux</text>
+<rect x="654" y="210" width="222" height="58" fill="#eae3d8" stroke="#c9c0b3" stroke-width="1"/>
+<rect x="654" y="210" width="3" height="58" fill="#a34a20"/>
+<text x="668" y="231" font-size="13.5" font-weight="600" fill="#1b1a18">Instantané publié</text>
+<text x="668" y="250" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">Netlify Blobs</text>
+<text x="668" y="265" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">stats · propositions · membres</text>
+<rect x="654" y="286" width="222" height="74" fill="#eae3d8" stroke="#c9c0b3" stroke-width="1"/>
+<rect x="654" y="286" width="3" height="74" fill="#3f7d4a"/>
+<text x="668" y="307" font-size="13.5" font-weight="600" fill="#1b1a18">Front Vue 3</text>
+<text x="668" y="326" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">lecture réservée aux membres</text>
+<text x="668" y="341" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">(signature + solde vérifié live)</text>
+<text x="668" y="356" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">écriture : wallet, pas serveur</text>
+<rect x="654" y="378" width="222" height="58" fill="#eae3d8" stroke="#c9c0b3" stroke-width="1"/>
+<rect x="654" y="378" width="3" height="58" fill="#8a6529"/>
+<text x="668" y="399" font-size="13.5" font-weight="600" fill="#1b1a18">Discord</text>
+<text x="668" y="418" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">webhook : propositions ouvertes</text>
+<text x="668" y="433" font-family="IBM Plex Mono,Menlo,monospace" font-size="10.5" fill="#4a4a48">OAuth2 : identité hors chaîne</text>
+<line x1="765" y1="192" x2="765" y2="208" stroke="#4a4a48" stroke-width="1.5" marker-end="url(#a)"/>
+<line x1="765" y1="268" x2="765" y2="284" stroke="#4a4a48" stroke-width="1.5" marker-end="url(#a)"/>
+<line x1="765" y1="360" x2="765" y2="376" stroke="#4a4a48" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M578 917 L610 917 L610 150 L648 150" fill="none" stroke="#4a4a48" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#ad)"/>
+<text x="604" y="560" font-family="IBM Plex Mono,Menlo,monospace" font-size="9.5" font-weight="600" fill="#4a4a48" transform="rotate(-90 604 560)" text-anchor="middle">événements lus</text>
+<path d="M654 322 L622 322 L622 455 L554 455" fill="none" stroke="#3f7d4a" stroke-width="1.6" marker-end="url(#ag)"/>
+<text x="628" y="392" font-family="IBM Plex Mono,Menlo,monospace" font-size="9.5" font-weight="600" fill="#3f7d4a" transform="rotate(-90 628 392)" text-anchor="middle">transaction signée</text>
+<text x="30" y="999" font-size="10.5" fill="#4a4a48" font-family="IBM Plex Mono,Menlo,monospace">La vérité de gouvernance est sur la chaîne. Tout ce qui est hors chaîne en est dérivé, jamais la source.</text>
+</svg>

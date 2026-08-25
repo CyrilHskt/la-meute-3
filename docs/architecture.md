@@ -4,6 +4,10 @@ Three layers, one source of truth. The chain holds the governance state; an
 indexer turns its event log into a snapshot; the front reads that snapshot
 instead of scanning the chain itself.
 
+A full functional diagram — the four ways a proposal opens, the vote window, the
+quorum check and what each proposal type does on execution — is in
+[schema-fonctionnel.svg](schema-fonctionnel.svg). The summary:
+
 ```
    wallet (MetaMask)                        browser
         │                                      │
