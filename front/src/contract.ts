@@ -26,13 +26,13 @@ interface Deployment {
 export const DEPLOYMENTS: Record<number, Deployment> = {
   // Sepolia (11155111) — the original L1 deployment, still live, kept as
   // the documented rollback target since the Base migration (see
-  // docs/local/l2-cost-simulation-scenario.md). No longer what prod reads.
+  // docs/architecture.md). No longer what prod reads.
   11155111: {
     address: "0x528d68AFE81572c26f213de4Aa3e9B94578bDa3E",
     deployBlock: 11378008n,
   },
   // Base Sepolia (84532) — the deployment production actually runs on
-  // since 2026-08-03 (see docs/local/l2-migration-reflection.md): Netlify
+  // since 2026-08-03 (see docs/architecture.md): Netlify
   // sets VITE_CHAIN=l2 and CHAIN_ID=84532, and the sync-dao cron indexes
   // this chain.
   84532: {

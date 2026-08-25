@@ -79,7 +79,13 @@ are moved on-chain.
 
 ## 📚 Documentation
 
-🚧 Coming soon.
+| | |
+|---|---|
+| [Architecture](docs/architecture.md) | How the contract, the indexer and the front fit together — and why an indexer exists at all |
+| [Design decisions](docs/recap-conception.md) | Each decision, the alternative that was rejected, and what the rejection cost |
+| [Security model](docs/security.md) | Threat model, what is defended and how, and the limitations that are deliberately accepted |
+| [Known-attack table](docs/tableau-attaques.md) | Every documented attack on the stack, its status here, and a critical read of the user-facing surface |
+| [Certification competencies](docs/competences.md) | Where each competency (C1–C8) is demonstrated in this repository |
 
 ## 🧱 Stack
 
@@ -90,10 +96,37 @@ still live and kept as a rollback target. No real ETH involved either way.
 
 ## ⚙️ Commands
 
+### Run it locally
+
+The local demo runs the whole governance cycle against a Hardhat node in
+seconds, including time travel — a 90-day probation or a 180-day dormancy
+delay is not something a live testnet lets you demonstrate.
+
+```shell
+npm ci                       # repo root: contract tooling
+npx hardhat node             # terminal 1 — local chain
+
+npm run demo                 # terminal 2 — control panel on :4100
+                             # deploys a fresh contract, replays scenarios
+
+cd front && npm ci
+echo "VITE_CHAIN=local" > .env.local
+npm run dev                  # terminal 3 — front on :5173
+```
+
+The panel at `http://127.0.0.1:4100` deploys the contract and drives the
+scenarios; the front reads that local chain because `VITE_CHAIN=local`. Drop
+that variable and the front targets the public deployment instead.
+
+To exercise the Netlify functions too (members-only reads, Discord linking),
+run `npm run dev:netlify` in `front/` instead of `npm run dev`, and copy
+`.env.example` to `.env.local` at the repo root for the Discord credentials.
+
 ### Tests
 
 ```shell
 npx hardhat test            # all tests
+npx hardhat test --coverage # all tests + coverage report (100% on Meute.sol)
 npx hardhat test mocha      # the whole suite — test/Meute.ts, 73 cases
 ```
 

@@ -23,6 +23,15 @@ npm run dev      # development server
 npm run build    # production build (used by the Netlify deployment)
 ```
 
-`src/contract.ts` contains the contract's address and ABI, copied from
-`artifacts/contracts/Meute.sol/Meute.json` at the repo root — regenerate
-manually if the contract changes.
+`npm run dev` targets the public deployment. For the local demo — the whole
+governance cycle against a Hardhat node, with time travel — see "Run it
+locally" in the [root README](../README.md); it comes down to setting
+`VITE_CHAIN=local` here and running the demo panel at the repo root. Use
+`npm run dev:netlify` instead of `npm run dev` when you also need the Netlify
+functions (members-only reads, Discord linking).
+
+`src/contract.ts` holds one deployment entry per chain id plus the ABI, updated
+by hand when the contract changes. It cannot silently drift:
+`scripts/generate-contract-meta.js` derives `src/contract-meta.json` from it,
+and `scripts/check-contract-sync.js` runs in CI comparing that ABI against the
+freshly compiled contract and the `VERSION` constant in the Solidity source.

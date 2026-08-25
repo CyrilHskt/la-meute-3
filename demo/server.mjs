@@ -1,6 +1,6 @@
 // Small local server to drive the demo scenarios from the
 // demo/public/index.html page. Only listens on localhost, never deployed
-// — see docs/local/soutenance-prep.md for context.
+// — it exists to drive the defence demo from a browser page.
 //
 // Prerequisite before starting this server: `npx hardhat node` is already
 // running in another terminal.

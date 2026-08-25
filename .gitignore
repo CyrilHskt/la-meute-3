@@ -43,7 +43,7 @@ AGENTS.md
 CLAUDE.md
 
 # Working documents to never commit (intermediate versions, third-party
-# Alyra material) — see docs/local/recap-conception.md §7
+# Alyra material). Public documentation lives in docs/ and is committed.
 /docs/local
 
 # Local Netlify folder

@@ -55,7 +55,7 @@ export default defineConfig({
       url: configVariable("SEPOLIA_RPC_URL"),
       accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
     },
-    // L2 migration target (see docs/local/l2-migration-reflection.md):
+    // The production network since 2026-08-03 (see docs/architecture.md):
     // Base's own testnet, ahead of Base mainnet. `chainType: "op"` — Base
     // runs the OP Stack, same family as `hardhatOp` above.
     baseSepolia: {

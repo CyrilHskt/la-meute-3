@@ -1,8 +1,6 @@
 // Registry of every scenario available in the panel — three menus:
 // "Certification" (the big, rich scenario, realistic volume), "Soutenance"
-// (the short scenarios chosen for the demo in front of the jury — see
-// docs/local/soutenance-prep.md for the breakdown into 3 demos against the
-// RS6515 framework) and "Tests" (the rest of the short scenarios, for
+// (the short scenarios chosen for the live demo) and "Tests" (the rest of the short scenarios, for
 // day-to-day development). A single scenario can very well serve both a
 // manual test and the defense — e.g. Dormance and Exclusion are already in
 // "Soutenance" AND stay listed only once there (no "Tests" duplicate).

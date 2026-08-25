@@ -166,8 +166,8 @@ export async function reset(ctx) {
 }
 
 /** Light setup (replaces the old 14-Wolf setup, made useless once the
- *  A/B/C scenarios dedicated to the defense were created — see
- *  docs/local/soutenance-prep.md): 5 accounts reused across the steps,
+ *  A/B/C scenarios dedicated to the defence were created): 5 accounts
+ *  reused across the steps,
  *  maximum visible variety of statuses for a minimum of transactions,
  *  rather than a realistic volume (that's scripts/seed-local.js's job).
  *  Designed with a "scenario writer" agent (visible variety at the lowest

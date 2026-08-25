@@ -1,8 +1,8 @@
 // "Certification" scenario: only meant to give the app a varied, realistic
 // state to navigate (Members/Governance/Donations pages neither empty nor
 // monotonous) — not a step-by-step demo of a specific mechanism, that's
-// the job of the A/B/C scenarios dedicated to the defense (see
-// docs/local/soutenance-prep.md) and the isolated test scenarios. A single
+// the job of the A/B/C scenarios dedicated to the defence and of the
+// isolated test scenarios. A single
 // button, deliberately: the previous version (14 Wolves created one by
 // one, ~30+ transactions, several minutes) duplicated scenario B once that
 // one was created, without adding anything for all that waiting.

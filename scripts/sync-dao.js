@@ -14,8 +14,7 @@
 // The state is *cumulative*, never recomputed from deployment: each run
 // only processes the blocks new since the last pass, and updates the list
 // of members / proposals / activity accordingly. Without this, the job
-// would get slower and slower over time — see the discussion in
-// docs/local/soutenance-prep.md.
+// would get slower and slower over time — see docs/architecture.md.
 //
 // Required env vars:
 //   RPC_URL              — endpoint (Alchemy) for the chain CHAIN_ID points to
@@ -29,7 +28,7 @@
 //                           84532 (Base Sepolia), what production has run
 //                           on since 2026-08-03; the 11155111 (Sepolia)
 //                           default is the rollback path — see
-//                           docs/local/l2-migration-reflection.md
+//                           docs/architecture.md
 //   CONTRACT_ADDRESS      — overrides the address read from
 //                           front/src/contract-meta.json (generated from
 //                           front/src/contract.ts via
@@ -206,7 +205,7 @@ async function main() {
   // before locking in — insufficient on a dead/quota-exhausted RPC, which
   // is exactly what caused every run to retry eth_chainId once per second
   // for the full 25-minute CI timeout during the Alchemy free-tier
-  // incident (see docs/local/soutenance-prep.md). Passing an actual
+  // incident. Passing an actual
   // Network instance skips that detection call entirely.
   const network = ethers.Network.from(Number(CHAIN_ID));
   const provider = new ethers.JsonRpcProvider(fetchRequest, network, { staticNetwork: network });
