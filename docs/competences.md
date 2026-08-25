@@ -14,6 +14,16 @@ and their states, the state machine, the governance rules section by section
 `contracts/Meute.sol` cites its section numbers directly from NatSpec, so code
 and specification can be read side by side.
 
+Two diagrams accompany it, both vector so they stay sharp in print:
+
+- [schema-fonctionnel.svg](schema-fonctionnel.svg) — the functional flow: the
+  four ways a proposal opens, the vote window, the quorum check, what each type
+  does on execution, and the off-chain side kept in its own lane so it reads as
+  derived rather than authoritative.
+- [arborescence.svg](arborescence.svg) — the application tree: two routes, the
+  tab carried in the URL, the sub-tabs, the overlays, and which parts sit behind
+  the members-only wall.
+
 ## C2 — « Développer un contrat intelligent (smart contract) en utilisant un langage de programmation adapté à une technologie blockchain »
 
 **`contracts/Meute.sol`** — 772 lines, Solidity 0.8.28, pinned rather than
@@ -61,9 +71,14 @@ a transferable membership card would make voting rights tradable.
 
 ### Security
 
-**[security.md](security.md)** — the threat model class by class: reentrancy,
-DoS by gas limit, DoS by unexpected revert, force feeding, front-running,
-timestamp manipulation, arithmetic, plus the web layer's own surfaces.
+**[tableau-attaques.md](tableau-attaques.md)** — the table of known attacks on
+the technology used, each with its status (neutralised / mitigated / not
+applicable), what protects this application specifically, and the evidence.
+Its second half is the critical analysis of *user interactions* read through
+that same table, including the one real vulnerability found and fixed.
+
+**[security.md](security.md)** — the same ground in prose: the threat model
+class by class, and why each defence is shaped the way it is.
 
 Reentrancy is demonstrated, not asserted:
 `contracts/test/ReentrantExpenseBeneficiary.sol` is a real attacking contract
@@ -109,6 +124,24 @@ contract it talks to.
 ## C6 — « Vérifier la résilience d'une application décentralisée, en mettant en place des tests fonctionnels »
 
 **`test/Meute.ts`** — 73 tests, TypeScript, `npx hardhat test`.
+
+**Coverage: 100% of lines and 100% of statements on `contracts/Meute.sol`**,
+measured with Hardhat 3's built-in instrumentation:
+
+```shell
+npx hardhat test --coverage
+```
+
+How that number was reached, since the criterion asks: the suite is organised
+by specification section rather than by function, so every branch of the
+governance rules has a scenario rather than every function having a smoke test.
+The branches that are easy to leave untested are covered deliberately — a
+proposal reaching its deadline with nobody having voted, a target resigning
+between opening and execution, a fully dormant pack, a three-way tie on a
+confirmation, an attacking contract re-entering, a beneficiary refusing
+payment. Time-dependent branches are reachable at all because `networkHelpers`
+advances the chain clock, so the 90-day and 180-day delays are exercised rather
+than assumed.
 
 They are end-to-end functional scenarios rather than unit tests, because what
 is worth proving involves time and several accounts: a 90-day probation, a

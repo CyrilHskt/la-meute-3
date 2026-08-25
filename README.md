@@ -84,6 +84,7 @@ are moved on-chain.
 | [Architecture](docs/architecture.md) | How the contract, the indexer and the front fit together — and why an indexer exists at all |
 | [Design decisions](docs/recap-conception.md) | Each decision, the alternative that was rejected, and what the rejection cost |
 | [Security model](docs/security.md) | Threat model, what is defended and how, and the limitations that are deliberately accepted |
+| [Known-attack table](docs/tableau-attaques.md) | Every documented attack on the stack, its status here, and a critical read of the user-facing surface |
 | [Certification competencies](docs/competences.md) | Where each competency (C1–C8) is demonstrated in this repository |
 
 ## 🧱 Stack
@@ -125,6 +126,7 @@ run `npm run dev:netlify` in `front/` instead of `npm run dev`, and copy
 
 ```shell
 npx hardhat test            # all tests
+npx hardhat test --coverage # all tests + coverage report (100% on Meute.sol)
 npx hardhat test mocha      # the whole suite — test/Meute.ts, 73 cases
 ```
 
